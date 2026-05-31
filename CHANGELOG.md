@@ -1,0 +1,51 @@
+# Changelog
+
+## v0.1.0
+
+<!-- lang:en -->
+
+### Added
+
+- List-based UI for composing macro actions with drag-and-drop reordering
+- Image recognition driven: capture screenshots as templates, match against screen to trigger actions
+- Supported step types: key, delay, wait image, wait any image, conditional branch, repeat loop, hold key until gone, foreground check, grid navigation
+- Cut/copy/paste steps across macros with templates carried along
+- Alt+Up/Down to move steps with smart block boundary handling
+- Undo/redo (50-step history)
+- Screen region capture as templates
+- Global hotkeys with independent hotkey per macro
+- Auto update with stable and beta channels
+- Multi-language support: Traditional Chinese, Simplified Chinese, English
+- Import/export macros as ZIP
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 列表式 UI 組合巨集動作，支援拖拉排序
+- 圖像辨識驅動：截圖當模板，比對畫面觸發動作
+- 支援步驟類型：按鍵、等待時間、等待圖片、等待任一圖片、條件分支、重複迴圈、長按直到消失、確認前景、網格導航
+- 步驟剪下/複製/貼上，跨巨集模板一併攜帶
+- Alt+上/下移動步驟，智慧處理區塊邊界
+- 復原/重做（50 步歷程）
+- 螢幕截取區域作為模板
+- 全域快捷鍵，每個巨集獨立熱鍵
+- 自動更新，支援穩定版與測試版頻道
+- 多國語言支援：繁體中文、簡體中文、English
+- 匯入/匯出 ZIP 格式巨集
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 列表式 UI 组合宏动作，支持拖拉排序
+- 图像识别驱动：截图当模板，比对画面触发动作
+- 支持步骤类型：按键、等待时间、等待图片、等待任一图片、条件分支、重复循环、长按直到消失、确认前景、网格导航
+- 步骤剪切/复制/粘贴，跨宏模板一并携带
+- Alt+上/下移动步骤，智能处理区块边界
+- 撤销/重做（50 步历程）
+- 屏幕截取区域作为模板
+- 全局快捷键，每个宏独立热键
+- 自动更新，支持稳定版与测试版频道
+- 多语言支持：繁体中文、简体中文、English
+- 导入/导出 ZIP 格式宏

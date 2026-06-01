@@ -4,17 +4,29 @@
 
 <!-- lang:en -->
 
+### Added
+
+- "Open Logs Folder" option in Help menu
+
 ### Changed
 
 - Improved spacing in the update dialog for better readability
 
 <!-- lang:zh_tw -->
 
+### 新增
+
+- 說明選單新增「開啟日誌資料夾」選項
+
 ### 變更
 
 - 改善更新對話框的間距，提升可讀性
 
 <!-- lang:zh_cn -->
+
+### 新增
+
+- 帮助菜单新增「打开日志文件夹」选项
 
 ### 变更
 

@@ -8,6 +8,7 @@ import copy
 import ctypes
 import ctypes.wintypes
 import json
+import os
 import shutil
 import time
 import webbrowser
@@ -476,6 +477,8 @@ class MainWindow(FluentWindow):
         menu.addAction(Action(t("menu.help.about"), triggered=self.on_about))
         menu.addAction(Action(t("menu.help.sponsor"), triggered=self.on_sponsor))
         menu.addAction(Action(t("menu.help.check_update"), triggered=self.on_check_update))
+        menu.addSeparator()
+        menu.addAction(Action(t("menu.help.open_logs"), triggered=self.on_open_logs))
 
         menu.exec(self.menu_help.mapToGlobal(self.menu_help.rect().bottomLeft()))
 
@@ -2338,6 +2341,9 @@ class MainWindow(FluentWindow):
 
     def on_sponsor(self) -> None:
         webbrowser.open("https://github.com/sponsors/nelsonlaidev")
+
+    def on_open_logs(self) -> None:
+        os.startfile(cfg.logs_dir())
 
     def on_check_update(self) -> None:
         def callback(result: "updater.CheckResult") -> None:

@@ -21,6 +21,7 @@
   "menu.help.about": "关于",
   "menu.help.sponsor": "支持作者",
   "menu.help.check_update": "检查更新",
+  "menu.help.open_logs": "打开日志文件夹",
 
   "action.run": "运行",
   "action.stop": "停止",

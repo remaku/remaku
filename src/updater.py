@@ -44,7 +44,7 @@ DOWNLOAD_TIMEOUT_S = 60
 CHUNK_SIZE = 64 * 1024
 
 
-Version = tuple[int, int, int]
+Version = tuple[int, int, int, bool]
 
 
 @dataclass
@@ -78,19 +78,22 @@ def localized_body(body: str) -> str:
 
 
 def parse_version(tag: str) -> Version | None:
-    """Strictly parse 'vX.Y.Z' or 'X.Y.Z', returns None if unparseable.
+    """Parse 'vX.Y.Z' or 'X.Y.Z', with pre-release awareness.
 
-    Suffixes ('-rc1', '+build', etc.) are ignored.
+    Returns (major, minor, patch, is_stable). Pre-release versions sort
+    lower than stable: (0,1,1,False) < (0,1,1,True).
     """
     if not tag:
         return None
 
-    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", tag.strip())
+    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)(.*)", tag.strip())
 
     if not m:
         return None
 
-    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    is_stable = "-" not in (m.group(4) or "")
+
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)), is_stable)
 
 
 def find_installer_url(assets: list[dict]) -> str:

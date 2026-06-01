@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Update checker now correctly detects new versions when running a beta release
+- Beta channel users can now see stable updates as well
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 更新檢查現在能在 beta 版本下正確偵測新版本
+- Beta 頻道使用者現在也能看到穩定版更新
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 更新检查现在能在 beta 版本下正确检测新版本
+- Beta 频道用户现在也能看到稳定版更新
+
 ## v0.1.1
 
 <!-- lang:en -->

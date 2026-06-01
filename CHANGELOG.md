@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Right-click menu on macro list now targets the clicked macro instead of the selected one
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 右鍵選單現在會作用在點擊的巨集上，而非目前選取的巨集
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 右键菜单现在会作用在点击的宏上，而非当前选中的宏
+
 ## v0.1.2-beta.1
 
 <!-- lang:en -->

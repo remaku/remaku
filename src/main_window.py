@@ -2361,7 +2361,12 @@ class MainWindow(FluentWindow):
         updater.check_async(self, callback)
 
     def on_macro_context_menu(self, pos) -> None:
-        row = self.macro_list.currentRow()
+        item = self.macro_list.itemAt(pos)
+
+        if item is None:
+            return
+
+        row = self.macro_list.row(item)
 
         if row < 0 or row >= len(self.runners):
             return

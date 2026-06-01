@@ -21,7 +21,7 @@
   "menu.help.about": "關於",
   "menu.help.sponsor": "支持作者",
   "menu.help.check_update": "檢查更新",
-  "menu.help.open_logs": "開啟日誌資料夾",
+  "menu.help.open_logs": "開啟日誌",
 
   "action.run": "執行",
   "action.stop": "停止",

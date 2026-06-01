@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.2-beta.4
+
+<!-- lang:en -->
+
+### Added
+
+- Undo/redo buttons in toolbar with disabled state when unavailable
+
+### Changed
+
+- Shortened "Open Logs Folder" menu label to "Open Logs"
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 工具列新增復原/重做按鈕，無可用操作時自動停用
+
+### 變更
+
+- 「開啟日誌資料夾」選單文字縮短為「開啟日誌」
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 工具栏新增撤销/重做按钮，无可用操作时自动禁用
+
+### 变更
+
+- 「打开日志文件夹」菜单文字缩短为「打开日志」
+
 ## v0.1.2-beta.3
 
 <!-- lang:en -->

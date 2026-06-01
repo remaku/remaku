@@ -21,7 +21,7 @@
   "menu.help.about": "About",
   "menu.help.sponsor": "Support the Author",
   "menu.help.check_update": "Check for Updates",
-  "menu.help.open_logs": "Open Logs Folder",
+  "menu.help.open_logs": "Open Logs",
 
   "action.run": "Run",
   "action.stop": "Stop",

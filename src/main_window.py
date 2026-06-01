@@ -322,6 +322,14 @@ class MainWindow(FluentWindow):
         self.btn_down.clicked.connect(lambda: self.on_move_step(1))
         toolbar.addWidget(self.btn_down)
 
+        self.btn_undo = TransparentToolButton(icon("undo-2"))
+        self.btn_undo.clicked.connect(self.undo)
+        toolbar.addWidget(self.btn_undo)
+
+        self.btn_redo = TransparentToolButton(icon("redo-2"))
+        self.btn_redo.clicked.connect(self.redo)
+        toolbar.addWidget(self.btn_redo)
+
         toolbar.addStretch()
 
         main_layout.addLayout(toolbar)
@@ -523,6 +531,7 @@ class MainWindow(FluentWindow):
         self.current_runner = self.runners[row]
         self.populate_steps()
         self.show_macro_props()
+        self.update_undo_redo_state()
 
     def on_step_selected(self, row: int) -> None:
         self.commit_field_edits()
@@ -1534,6 +1543,7 @@ class MainWindow(FluentWindow):
             stack.pop(0)
 
         self.current_runner.redo_stack.clear()
+        self.update_undo_redo_state()
 
     def undo(self) -> None:
         if not self.current_runner or not self.current_runner.undo_stack:
@@ -1550,6 +1560,8 @@ class MainWindow(FluentWindow):
         if self.step_list.count():
             self.step_list.setCurrentRow(min(row, self.step_list.count() - 1))
 
+        self.update_undo_redo_state()
+
     def redo(self) -> None:
         if not self.current_runner or not self.current_runner.redo_stack:
             return
@@ -1559,6 +1571,13 @@ class MainWindow(FluentWindow):
         self.current_runner.last_snapshot = copy.deepcopy(self.current_runner.macro)
         self.save_runner(self.current_runner)
         self.on_macro_selected(self.macro_list.currentRow())
+        self.update_undo_redo_state()
+
+    def update_undo_redo_state(self) -> None:
+        has_undo = bool(self.current_runner and self.current_runner.undo_stack)
+        has_redo = bool(self.current_runner and self.current_runner.redo_stack)
+        self.btn_undo.setEnabled(has_undo)
+        self.btn_redo.setEnabled(has_redo)
 
     def save_current_macro(self) -> None:
         if not self.current_runner:

@@ -67,7 +67,7 @@ def main() -> None:
 
         info = UpdateInfo(
             tag="v99.0.0",
-            version=(99, 0, 0, True),
+            version=(99, 0, 0, 999999),
             body="<!-- lang:en -->\n### Added\n- Example feature\n<!-- lang:zh_tw -->\n### 新增\n- 範例功能\n<!-- lang:zh_cn -->\n### 新增\n- 示例功能",
             installer_url="https://example.com/fake.exe",
         )

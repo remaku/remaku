@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.2-beta.3
+
+<!-- lang:en -->
+
+### Fixed
+
+- Update checker now correctly distinguishes between different beta versions (e.g. beta.1 vs beta.2)
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 更新檢查現在能正確區分不同 beta 版本（如 beta.1 vs beta.2）
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 更新检查现在能正确区分不同 beta 版本（如 beta.1 vs beta.2）
+
 ## v0.1.2-beta.2
 
 <!-- lang:en -->

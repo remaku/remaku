@@ -248,7 +248,9 @@ class MainWindow(FluentWindow):
             runner = MacroRunner(self.conf, macro, source_path=json_file)
             runners.append(runner)
 
-        runners.sort(key=lambda r: r.macro.get("meta", {}).get("label", "").lower())
+        order = self.conf.general.macro_order
+        order_map = {name: i for i, name in enumerate(order)}
+        runners.sort(key=lambda r: order_map.get(r.name, len(order)))
         self.runners = runners
 
     def build_ui(self) -> None:
@@ -348,10 +350,12 @@ class MainWindow(FluentWindow):
         header.addWidget(add_btn)
 
         self.macro_list = ListWidget()
+        self.macro_list.setDragDropMode(ListWidget.DragDropMode.InternalMove)
         self.macro_list.currentRowChanged.connect(self.on_macro_selected)
         self.macro_list.itemClicked.connect(lambda: self.show_macro_props())
         self.macro_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.macro_list.customContextMenuRequested.connect(self.on_macro_context_menu)
+        self.macro_list.model().rowsMoved.connect(self.on_macros_reordered)
         left_layout.addWidget(self.macro_list, 1)
 
         self.macro_empty_label = BodyLabel(t("macro.empty_hint"))
@@ -361,7 +365,7 @@ class MainWindow(FluentWindow):
 
         for runner in self.runners:
             item = QListWidgetItem(runner.label)
-            item.setData(Qt.ItemDataRole.UserRole, runner)
+            item.setData(Qt.ItemDataRole.UserRole, runner.name)
             self.macro_list.addItem(item)
 
         splitter.addWidget(self.left_panel)
@@ -2160,7 +2164,7 @@ class MainWindow(FluentWindow):
         self.runners.append(runner)
 
         item = QListWidgetItem(runner.label)
-        item.setData(Qt.ItemDataRole.UserRole, runner)
+        item.setData(Qt.ItemDataRole.UserRole, runner.name)
         self.macro_list.addItem(item)
         self.macro_list.setCurrentRow(self.macro_list.count() - 1)
 
@@ -2377,6 +2381,15 @@ class MainWindow(FluentWindow):
         menu.addAction(Action(t("action.delete"), triggered=lambda: self.delete_macro(row)))
 
         menu.exec(self.macro_list.mapToGlobal(pos))
+
+    def on_macros_reordered(self) -> None:
+        name_to_runner = {r.name: r for r in self.runners}
+        self.runners = [
+            name_to_runner[self.macro_list.item(i).data(Qt.ItemDataRole.UserRole)]
+            for i in range(self.macro_list.count())
+        ]
+        self.conf.general.macro_order = [r.name for r in self.runners]
+        cfg.save(self.conf)
 
     def rename_macro(self, row: int) -> None:
         runner = self.runners[row]

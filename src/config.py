@@ -65,6 +65,11 @@ class GeneralCfg:
     skipped_version: str = ""
     theme: str = "system"
     language: str = "auto"
+    macro_order: list[str] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.macro_order is None:
+            self.macro_order = []
 
 
 @dataclass

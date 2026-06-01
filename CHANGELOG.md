@@ -4,17 +4,29 @@
 
 <!-- lang:en -->
 
+### Added
+
+- Drag-and-drop reordering for macro list, order is saved automatically
+
 ### Fixed
 
 - Right-click menu on macro list now targets the clicked macro instead of the selected one
 
 <!-- lang:zh_tw -->
 
+### 新增
+
+- 巨集列表支援拖拉排序，順序自動儲存
+
 ### 修正
 
 - 右鍵選單現在會作用在點擊的巨集上，而非目前選取的巨集
 
 <!-- lang:zh_cn -->
+
+### 新增
+
+- 宏列表支持拖拉排序，顺序自动保存
 
 ### 修复
 

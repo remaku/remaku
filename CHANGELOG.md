@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.2-beta.2
 
 <!-- lang:en -->
 

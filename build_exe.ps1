@@ -3,11 +3,12 @@ $ErrorActionPreference = "Stop"
 uv sync --group dev
 
 $v = uv run python -c "import re; from pathlib import Path; print(re.search(r'version\s*=\s*\`"(.+?)\`"', Path('pyproject.toml').read_text()).group(1))"
+$numericV = $v -replace '-.*', ''
 
 uv run python -c @"
 from pathlib import Path
 v = '$v'
-p = (v.split('.') + ['0']*4)[:4]
+p = ('$numericV'.split('.') + ['0']*4)[:4]
 Path('version_info.txt').write_text(f'''VSVersionInfo(
   ffi=FixedFileInfo(filevers=({p[0]},{p[1]},{p[2]},{p[3]}),prodvers=({p[0]},{p[1]},{p[2]},{p[3]})),
   kids=[
@@ -45,4 +46,4 @@ uv run python -m PyInstaller `
   --exclude-module PyQt6 `
   src/main.py
 
-iscc /DMyAppVersion="$v" installer.iss
+iscc /DMyAppVersion="$numericV" installer.iss

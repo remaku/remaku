@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.1.1-beta.1
+
+<!-- lang:en -->
+
+### Fixed
+
+- Template matching now works correctly across different screen resolutions
+- Imported macro packs now include resolution metadata for proper scaling
+
+### Changed
+
+- Default similarity threshold lowered from 95% to 85% for more flexible matching
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 模板比對現在能在不同螢幕解析度下正確運作
+- 匯入的巨集包現在會包含解析度資訊以正確縮放
+
+### 變更
+
+- 預設相似度門檻從 95% 降至 85%，提升匹配彈性
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 模板匹配现在能在不同屏幕分辨率下正确运作
+- 导入的宏包现在会包含分辨率信息以正确缩放
+
+### 变更
+
+- 默认相似度阈值从 95% 降至 85%，提升匹配弹性
+
 ## v0.1.0
 
 <!-- lang:en -->

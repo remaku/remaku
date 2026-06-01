@@ -112,8 +112,8 @@ class RegionSelector(QWidget):
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
         name = f"{int(time.time())}"
-        tpl_dir = config.templates_dir(self.macro_name)
-        path = tpl_dir / f"{name}.png"
+        template_dir = config.templates_dir(self.macro_name)
+        path = template_dir / f"{name}.png"
         cv2.imencode(".png", gray)[1].tofile(str(path))
 
         # Store the BetterCam capture resolution for runtime scaling
@@ -121,7 +121,7 @@ class RegionSelector(QWidget):
         meta = {"capture_width": grabber.screen_width, "capture_height": grabber.screen_height}
         grabber.close()
 
-        meta_path = tpl_dir / f"{name}.json"
+        meta_path = template_dir / f"{name}.json"
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
         self.region_selected.emit(name)

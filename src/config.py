@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 APP_NAME = "remaku"
+DEFAULT_THRESHOLD = 0.85
 
 
 def get_documents_dir() -> Path:

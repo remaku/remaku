@@ -12,6 +12,7 @@ import numpy as np
 from loguru import logger
 
 import capture
+import config
 import keys
 import vision
 import window
@@ -222,7 +223,7 @@ class StepRunner:
 
         return vision.to_gray(frame)
 
-    def scale_tpl(self, name: str, template: np.ndarray, frame: np.ndarray) -> np.ndarray:
+    def scale_template(self, name: str, template: np.ndarray, frame: np.ndarray) -> np.ndarray:
         """Scale a template if it was captured at a different resolution than the current frame."""
         cap_size = self.template_capture_sizes.get(name)
 
@@ -236,7 +237,7 @@ class StepRunner:
         conf = self.conf
         period = 1.0 / max(1, conf.capture.fps)
         template = self.templates[name]
-        effective_threshold = threshold if threshold is not None else 0.95
+        effective_threshold = threshold if threshold is not None else config.DEFAULT_THRESHOLD
         deadline = time.monotonic() + timeout_ms / 1000.0
         scaled_template: np.ndarray | None = None
 
@@ -253,7 +254,7 @@ class StepRunner:
                 continue
 
             if scaled_template is None:
-                scaled_template = self.scale_tpl(name, template, frame)
+                scaled_template = self.scale_template(name, template, frame)
 
             score, _ = vision.match_one(frame, scaled_template)
             self.update(score=score, match_name=name)
@@ -284,7 +285,7 @@ class StepRunner:
                 continue
 
             if scaled_list is None:
-                scaled_list = [(name, self.scale_tpl(name, tpl, frame)) for name, tpl in template_list]
+                scaled_list = [(name, self.scale_template(name, template, frame)) for name, template in template_list]
 
             best_name, best_score = names[0], -1.0
             for name, template in scaled_list:
@@ -295,7 +296,7 @@ class StepRunner:
 
             self.update(score=best_score, match_name=best_name)
 
-            if best_score >= 0.95:
+            if best_score >= config.DEFAULT_THRESHOLD:
                 return best_name
 
             self.sleep_remaining(tick_start, period)

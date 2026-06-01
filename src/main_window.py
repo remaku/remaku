@@ -901,7 +901,7 @@ class MainWindow(FluentWindow):
         threshold = step.get("threshold")
 
         if threshold is None:
-            threshold = 0.95
+            threshold = cfg.DEFAULT_THRESHOLD
 
         percentage = round(threshold * 100)
 
@@ -1079,7 +1079,7 @@ class MainWindow(FluentWindow):
         threshold = step.get("threshold")
 
         if threshold is None:
-            threshold = 0.95
+            threshold = cfg.DEFAULT_THRESHOLD
 
         percentage = round(threshold * 100)
         slider_lbl = BodyLabel(t("prop.similarity", value=percentage))
@@ -1270,7 +1270,7 @@ class MainWindow(FluentWindow):
         threshold = step.get("threshold")
 
         if threshold is None:
-            threshold = 0.95
+            threshold = cfg.DEFAULT_THRESHOLD
 
         percentage = round(threshold * 100)
         slider_lbl = BodyLabel(t("prop.similarity", value=percentage))
@@ -2219,6 +2219,10 @@ class MainWindow(FluentWindow):
                 if png_path.exists():
                     zf.write(png_path, f"templates/{name}.png")
 
+                meta_path = self.macro_templates_dir / f"{name}.json"
+                if meta_path.exists():
+                    zf.write(meta_path, f"templates/{name}.json")
+
     def on_import_json(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, t("dialog.import_macro"), "", t("dialog.zip_filter"))
 
@@ -2283,6 +2287,12 @@ class MainWindow(FluentWindow):
                     png_destination = cfg.templates_dir(macro_name) / f"{n}.png"
                     if not png_destination.exists() or (overwrite and n in conflicts):
                         png_destination.write_bytes(zf.read(f"templates/{n}.png"))
+
+                    meta_arc = f"templates/{n}.json"
+                    if meta_arc in zf.namelist():
+                        meta_destination = cfg.templates_dir(macro_name) / f"{n}.json"
+                        if not meta_destination.exists() or (overwrite and n in conflicts):
+                            meta_destination.write_bytes(zf.read(meta_arc))
 
                 destination.write_text(json.dumps(macro, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         except zipfile.BadZipFile:

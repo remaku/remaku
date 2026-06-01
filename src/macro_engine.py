@@ -8,9 +8,11 @@ import json
 import time
 from pathlib import Path
 
+import numpy as np
 import pydirectinput as pdi
 from loguru import logger
 
+import config
 import keys
 import vision
 import window
@@ -147,7 +149,7 @@ class MacroRunner(StepRunner):
         elif action == "wait_image" or action == "if_image":
             details = self.template_label(step["template"])
         elif action == "if_any_image":
-            details = str([self.template_label(tpl) for tpl in step["templates"]])
+            details = str([self.template_label(template) for template in step["templates"]])
         elif action == "grid_nav":
             counter = self.grid_counters.get(id(step), 0)
             details = f"pos={counter + step.get('start', 0)}"
@@ -202,7 +204,7 @@ class MacroRunner(StepRunner):
             if result is None:
                 on_timeout = step.get("on_timeout", "stop")
                 if on_timeout == "stop":
-                    labels = [self.template_label(tpl) for tpl in templates]
+                    labels = [self.template_label(template) for template in templates]
                     self.finish(StopReason.STALE, t("error.wait_any_timeout", templates=labels))
                 return
             if result in branches:
@@ -237,7 +239,7 @@ class MacroRunner(StepRunner):
           hard_timeout_ms: absolute timeout to release regardless
         """
         key = step["key"]
-        template = step["template"]
+        template_name = step["template"]
         load_delay_ms = step.get("load_delay_ms", 2000)
         find_timeout_ms = step.get("find_timeout_ms", 15000)
         gone_grace_ms = step.get("gone_grace_ms", 1500)
@@ -245,15 +247,16 @@ class MacroRunner(StepRunner):
 
         conf = self.conf
         period = 1.0 / max(1, conf.capture.fps)
-        tpl = self.templates[template]
-        threshold = 0.95
+        template = self.templates[template_name]
+        threshold = config.DEFAULT_THRESHOLD
+        scaled_template: np.ndarray | None = None
 
         self.sleep(load_delay_ms)
 
         drive_start = time.monotonic()
         last_seen_at: float | None = None
 
-        logger.info("{}: holding {}, waiting for {} to disappear", self.name, key, self.template_label(template))
+        logger.info("{}: holding {}, waiting for {} to disappear", self.name, key, self.template_label(template_name))
 
         with keys.held(key):
             while True:
@@ -272,8 +275,17 @@ class MacroRunner(StepRunner):
                     continue
 
                 frame = vision.to_gray(frame)
-                score, _ = vision.match_one(frame, tpl)
-                self.update(score=score, match_name=template)
+
+                if scaled_template is None:
+                    cap_size = self.template_capture_sizes.get(template_name)
+
+                    if cap_size is not None:
+                        scaled_template = vision.scale_template(template, frame.shape, cap_size)
+                    else:
+                        scaled_template = template
+
+                score, _ = vision.match_one(frame, scaled_template)
+                self.update(score=score, match_name=template_name)
 
                 now = time.monotonic()
                 elapsed_ms = (now - drive_start) * 1000
@@ -287,7 +299,7 @@ class MacroRunner(StepRunner):
                                 "{}: waited {} ms but never saw {}, releasing {}",
                                 self.name,
                                 int(elapsed_ms),
-                                self.template_label(template),
+                                self.template_label(template_name),
                                 key,
                             )
                             return
@@ -297,7 +309,7 @@ class MacroRunner(StepRunner):
                             logger.info(
                                 "{}: {} gone for {} ms, releasing {}",
                                 self.name,
-                                self.template_label(template),
+                                self.template_label(template_name),
                                 int(gone_ms),
                                 key,
                             )

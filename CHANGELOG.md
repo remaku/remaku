@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.5
+
+<!-- lang:en -->
+
+### Fixed
+
+- Window now has rounded corners and is resizable in the production build
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 正式版視窗現在有圓角且可調整大小
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 正式版窗口现在有圆角且可调整大小
+
 ## v0.1.4
 
 <!-- lang:en -->

@@ -29,7 +29,8 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import BodyLabel, CaptionLabel, PrimaryPushButton, ProgressBar, PushButton, SubtitleLabel
 
 import config as cfg
-from i18n import current_locale, t
+import i18n
+from i18n import t
 from version import __version__
 
 REPO = "remaku/remaku"
@@ -73,7 +74,7 @@ def localized_body(body: str) -> str:
     for i in range(1, len(sections), 2):
         mapping[sections[i].strip()] = sections[i + 1].strip()
 
-    return mapping.get(current_locale) or mapping.get("en") or body.strip()
+    return mapping.get(i18n.current_locale) or mapping.get("en") or body.strip()
 
 
 def parse_version(tag: str) -> Version | None:

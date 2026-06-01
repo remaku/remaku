@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.1-beta.2
+
+<!-- lang:en -->
+
+### Fixed
+
+- Update dialog now shows release notes in the correct language
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 更新對話框現在會顯示正確語言的更新說明
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 更新对话框现在会显示正确语言的更新说明
+
 ## v0.1.1-beta.1
 
 <!-- lang:en -->

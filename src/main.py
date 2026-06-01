@@ -62,6 +62,24 @@ def main() -> None:
     window = MainWindow()
     window.show()
 
+    if "--preview-update" in sys.argv:
+        from updater import UpdateDialog, UpdateInfo
+
+        info = UpdateInfo(
+            tag="v99.0.0",
+            version=(99, 0, 0),
+            body="<!-- lang:en -->\n### Added\n- Example feature\n<!-- lang:zh_tw -->\n### 新增\n- 範例功能\n<!-- lang:zh_cn -->\n### 新增\n- 示例功能",
+            installer_url="https://example.com/fake.exe",
+        )
+        dialog = UpdateDialog(window, info)
+        dialog.show()
+        dialog.enter_download_phase()
+        if dialog.download:
+            dialog.download.cancel()
+        dialog.progress.show()
+        dialog.progress.setValue(35)
+        dialog.status_lbl.setText("6.7 MB / 20.0 MB")
+
     sys.exit(app.exec())
 
 

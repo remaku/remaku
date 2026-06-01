@@ -314,10 +314,12 @@ class UpdateDialog(QDialog):
         title_lbl = SubtitleLabel(t("updater.new_version_found", tag=self.info.tag))
         outer.addWidget(title_lbl)
 
+        outer.addSpacing(8)
+
         subtitle_lbl = CaptionLabel(t("updater.current_version", version=__version__))
         outer.addWidget(subtitle_lbl)
 
-        outer.addSpacing(12)
+        outer.addSpacing(24)
 
         notes_title = BodyLabel(t("updater.release_notes"))
         outer.addWidget(notes_title)
@@ -329,7 +331,7 @@ class UpdateDialog(QDialog):
         self.notes_box.setMarkdown(localized_body(self.info.body) or t("updater.no_notes"))
         outer.addWidget(self.notes_box, stretch=1)
 
-        outer.addSpacing(8)
+        outer.addSpacing(24)
 
         self.status_lbl = CaptionLabel("")
         outer.addWidget(self.status_lbl)
@@ -340,7 +342,7 @@ class UpdateDialog(QDialog):
         self.progress.hide()  # Only shown during download phase
         outer.addWidget(self.progress)
 
-        outer.addSpacing(8)
+        outer.addSpacing(24)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)

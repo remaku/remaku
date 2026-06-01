@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Changed
+
+- Improved spacing in the update dialog for better readability
+
+<!-- lang:zh_tw -->
+
+### 變更
+
+- 改善更新對話框的間距，提升可讀性
+
+<!-- lang:zh_cn -->
+
+### 变更
+
+- 改善更新对话框的间距，提升可读性
+
 ## v0.1.1-beta.2
 
 <!-- lang:en -->

@@ -50,6 +50,7 @@ from qfluentwidgets import (
     setTheme,
 )
 
+import capture
 import config as cfg
 import updater
 import window
@@ -1163,6 +1164,7 @@ class MainWindow(FluentWindow):
         template_name = f"{int(time.time())}"
         destination = self.macro_templates_dir / f"{template_name}.png"
         shutil.copy2(path, destination)
+        self.write_template_meta(template_name)
         step["templates"][idx] = template_name
 
         self.sync_macro_templates()
@@ -1368,6 +1370,7 @@ class MainWindow(FluentWindow):
 
         destination = self.macro_templates_dir / f"{template_name}.png"
         shutil.copy2(path, destination)
+        self.write_template_meta(template_name)
 
         self.sync_macro_templates()
         self.save_current_macro()
@@ -1420,6 +1423,15 @@ class MainWindow(FluentWindow):
         template = self.current_runner.macro.get("templates", {}).get(name, {})
 
         return template.get("label", name)
+
+    def write_template_meta(self, name: str) -> None:
+        """Write capture-resolution metadata for a template picked from file."""
+        grabber = capture.Grabber()
+        meta = {"capture_width": grabber.screen_width, "capture_height": grabber.screen_height}
+        grabber.close()
+
+        meta_path = self.macro_templates_dir / f"{name}.json"
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
     def sync_macro_templates(self) -> None:
         """Rebuild macro["templates"] to only keep template names actually referenced by steps."""

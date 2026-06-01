@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.4
+
+<!-- lang:en -->
+
+### Fixed
+
+- Templates picked from file now support automatic scaling across different screen resolutions
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 從檔案選取的模板現在支援不同螢幕解析度下的自動縮放
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 从文件选取的模板现在支持不同屏幕分辨率下的自动缩放
+
 ## v0.1.3
 
 <!-- lang:en -->

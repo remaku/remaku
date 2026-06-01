@@ -84,6 +84,9 @@ class MainWindow(FluentWindow):
         self.update_empty_states()
         self.register_hotkeys()
 
+        if self.conf.general.check_update_on_startup:
+            QTimer.singleShot(1000, self.startup_check_update)
+
     def resizeEvent(self, e):
         # HACK: MSFluentWindow's title bar shifts position after navigationInterface
         # is hidden. Manually force it to (0,0) and correct the width.
@@ -2380,6 +2383,15 @@ class MainWindow(FluentWindow):
                 dialog = MessageBox(t("updater.check_failed_title"), result.error or "", self)
                 dialog.cancelButton.hide()
                 dialog.exec()
+
+        updater.check_async(self, callback)
+
+    def startup_check_update(self) -> None:
+        def callback(result: "updater.CheckResult") -> None:
+            if result.status == "available" and result.info is not None:
+                if result.info.tag == self.conf.general.skipped_version:
+                    return
+                updater.prompt_update(self, result.info)
 
         updater.check_async(self, callback)
 

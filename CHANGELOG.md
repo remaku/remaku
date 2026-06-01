@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.3
+
+<!-- lang:en -->
+
+### Fixed
+
+- Auto-check for updates on startup now actually works
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 啟動時自動檢查更新現在能正常運作
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 启动时自动检查更新现在能正常运作
+
 ## v0.1.2
 
 <!-- lang:en -->

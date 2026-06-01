@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.1.2
+
+<!-- lang:en -->
+
+### Added
+
+- Drag-and-drop reordering for macro list, order is saved automatically
+- Undo/redo buttons in toolbar with disabled state when unavailable
+
+### Fixed
+
+- Update checker now correctly detects new versions when running a beta release
+- Right-click menu on macro list now targets the clicked macro instead of the selected one
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 巨集列表支援拖拉排序，順序自動儲存
+- 工具列新增復原/重做按鈕，無可用操作時自動停用
+
+### 修正
+
+- 更新檢查現在能正確偵測新版本
+- 右鍵選單現在會作用在點擊的巨集上，而非目前選取的巨集
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 宏列表支持拖拉排序，顺序自动保存
+- 工具栏新增撤销/重做按钮，无可用操作时自动禁用
+
+### 修复
+
+- 更新检查现在能正确检测新版本
+- 右键菜单现在会作用在点击的宏上，而非当前选中的宏
+
 ## v0.1.2-beta.4
 
 <!-- lang:en -->

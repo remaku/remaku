@@ -127,9 +127,14 @@
 - Drag-and-drop reordering for macro list, order is saved automatically
 - Undo/redo buttons in toolbar with disabled state when unavailable
 
+### Changed
+
+- Shortened "Open Logs Folder" menu label to "Open Logs"
+
 ### Fixed
 
 - Update checker now correctly detects new versions when running a beta release
+- Update checker now correctly distinguishes between different beta versions
 - Right-click menu on macro list now targets the clicked macro instead of the selected one
 
 <!-- lang:zh_tw -->
@@ -137,97 +142,16 @@
 ### 新增
 
 - 巨集列表支援拖拉排序，順序自動儲存
-- 工具列新增復原/重做按鈕，無可用操作時自動停用
-
-### 修正
-
-- 更新檢查現在能正確偵測新版本
-- 右鍵選單現在會作用在點擊的巨集上，而非目前選取的巨集
-
-<!-- lang:zh_cn -->
-
-### 新增
-
-- 宏列表支持拖拉排序，顺序自动保存
-- 工具栏新增撤销/重做按钮，无可用操作时自动禁用
-
-### 修复
-
-- 更新检查现在能正确检测新版本
-- 右键菜单现在会作用在点击的宏上，而非当前选中的宏
-
-## v0.1.2-beta.4
-
-<!-- lang:en -->
-
-### Added
-
-- Undo/redo buttons in toolbar with disabled state when unavailable
-
-### Changed
-
-- Shortened "Open Logs Folder" menu label to "Open Logs"
-
-<!-- lang:zh_tw -->
-
-### 新增
-
 - 工具列新增復原/重做按鈕，無可用操作時自動停用
 
 ### 變更
 
 - 「開啟日誌資料夾」選單文字縮短為「開啟日誌」
 
-<!-- lang:zh_cn -->
-
-### 新增
-
-- 工具栏新增撤销/重做按钮，无可用操作时自动禁用
-
-### 变更
-
-- 「打开日志文件夹」菜单文字缩短为「打开日志」
-
-## v0.1.2-beta.3
-
-<!-- lang:en -->
-
-### Fixed
-
-- Update checker now correctly distinguishes between different beta versions (e.g. beta.1 vs beta.2)
-
-<!-- lang:zh_tw -->
-
 ### 修正
 
-- 更新檢查現在能正確區分不同 beta 版本（如 beta.1 vs beta.2）
-
-<!-- lang:zh_cn -->
-
-### 修复
-
-- 更新检查现在能正确区分不同 beta 版本（如 beta.1 vs beta.2）
-
-## v0.1.2-beta.2
-
-<!-- lang:en -->
-
-### Added
-
-- Drag-and-drop reordering for macro list, order is saved automatically
-
-### Fixed
-
-- Right-click menu on macro list now targets the clicked macro instead of the selected one
-
-<!-- lang:zh_tw -->
-
-### 新增
-
-- 巨集列表支援拖拉排序，順序自動儲存
-
-### 修正
-
+- 更新檢查現在能正確偵測新版本
+- 更新檢查現在能正確區分不同 beta 版本
 - 右鍵選單現在會作用在點擊的巨集上，而非目前選取的巨集
 
 <!-- lang:zh_cn -->
@@ -235,33 +159,17 @@
 ### 新增
 
 - 宏列表支持拖拉排序，顺序自动保存
+- 工具栏新增撤销/重做按钮，无可用操作时自动禁用
+
+### 变更
+
+- 「打开日志文件夹」菜单文字缩短为「打开日志」
 
 ### 修复
 
+- 更新检查现在能正确检测新版本
+- 更新检查现在能正确区分不同 beta 版本
 - 右键菜单现在会作用在点击的宏上，而非当前选中的宏
-
-## v0.1.2-beta.1
-
-<!-- lang:en -->
-
-### Fixed
-
-- Update checker now correctly detects new versions when running a beta release
-- Beta channel users can now see stable updates as well
-
-<!-- lang:zh_tw -->
-
-### 修正
-
-- 更新檢查現在能在 beta 版本下正確偵測新版本
-- Beta 頻道使用者現在也能看到穩定版更新
-
-<!-- lang:zh_cn -->
-
-### 修复
-
-- 更新检查现在能在 beta 版本下正确检测新版本
-- Beta 频道用户现在也能看到稳定版更新
 
 ## v0.1.1
 

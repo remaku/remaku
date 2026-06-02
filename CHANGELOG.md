@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.6
+
+<!-- lang:en -->
+
+### Fixed
+
+- Loop counter in the status bar now shows correctly when running a macro more than once
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 重複執行巨集時，狀態列的迴圈次數現在能正確顯示
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 重复执行宏时，状态栏的循环次数现在能正确显示
+
 ## v0.1.5
 
 <!-- lang:en -->

@@ -92,6 +92,8 @@ class MacroRunner(StepRunner):
         return self.macro.get("templates", {}).get(name, {}).get("label", name)
 
     def loop(self) -> None:
+        self.repeat_depth = 0
+        self.grid_counters = {}
         steps = self.macro.get("steps", [])
 
         errors = validate_steps(steps)

@@ -100,6 +100,7 @@
   "settings.title": "设置",
   "settings.section.general": "常规",
   "settings.always_on_top": "窗口置顶",
+  "settings.overlay_enabled": "显示状态浮窗",
   "settings.check_update_on_startup": "启动时检查更新",
   "settings.update_channel": "更新频道",
   "settings.channel.stable": "稳定版",

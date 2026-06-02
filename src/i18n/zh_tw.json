@@ -100,6 +100,7 @@
   "settings.title": "設定",
   "settings.section.general": "一般",
   "settings.always_on_top": "視窗置頂",
+  "settings.overlay_enabled": "顯示狀態浮窗",
   "settings.check_update_on_startup": "啟動時檢查更新",
   "settings.update_channel": "更新頻道",
   "settings.channel.stable": "穩定版",

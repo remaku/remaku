@@ -66,10 +66,14 @@ class GeneralCfg:
     theme: str = "system"
     language: str = "auto"
     macro_order: list[str] = None  # type: ignore[assignment]
+    overlay_enabled: bool = True
+    overlay_position: list[int] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.macro_order is None:
             self.macro_order = []
+        if self.overlay_position is None:
+            self.overlay_position = [100, 100]
 
 
 @dataclass

@@ -57,6 +57,7 @@ import window
 from i18n import t
 from icons import icon
 from macro_engine import MacroRunner, load_macro
+from overlay import OverlayWidget
 from region_selector import RegionSelector
 from settings import SettingsPage
 from version import __version__, root
@@ -84,6 +85,10 @@ class MainWindow(FluentWindow):
 
         self.update_empty_states()
         self.register_hotkeys()
+        self.overlay = OverlayWidget()
+        self.overlay.toggle_run.connect(self.on_run)
+        pos = self.conf.general.overlay_position
+        self.overlay.move(pos[0], pos[1])
 
         if self.conf.general.check_update_on_startup:
             QTimer.singleShot(1000, self.startup_check_update)
@@ -2118,9 +2123,21 @@ class MainWindow(FluentWindow):
             self.status_label.setText(msg)
             self.set_editing_locked(True)
             self.highlight_current_step(runner)
+
+            if self.conf.general.overlay_enabled:
+                self.overlay.set_text(msg)
+                self.overlay.set_running(True)
+
+                if not self.overlay.isVisible():
+                    self.overlay.show()
         else:
             self.btn_run.setText(f" {t('action.run')}")
             self.btn_run.setIcon(icon("play"))
+
+            if self.overlay.isVisible():
+                self.overlay.set_running(False)
+                self.save_overlay_position()
+                self.overlay.hide()
 
             if status.last_reason:
                 self.status_label.setText(f"{runner.label}: {status.message or status.last_reason}")
@@ -2136,6 +2153,12 @@ class MainWindow(FluentWindow):
                 self.status_label.setText(t("status.macro_count", count=len(self.runners)))
                 self.set_editing_locked(False)
                 self.refresh_timer.stop()
+
+    def save_overlay_position(self) -> None:
+        """Save current overlay position to config."""
+        pos = self.overlay.pos()
+        self.conf.general.overlay_position = [pos.x(), pos.y()]
+        cfg.save(self.conf)
 
     def set_editing_locked(self, locked: bool) -> None:
         self.btn_add_step.setEnabled(not locked)

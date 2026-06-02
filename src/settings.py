@@ -69,6 +69,8 @@ class SettingsPage(QWidget):
         self.section(t("settings.section.general"))
         self.var_always_on_top = self.checkbox(t("settings.always_on_top"))
         self.var_always_on_top.setChecked(conf.general.always_on_top)
+        self.var_overlay = self.checkbox(t("settings.overlay_enabled"))
+        self.var_overlay.setChecked(conf.general.overlay_enabled)
         self.var_auto_update = self.checkbox(t("settings.check_update_on_startup"))
         self.var_auto_update.setChecked(conf.general.check_update_on_startup)
         self.var_update_channel = self.dropdown(
@@ -188,11 +190,13 @@ class SettingsPage(QWidget):
                 general=cfg.GeneralCfg(
                     target_window=self.conf.general.target_window,
                     always_on_top=self.var_always_on_top.isChecked(),
+                    overlay_enabled=self.var_overlay.isChecked(),
                     check_update_on_startup=self.var_auto_update.isChecked(),
                     update_channel=self.var_update_channel.currentData() or "stable",
                     skipped_version=self.conf.general.skipped_version,
                     theme=self.var_theme.currentData() or "auto",
                     language=self.var_language.currentData() or "auto",
+                    overlay_position=self.conf.general.overlay_position,
                 ),
                 capture=cfg.CaptureCfg(
                     fps=int(self.var_fps.text()),

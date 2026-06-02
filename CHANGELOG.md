@@ -4,12 +4,22 @@
 
 <!-- lang:en -->
 
+### Added
+
+- Status overlay: a floating mini status bar that shows on top of fullscreen games with play/stop controls
+- Overlay position is remembered and automatically kept within screen bounds
+
 ### Fixed
 
 - Fixed a crash when pressing Enter in the step properties panel
 - Discord invite link updated to a working one
 
 <!-- lang:zh_tw -->
+
+### 新增
+
+- 狀態浮窗：全螢幕遊戲上方顯示執行狀態的迷你浮動視窗，含播放/停止按鈕
+- 浮窗位置會自動記憶，且不會超出螢幕範圍
 
 ### 修正
 
@@ -18,11 +28,14 @@
 
 <!-- lang:zh_cn -->
 
+### 新增
+
+- 状态浮窗：全屏游戏上方显示运行状态的迷你浮动窗口，含播放/停止按钮
+- 浮窗位置会自动记忆，且不会超出屏幕范围
+
 ### 修复
 
 - 修复在步骤属性面板按 Enter 时程序崩溃的问题
-- 更新了失效的 Discord 邀请链接
-
 - 更新了失效的 Discord 邀请链接
 
 ## v0.1.6

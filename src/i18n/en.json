@@ -100,6 +100,7 @@
   "settings.title": "Settings",
   "settings.section.general": "General",
   "settings.always_on_top": "Always on Top",
+  "settings.overlay_enabled": "Show Status Overlay",
   "settings.check_update_on_startup": "Check for updates on startup",
   "settings.update_channel": "Update Channel",
   "settings.channel.stable": "Stable",

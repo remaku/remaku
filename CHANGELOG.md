@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Discord invite link updated to a working one
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 更新了失效的 Discord 邀請連結
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 更新了失效的 Discord 邀请链接
+
 ## v0.1.6
 
 <!-- lang:en -->

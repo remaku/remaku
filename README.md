@@ -2,7 +2,7 @@
 
 An open-source, visual, image-recognition-driven desktop macro tool.
 
-[Download Latest](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/ncK4mhPkwt)
+[Download Latest](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/MZfks29yTA)
 
 [繁體中文](README_zh-TW.md) | [简体中文](README_zh-CN.md)
 
@@ -80,9 +80,9 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 
 ### Capture
 
-| Item    | Description             |
-| ------- | ----------------------- |
-| FPS     | Frames per second       |
+| Item | Description       |
+| ---- | ----------------- |
+| FPS  | Frames per second |
 
 ### Input
 

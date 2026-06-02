@@ -2,7 +2,7 @@
 
 开源、可视化、以图像识别为核心的桌面宏工具。
 
-[下载最新版](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/ncK4mhPkwt)
+[下载最新版](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/MZfks29yTA)
 
 [English](README.md) | [繁體中文](README_zh-TW.md)
 
@@ -80,9 +80,9 @@
 
 ### 捕获
 
-| 项目    | 说明                     |
-| ------- | ------------------------ |
-| FPS     | 每秒捕获帧数             |
+| 项目 | 说明         |
+| ---- | ------------ |
+| FPS  | 每秒捕获帧数 |
 
 ### 输入
 

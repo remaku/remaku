@@ -2358,7 +2358,7 @@ class MainWindow(FluentWindow):
         dialog.viewLayout.addWidget(BodyLabel(t("dialog.about_description")))
         links = BodyLabel(
             '<a href="https://github.com/remaku/remaku">GitHub</a> · '
-            '<a href="https://discord.gg/ncK4mhPkwt">Discord</a> · '
+            '<a href="https://discord.gg/MZfks29yTA">Discord</a> · '
             f'<a href="https://remaku.com">{t("dialog.about_website")}</a>'
         )
         links.setOpenExternalLinks(True)

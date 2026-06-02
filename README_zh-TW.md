@@ -2,7 +2,7 @@
 
 開源、視覺化、以圖像辨識為核心的桌面巨集工具。
 
-[下載最新版](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/ncK4mhPkwt)
+[下載最新版](https://github.com/remaku/remaku/releases/latest/download/Remaku_Setup.exe) · [remaku.com](https://remaku.com) · [Discord](https://discord.gg/MZfks29yTA)
 
 [English](README.md) | [简体中文](README_zh-CN.md)
 
@@ -80,9 +80,9 @@
 
 ### 擷取
 
-| 項目    | 說明                     |
-| ------- | ------------------------ |
-| FPS     | 每秒擷取幀數             |
+| 項目 | 說明         |
+| ---- | ------------ |
+| FPS  | 每秒擷取幀數 |
 
 ### 輸入
 

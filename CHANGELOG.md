@@ -6,17 +6,22 @@
 
 ### Fixed
 
+- Fixed a crash when pressing Enter in the step properties panel
 - Discord invite link updated to a working one
 
 <!-- lang:zh_tw -->
 
 ### 修正
 
+- 修正在步驟屬性面板按 Enter 時程式閃退的問題
 - 更新了失效的 Discord 邀請連結
 
 <!-- lang:zh_cn -->
 
 ### 修复
+
+- 修复在步骤属性面板按 Enter 时程序崩溃的问题
+- 更新了失效的 Discord 邀请链接
 
 - 更新了失效的 Discord 邀请链接
 

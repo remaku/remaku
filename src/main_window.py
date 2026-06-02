@@ -1390,10 +1390,13 @@ class MainWindow(FluentWindow):
         templates.setdefault(name, {})["label"] = new_label
         self.save_current_macro()
         row = self.step_list.currentRow()
+        self.step_list.blockSignals(True)
         self.populate_steps()
 
         if 0 <= row < self.step_list.count():
             self.step_list.setCurrentRow(row)
+
+        self.step_list.blockSignals(False)
 
     def on_delete_template(self, step: dict) -> None:
         name = step.get("template", "")
@@ -1501,10 +1504,13 @@ class MainWindow(FluentWindow):
         step[key] = value
         self.save_current_macro()
         row = self.step_list.currentRow()
+        self.step_list.blockSignals(True)
         self.populate_steps()
 
         if row >= 0 and row < self.step_list.count():
             self.step_list.setCurrentRow(row)
+
+        self.step_list.blockSignals(False)
 
     def on_grid_nav_start_edit(self, step: dict, edit: LineEdit) -> None:
         try:
@@ -1515,10 +1521,13 @@ class MainWindow(FluentWindow):
         step["start"] = max(0, val)
         self.save_current_macro()
         row = self.step_list.currentRow()
+        self.step_list.blockSignals(True)
         self.populate_steps()
 
         if row >= 0 and row < self.step_list.count():
             self.step_list.setCurrentRow(row)
+
+        self.step_list.blockSignals(False)
 
     def clear_props(self) -> None:
         while self.prop_fields_layout.count():

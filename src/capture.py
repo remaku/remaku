@@ -21,7 +21,15 @@ class Grabber:
         logger.debug("capture: screen={}x{}", self.screen_width, self.screen_height)
 
     def grab(self, rect: Rect) -> np.ndarray | None:
-        region = (rect.left, rect.top, rect.right, rect.bottom)
+        left = max(0, rect.left)
+        top = max(0, rect.top)
+        right = min(self.screen_width, rect.right)
+        bottom = min(self.screen_height, rect.bottom)
+
+        if right <= left or bottom <= top:
+            return None
+
+        region = (left, top, right, bottom)
         frame = self.cam.grab(region=region)
 
         if frame is not None:

@@ -12,6 +12,7 @@
 ### Fixed
 
 - Fixed a crash when pressing Enter in the step properties panel
+- Fixed a crash when the target window is partially or fully outside the screen
 - Discord invite link updated to a working one
 
 <!-- lang:zh_tw -->
@@ -24,6 +25,7 @@
 ### 修正
 
 - 修正在步驟屬性面板按 Enter 時程式閃退的問題
+- 修正目標視窗部分或完全超出螢幕時程式閃退的問題
 - 更新了失效的 Discord 邀請連結
 
 <!-- lang:zh_cn -->
@@ -36,6 +38,7 @@
 ### 修复
 
 - 修复在步骤属性面板按 Enter 时程序崩溃的问题
+- 修复目标窗口部分或完全超出屏幕时程序崩溃的问题
 - 更新了失效的 Discord 邀请链接
 
 ## v0.1.6

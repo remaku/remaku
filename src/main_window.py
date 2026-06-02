@@ -2115,10 +2115,23 @@ class MainWindow(FluentWindow):
 
             if status.state and status.state not in ("-", "running"):
                 msg = f"{elapsed_str}{status.state}"
-            elif status.progress and status.repeat_total:
-                msg += f" | {t('status.loop_progress', progress=status.progress, total=status.repeat_total)}"
-            if status.score > 0:
-                msg += f" | {t('status.similarity', score=int(status.score * 100))}"
+            else:
+                if status.progress and status.repeat_total:
+                    msg += f" | {t('status.loop_progress', progress=status.progress, total=status.repeat_total)}"
+
+                current = getattr(runner, "current_step", None)
+
+                if current and hasattr(self, "flat_steps"):
+                    try:
+                        idx = next(i for i, s in enumerate(self.flat_steps) if s is current)
+                        _, summary = self.step_display(current)
+                        msg += f" | #{idx + 1} {summary}"
+                    except StopIteration:
+                        pass
+
+                if status.score > 0:
+                    match_label = runner.template_label(status.match_name) if status.match_name else ""
+                    msg += f" | {match_label} {int(status.score * 100)}%"
 
             self.status_label.setText(msg)
             self.set_editing_locked(True)

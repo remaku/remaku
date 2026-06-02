@@ -9,6 +9,10 @@
 - Status overlay: a floating mini status bar that shows on top of fullscreen games with play/stop controls
 - Overlay position is remembered and automatically kept within screen bounds
 
+### Changed
+
+- Status bar now shows the current step number, step summary, and which template is being compared
+
 ### Fixed
 
 - Fixed a crash when pressing Enter in the step properties panel
@@ -22,6 +26,10 @@
 - 狀態浮窗：全螢幕遊戲上方顯示執行狀態的迷你浮動視窗，含播放/停止按鈕
 - 浮窗位置會自動記憶，且不會超出螢幕範圍
 
+### 變更
+
+- 狀態列現在會顯示目前步驟編號、步驟摘要，以及正在比對的模板名稱
+
 ### 修正
 
 - 修正在步驟屬性面板按 Enter 時程式閃退的問題
@@ -34,6 +42,10 @@
 
 - 状态浮窗：全屏游戏上方显示运行状态的迷你浮动窗口，含播放/停止按钮
 - 浮窗位置会自动记忆，且不会超出屏幕范围
+
+### 变更
+
+- 状态栏现在会显示当前步骤编号、步骤摘要，以及正在比对的模板名称
 
 ### 修复
 

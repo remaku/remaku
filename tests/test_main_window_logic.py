@@ -1,5 +1,7 @@
 """Tests for MainWindow pure logic methods (no Qt required)."""
 
+# pyright: reportArgumentType=false, reportAttributeAccessIssue=false
+
 from unittest.mock import MagicMock, patch
 
 from main_window import MainWindow
@@ -236,7 +238,6 @@ class TestIsChildOfSkippedRepeat:
 
     def test_fallback_no_step_tree(self):
         child = {"type": "key", "key": "a"}
-        repeat = {"type": "repeat", "skip": True, "steps": [child]}
         mw = FakeMainWindow(step_tree=None, flat_nodes=[])
         assert MainWindow.is_child_of_skipped_repeat(mw, child) is False
 

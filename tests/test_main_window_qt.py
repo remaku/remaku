@@ -10,7 +10,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import config as cfg
+from macro_engine import MacroRunner
 from main_window import MainWindow
+
+
+def get_runner(mw: MainWindow) -> MacroRunner:
+    """Assert current_runner is not None and return it."""
+    assert mw.current_runner is not None
+    return mw.current_runner
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -153,7 +161,7 @@ class TestStepList:
         assert len(main_window.flat_nodes) == 2
 
     def test_flat_nodes_match_steps(self, main_window: MainWindow):
-        steps = main_window.current_runner.macro.get("steps", [])
+        steps = get_runner(main_window).macro.get("steps", [])
         assert len(main_window.flat_nodes) == len(steps)
         for node, step in zip(main_window.flat_nodes, steps, strict=True):
             assert node.step is step
@@ -169,7 +177,7 @@ class TestStepOperations:
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         assert main_window.step_list.count() == 1
-        assert len(main_window.current_runner.macro["steps"]) == 1
+        assert len(get_runner(main_window).macro["steps"]) == 1
 
     def test_delete_last_step(self, main_window: MainWindow, qtbot):
         main_window.step_list.setCurrentRow(0)
@@ -177,42 +185,42 @@ class TestStepOperations:
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         assert main_window.step_list.count() == 0
-        assert len(main_window.current_runner.macro["steps"]) == 0
+        assert len(get_runner(main_window).macro["steps"]) == 0
 
     def test_add_step(self, main_window: MainWindow, qtbot):
         initial_count = main_window.step_list.count()
         step = {"type": "key", "key": "escape"}
         main_window.do_add_step(step)
         assert main_window.step_list.count() == initial_count + 1
-        assert main_window.current_runner.macro["steps"][-1]["key"] == "escape"
+        assert get_runner(main_window).macro["steps"][-1]["key"] == "escape"
 
     def test_add_step_after_selected(self, main_window: MainWindow, qtbot):
         main_window.step_list.setCurrentRow(0)
         step = {"type": "delay", "ms": 200}
         main_window.do_add_step(step)
         assert main_window.step_list.count() == 3
-        steps = main_window.current_runner.macro["steps"]
+        steps = get_runner(main_window).macro["steps"]
         assert steps[1]["type"] == "delay"
 
     def test_move_step_down(self, main_window: MainWindow, qtbot):
         main_window.step_list.setCurrentRow(0)
-        steps_before = [s["type"] for s in main_window.current_runner.macro["steps"]]
+        steps_before = [s["type"] for s in get_runner(main_window).macro["steps"]]
         main_window.on_move_step(1)
-        steps_after = [s["type"] for s in main_window.current_runner.macro["steps"]]
+        steps_after = [s["type"] for s in get_runner(main_window).macro["steps"]]
         assert steps_before == ["key", "delay"]
         assert steps_after == ["delay", "key"]
 
     def test_move_step_up(self, main_window: MainWindow, qtbot):
         main_window.step_list.setCurrentRow(1)
         main_window.on_move_step(-1)
-        steps_after = [s["type"] for s in main_window.current_runner.macro["steps"]]
+        steps_after = [s["type"] for s in get_runner(main_window).macro["steps"]]
         assert steps_after == ["delay", "key"]
 
     def test_duplicate_step(self, main_window: MainWindow, qtbot):
         main_window.step_list.setCurrentRow(0)
         main_window.duplicate_steps()
         assert main_window.step_list.count() == 3
-        steps = main_window.current_runner.macro["steps"]
+        steps = get_runner(main_window).macro["steps"]
         assert steps[0]["key"] == steps[1]["key"]
 
     def test_copy_paste_step(self, main_window: MainWindow, qtbot):
@@ -221,7 +229,7 @@ class TestStepOperations:
         main_window.step_list.setCurrentRow(1)
         main_window.paste_steps()
         assert main_window.step_list.count() == 3
-        steps = main_window.current_runner.macro["steps"]
+        steps = get_runner(main_window).macro["steps"]
         assert steps[2]["type"] == "key"
 
     def test_cut_step(self, main_window: MainWindow, qtbot):
@@ -235,16 +243,12 @@ class TestStepOperations:
         main_window.step_list.setCurrentRow(0)
         model = main_window.step_list.model()
         selection_model = main_window.step_list.selectionModel()
-        selection_model.select(
-            model.index(0),
-            selection_model.SelectionFlag.ClearAndSelect | selection_model.SelectionFlag.Rows,
-        )
-        selection_model.select(
-            model.index(1),
-            selection_model.SelectionFlag.Select | selection_model.SelectionFlag.Rows,
-        )
+        clear_and_select = selection_model.SelectionFlag.ClearAndSelect | selection_model.SelectionFlag.Rows
+        select = selection_model.SelectionFlag.Select | selection_model.SelectionFlag.Rows
+        selection_model.select(model.index(0), clear_and_select)  # type: ignore
+        selection_model.select(model.index(1), select)  # type: ignore
         main_window.wrap_in_repeat()
-        steps = main_window.current_runner.macro["steps"]
+        steps = get_runner(main_window).macro["steps"]
         assert len(steps) == 1
         assert steps[0]["type"] == "repeat"
         assert len(steps[0]["steps"]) == 2

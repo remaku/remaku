@@ -2325,7 +2325,11 @@ class MainWindow(FluentWindow):
                 self.overlay.hide()
 
             if status.last_reason:
-                self.status_label.setText(f"{runner.label}: {status.message or status.last_reason}")
+                elapsed_str = ""
+                if status.elapsed_s:
+                    e = int(status.elapsed_s)
+                    elapsed_str = f" ({e // 60:02d}:{e % 60:02d})"
+                self.status_label.setText(f"{runner.label}: {status.message or status.last_reason}{elapsed_str}")
 
                 if status.last_reason in ("error", "ui_unrecognized", "wrong_start_screen"):
                     pass

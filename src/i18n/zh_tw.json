@@ -96,6 +96,8 @@
   "prop.find_timeout_ms": "尋找逾時 (ms)",
   "prop.gone_grace_ms": "消失確認 (ms)",
   "prop.hard_timeout_ms": "硬性上限 (ms)",
+  "prop.capture_width": "擷取寬度",
+  "prop.capture_height": "擷取高度",
 
   "settings.title": "設定",
   "settings.section.general": "一般",

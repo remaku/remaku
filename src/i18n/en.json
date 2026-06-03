@@ -96,6 +96,8 @@
   "prop.find_timeout_ms": "Find Timeout (ms)",
   "prop.gone_grace_ms": "Gone Grace (ms)",
   "prop.hard_timeout_ms": "Hard Timeout (ms)",
+  "prop.capture_width": "Capture Width",
+  "prop.capture_height": "Capture Height",
 
   "settings.title": "Settings",
   "settings.section.general": "General",

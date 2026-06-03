@@ -4,17 +4,29 @@
 
 <!-- lang:en -->
 
+### Added
+
+- Template steps now show the capture resolution (width and height) in the right panel, so you can view and adjust the resolution at which the template was captured
+
 ### Fixed
 
 - Fixed target window selection not being saved when changing macros
 
 <!-- lang:zh_tw -->
 
+### 新增
+
+- 模板步驟的右側面板現在顯示擷取解析度（寬度和高度），可檢視並調整模板擷取時的解析度
+
 ### 修正
 
 - 修正切換巨集時，目標視窗選項無法儲存的問題
 
 <!-- lang:zh_cn -->
+
+### 新增
+
+- 模板步骤的右侧面板现在显示捕获分辨率（宽度和高度），可查看并调整模板捕获时的分辨率
 
 ### 修复
 

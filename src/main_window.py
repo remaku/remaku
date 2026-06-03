@@ -923,6 +923,9 @@ class MainWindow(FluentWindow):
 
         self.template_controls(step, template_name, layout)
 
+        if template_name:
+            self.add_template_resolution_fields(template_name, layout)
+
         threshold = step.get("threshold")
 
         if threshold is None:
@@ -959,6 +962,9 @@ class MainWindow(FluentWindow):
         layout.addWidget(preview)
 
         self.template_controls(step, template_name, layout)
+
+        if template_name:
+            self.add_template_resolution_fields(template_name, layout)
 
         timeout_lbl = BodyLabel(t("prop.timeout_ms"))
         layout.addWidget(timeout_lbl)
@@ -1086,6 +1092,8 @@ class MainWindow(FluentWindow):
             btn_del = PushButton(t("action.delete_template"))
             btn_del.clicked.connect(lambda checked=False, i=idx: self.on_delete_any_template(step, i))
             content_layout.addWidget(btn_del)
+
+            self.add_template_resolution_fields(name, content_layout)
 
             branch_steps = step.get("branches", {}).get(name, [])
             branch_lbl = BodyLabel(t("step.branch.on_match_count", count=len(branch_steps)))
@@ -1293,6 +1301,9 @@ class MainWindow(FluentWindow):
 
         self.template_controls(step, template_name, layout)
 
+        if template_name:
+            self.add_template_resolution_fields(template_name, layout)
+
         threshold = step.get("threshold")
 
         if threshold is None:
@@ -1440,6 +1451,61 @@ class MainWindow(FluentWindow):
 
         meta_path = self.macro_templates_dir / f"{name}.json"
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    def get_template_meta(self, name: str) -> dict:
+        """Read template metadata JSON. Returns an empty dict if the file doesn't exist."""
+        meta_path = self.macro_templates_dir / f"{name}.json"
+
+        if not meta_path.exists():
+            return {}
+
+        try:
+            return json.loads(meta_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            return {}
+
+    def on_template_resolution_edit(self, name: str, key: str, edit: LineEdit) -> None:
+        """Update a capture resolution field in the template's metadata JSON."""
+        meta_path = self.macro_templates_dir / f"{name}.json"
+        meta = {}
+
+        if meta_path.exists():
+            with contextlib.suppress(ValueError, OSError):
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+
+        try:
+            value = int(edit.text())
+        except ValueError:
+            return
+
+        meta[key] = value
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    def add_template_resolution_fields(self, template_name: str, layout: QVBoxLayout) -> None:
+        """Add capture width and height edit fields for the given template."""
+        meta = self.get_template_meta(template_name)
+        width = str(meta.get("capture_width", ""))
+        height = str(meta.get("capture_height", ""))
+
+        width_lbl = BodyLabel(t("prop.capture_width"))
+        layout.addWidget(width_lbl)
+
+        width_edit = LineEdit()
+        width_edit.setText(width)
+        width_edit.editingFinished.connect(
+            lambda n=template_name, e=width_edit: self.on_template_resolution_edit(n, "capture_width", e)
+        )
+        layout.addWidget(width_edit)
+
+        height_lbl = BodyLabel(t("prop.capture_height"))
+        layout.addWidget(height_lbl)
+
+        height_edit = LineEdit()
+        height_edit.setText(height)
+        height_edit.editingFinished.connect(
+            lambda n=template_name, e=height_edit: self.on_template_resolution_edit(n, "capture_height", e)
+        )
+        layout.addWidget(height_edit)
 
     def sync_macro_templates(self) -> None:
         """Rebuild macro["templates"] to only keep template names actually referenced by steps."""

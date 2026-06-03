@@ -3,6 +3,8 @@
 __pycache__/
 *.pyc
 *.pyo
+.coverage
+htmlcov/
 
 # PyInstaller
 build/

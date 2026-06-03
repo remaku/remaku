@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- Fixed selection after pasting container steps pointing to the wrong step
 - Fixed wrap in repeat not working when selecting a container step together with its child steps
 - Fixed pasting container steps (repeat, if_image, if_any_image, grid_nav) duplicating their child steps
 - Skipping a repeat now also skips all its child steps, and children's skip checkboxes are disabled while the repeat is skipped
@@ -35,6 +36,7 @@
 
 ### 修正
 
+- 修正貼上容器步驟後選取的步驟不正確的問題
 - 修正選取容器步驟及其子步驟時，「包進重複區塊」功能無法運作的問題
 - 修正貼上容器步驟（repeat、if_image、if_any_image、grid_nav）時子步驟被重複貼上的問題
 - 跳過重複區塊時現在會同時跳過所有子步驟，且子步驟的跳過核取方塊在重複區塊被跳過時會停用
@@ -57,6 +59,7 @@
 
 ### 修复
 
+- 修复粘贴容器步骤后选中的步骤不正确的问题
 - 修复选中容器步骤及其子步骤时，"包进重复区块"功能无法运作的问题
 - 修复粘贴容器步骤（repeat、if_image、if_any_image、grid_nav）时子步骤被重复粘贴的问题
 - 跳过重复区块时现在会同时跳过所有子步骤，且子步骤的跳过复选框在重复区块被跳过时会停用

@@ -2043,7 +2043,10 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        new_row = insert_at + len(steps_to_paste) - 1
+        new_row = next(
+            (i for i, s in enumerate(self.flat_steps) if s is steps_to_paste[0]),
+            0,
+        )
 
         if new_row < self.step_list.count():
             self.step_list.setCurrentRow(new_row)

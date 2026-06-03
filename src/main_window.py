@@ -638,6 +638,62 @@ class MainWindow(FluentWindow):
         edit.setText(hotkey_str)
         self.set_macro_hotkey(hotkey_str)
 
+    def on_key_step_capture(self, event: QKeyEvent, edit: LineEdit, step: dict) -> None:
+        key = event.key()
+
+        if key in (Qt.Key.Key_Escape,):
+            edit.blockSignals(True)
+            edit.setText("")
+            edit.blockSignals(False)
+            step["key"] = ""
+            self.save_current_macro()
+            self.populate_steps_and_keep_row()
+            QTimer.singleShot(0, lambda: self.show_props(step))
+            return
+
+        if key in (
+            Qt.Key.Key_Shift,
+            Qt.Key.Key_Control,
+            Qt.Key.Key_Alt,
+            Qt.Key.Key_Meta,
+        ):
+            return
+
+        key_name = QKeySequence(key).toString().lower()
+        key_name = {
+            "return": "enter",
+            "del": "delete",
+            "pgdown": "pagedown",
+            "pgup": "pageup",
+            "ins": "insert",
+            "print": "printscreen",
+        }.get(key_name, key_name)
+
+        if key_name not in pdi.KEYBOARD_MAPPING:
+            return
+
+        edit.blockSignals(True)
+        edit.setText(key_name)
+        edit.blockSignals(False)
+        step["key"] = key_name
+        self.save_current_macro()
+        self.populate_steps_and_keep_row()
+        QTimer.singleShot(0, lambda: self.show_props(step))
+
+    def on_key_step_cleared(self, step: dict) -> None:
+        step["key"] = ""
+        self.save_current_macro()
+        self.populate_steps_and_keep_row()
+        QTimer.singleShot(0, lambda: self.show_props(step))
+
+    def populate_steps_and_keep_row(self) -> None:
+        row = self.step_list.currentRow()
+        self.step_list.blockSignals(True)
+        self.populate_steps()
+        if 0 <= row < self.step_list.count():
+            self.step_list.setCurrentRow(row)
+        self.step_list.blockSignals(False)
+
     def set_macro_hotkey(self, hotkey: str) -> None:
         if not self.current_runner:
             return
@@ -863,10 +919,22 @@ class MainWindow(FluentWindow):
             return
 
         editable = {
-            "key": [("key", t("prop.key")), ("hold_ms", t("prop.hold_ms"))],
+            "key": [("hold_ms", t("prop.hold_ms"))],
             "delay": [("ms", t("prop.delay_ms"))],
             "repeat": [("count", t("prop.count"))],
         }
+
+        if step_type == "key":
+            key_lbl = BodyLabel(t("prop.key"))
+            self.prop_fields_layout.addWidget(key_lbl)
+
+            key_edit = LineEdit()
+            key_edit.setText(str(step.get("key", "")))
+            key_edit.setReadOnly(True)
+            key_edit.setClearButtonEnabled(True)
+            key_edit.textChanged.connect(lambda txt, s=step: self.on_key_step_cleared(s) if not txt else None)
+            key_edit.keyPressEvent = lambda e: self.on_key_step_capture(e, key_edit, step)
+            self.prop_fields_layout.addWidget(key_edit)
 
         fields = editable.get(step_type, [])
 
@@ -1312,7 +1380,10 @@ class MainWindow(FluentWindow):
 
         key_edit = LineEdit()
         key_edit.setText(str(step.get("key", "")))
-        key_edit.editingFinished.connect(lambda: self.on_prop_edit(step, "key", key_edit))
+        key_edit.setReadOnly(True)
+        key_edit.setClearButtonEnabled(True)
+        key_edit.textChanged.connect(lambda txt, s=step: self.on_key_step_cleared(s) if not txt else None)
+        key_edit.keyPressEvent = lambda e: self.on_key_step_capture(e, key_edit, step)
         layout.addWidget(key_edit)
 
         lbl = BodyLabel(t("prop.template"))

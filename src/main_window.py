@@ -765,7 +765,6 @@ class MainWindow(FluentWindow):
             "key": icon("keyboard"),
             "delay": icon("timer"),
             "repeat": icon("repeat"),
-            "foreground": icon("app-window"),
             "hold_key_until_gone": icon("keyboard"),
             "if_image": icon("git-branch"),
             "if_any_image": icon("git-merge"),
@@ -776,7 +775,6 @@ class MainWindow(FluentWindow):
             "key": lambda s: t("step.summary.key", key=s.get("key", "")),
             "delay": lambda s: t("step.summary.delay", ms=s.get("ms", 0)),
             "wait_image": lambda s: t("step.summary.wait_image", template=self.template_label(s.get("template", ""))),
-            "foreground": lambda s: t("step.summary.foreground"),
             "repeat": lambda s: t("step.summary.repeat", count=s.get("count", "?")),
             "hold_key_until_gone": lambda s: t(
                 "step.summary.hold_key_until_gone",
@@ -1735,7 +1733,6 @@ class MainWindow(FluentWindow):
                 t("step.type.if_any_image"),
                 {"type": "if_any_image", "templates": [], "timeout_ms": 5000, "on_timeout": "stop", "branches": {}},
             ),
-            (t("step.type.foreground"), {"type": "foreground"}),
             (
                 t("step.type.hold_key_until_gone"),
                 {
@@ -1770,7 +1767,6 @@ class MainWindow(FluentWindow):
                 t("step.type.wait_image"),
                 {"type": "wait_image", "template": "", "timeout_ms": 5000, "on_timeout": "stop"},
             ),
-            (t("step.type.foreground"), {"type": "foreground"}),
         ]
 
         menu = RoundMenu(parent=self)

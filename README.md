@@ -20,6 +20,8 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Open source** -- fully public source code, auditable and community-contributable
 - **JSON workflow format** -- import/export as ZIP, ready to share with the community
 - **Global hotkeys** -- assign independent hotkeys to each macro for one-key activation
+- **Status bar** -- shows current step, template name, and total elapsed time after execution
+- **Status overlay** -- floating mini status bar on top of fullscreen games with play/stop controls, position remembered and kept within screen bounds
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
 
 ## Supported Step Types
@@ -33,7 +35,6 @@ This warning is harmless. It appears because the executable is not code-signed. 
 | Conditional Branch (if_image)             | Execute then or else path depending on whether the template appears                     |
 | Repeat Loop (repeat)                      | Repeat child steps N times                                                              |
 | Hold Key Until Gone (hold_key_until_gone) | Hold a key until the template image disappears                                          |
-| Foreground Check (foreground)             | Wait for the target window to come to the foreground                                    |
 | Grid Navigation (grid_nav)                | Step through grid cells in rotation (e.g., inventory menus)                             |
 
 ## Step Editing
@@ -45,6 +46,7 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Wrap in repeat**: wrap selected steps into a repeat block
 - **Undo/redo**: 50-step history, Ctrl+Z / Ctrl+Y
 - **Skip toggle**: each step can be individually set to skip without deleting
+- **Notes**: add optional notes to steps for documentation, shown inline in the step list
 
 ## Image Recognition
 
@@ -55,6 +57,7 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 - Capture a screen region as a template (semi-transparent fullscreen drag-select tool)
 - Pick a PNG file from the filesystem as a template
 - Template preview in the properties panel
+- Capture resolution display: shows width and height at which the template was captured
 - Rename and delete templates
 - Templates are stored alongside macros and bundled on export
 

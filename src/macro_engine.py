@@ -33,7 +33,6 @@ REQUIRED_FIELDS: dict[str, list[tuple[str, type | tuple[type, ...]]]] = {
     "if_any_image": [("templates", list)],
     "hold_key_until_gone": [("key", str), ("template", str)],
     "repeat": [],
-    "foreground": [],
     "grid_nav": [],
 }
 
@@ -172,9 +171,6 @@ class MacroRunner(StepRunner):
                 if on_timeout == "stop":
                     self.finish(StopReason.STALE, t("error.wait_timeout", template=self.template_label(template)))
                 return
-
-        elif action == "foreground":
-            self.foreground_tick()
 
         elif action == "repeat":
             count = int(step.get("count", 1))

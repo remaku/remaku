@@ -146,12 +146,6 @@ class TestExecSteps:
             runner.exec_steps(runner.macro["steps"])
         assert runner.status.progress == 2
 
-    def test_foreground_calls_foreground_tick(self, conf):
-        runner = self.make_runner([{"type": "foreground"}])
-        with patch.object(runner, "foreground_tick") as mock_fg:
-            runner.exec_steps(runner.macro["steps"])
-        mock_fg.assert_called_once()
-
     def test_unknown_action_no_crash(self, conf):
         runner = self.make_runner([{"type": "nonsense_action"}])
         runner.exec_steps(runner.macro["steps"])

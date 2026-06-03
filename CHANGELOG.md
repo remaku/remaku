@@ -14,6 +14,7 @@
 ### Changed
 
 - Refactored internal step data model from flat arrays to a proper tree structure (`StepNode` / `StepTree`), improving correctness of copy, paste, wrap-in-repeat, and move operations
+- Completed migration of all step operations (delete, move, duplicate, add, paste) to use the tree model, removing all flat array helpers
 
 ### Fixed
 
@@ -41,6 +42,7 @@
 ### 變更
 
 - 重構內部步驟資料模型，從平坦陣列改為正式樹狀結構（`StepNode` / `StepTree`），提升複製、貼上、包進重複區塊及移動操作的正確性
+- 完成所有步驟操作（刪除、移動、複製、新增、貼上）遷移至樹狀模型，移除所有平坦陣列輔助方法
 
 ### 修正
 
@@ -68,6 +70,7 @@
 ### 变更
 
 - 重构内部步骤数据模型，从平坦数组改为正式树状结构（`StepNode` / `StepTree`），提升复制、粘贴、包进重复区块及移动操作的正确性
+- 完成所有步骤操作（删除、移动、复制、新增、粘贴）迁移至树状模型，移除所有平坦数组辅助方法
 
 ### 修复
 

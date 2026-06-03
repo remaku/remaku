@@ -167,17 +167,21 @@ class StepNode:
         raw_list.insert(idx + 1, self.step)
         self.parent = sibling.parent
 
-    def append_to(self, target_list: list[StepNode]) -> None:
+    def append_to(self, target_list: list[StepNode], parent: StepNode | None = None) -> None:
         """Append this node to *target_list* and update parent reference."""
         if self.parent is not None:
             self.remove()
         target_list.append(self)
+        if parent is not None:
+            self.parent = parent
 
-    def insert_in(self, target_list: list[StepNode], index: int) -> None:
+    def insert_in(self, target_list: list[StepNode], index: int, parent: StepNode | None = None) -> None:
         """Insert this node into *target_list* at *index*."""
         if self.parent is not None:
             self.remove()
         target_list.insert(index, self)
+        if parent is not None:
+            self.parent = parent
 
     # ------------------------------------------------------------------
     # Top-level filtering (replaces duplicate descendant filtering)
@@ -252,3 +256,12 @@ class StepNode:
             if s is self:
                 return i
         return -1
+
+    def clear_caches(self) -> None:
+        """Clear all cached child lists so they rebuild from raw on next access."""
+        for key in CONTAINER_CHILD_KEYS.get(self.step_type, []):
+            cache_key = f"cached_children_{key}"
+            if hasattr(self, cache_key):
+                delattr(self, cache_key)
+        if self.step_type == "if_any_image" and hasattr(self, "cached_branches"):
+            delattr(self, "cached_branches")

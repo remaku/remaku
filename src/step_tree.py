@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 import copy
 
-from step_node import StepNode
+from step_node import CONTAINER_CHILD_KEYS, StepNode
 
 
 class StepTree:
@@ -198,3 +198,245 @@ class StepTree:
             for name in node.step.get("templates", []):
                 refs.add(name)
         return refs
+
+    # ------------------------------------------------------------------
+    # Flatten with depth (for display)
+    # ------------------------------------------------------------------
+
+    def flatten_with_depth(self) -> list[tuple[StepNode, int]]:
+        """Flatten the tree to ``(node, depth)`` pairs in display order."""
+        result: list[tuple[StepNode, int]] = []
+        for node in self.root_nodes:
+            result.append((node, 0))
+            self._collect_descendants_with_depth(node, 1, result)
+        return result
+
+    def _collect_descendants_with_depth(self, node: StepNode, depth: int, out: list[tuple[StepNode, int]]) -> None:
+        for _, child_list in node.child_lists():
+            for child in child_list:
+                out.append((child, depth))
+                self._collect_descendants_with_depth(child, depth + 1, out)
+
+    # ------------------------------------------------------------------
+    # Delete node
+    # ------------------------------------------------------------------
+
+    def delete_node(self, node: StepNode) -> None:
+        """Remove *node* from the tree, updating raw step lists."""
+        if node.parent is not None:
+            node.remove()
+        else:
+            if node in self.root_nodes:
+                self.root_nodes.remove(node)
+            with contextlib.suppress(ValueError):
+                self.steps.remove(node.step)
+
+    # ------------------------------------------------------------------
+    # Move step
+    # ------------------------------------------------------------------
+
+    def move_step(self, node: StepNode, direction: int) -> bool:
+        """Move *node* by *direction* (-1=up, 1=down). Returns True if moved.
+
+        Handles: sibling swap, entering/leaving block children, and
+        crossing between sibling branches (then/else, row/col, etc.).
+
+        All mutations go through raw step dicts to keep caches coherent.
+        """
+        if node.parent is None:
+            return self._move_root(node, direction)
+
+        key = node.sibling_key()
+        raw = node.parent.step.get(key, [])
+        idx = -1
+        for i, s in enumerate(raw):
+            if s is node.step:
+                idx = i
+                break
+        if idx < 0:
+            return False
+
+        new_idx = idx + direction
+
+        # Case 1: Move into a neighboring block's child list.
+        if 0 <= new_idx < len(raw):
+            neighbor_step = raw[new_idx]
+            neighbor_type = neighbor_step.get("type", "")
+            child_key = self._first_child_key(neighbor_type)
+            if child_key is not None:
+                dest_raw = neighbor_step.setdefault(child_key, [] if child_key != "branches" else {})
+                if child_key == "branches":
+                    # if_any_image: move into first branch.
+                    keys = list(dest_raw.keys())
+                    if not keys:
+                        return False
+                    dest_list = dest_raw[keys[0]]
+                else:
+                    dest_list = dest_raw
+                raw.pop(idx)
+                if direction == -1:
+                    dest_list.append(node.step)
+                else:
+                    dest_list.insert(0, node.step)
+                node.parent.clear_caches()
+                return True
+
+            # Simple swap.
+            raw[idx], raw[new_idx] = raw[new_idx], raw[idx]
+            node.parent.clear_caches()
+            return True
+
+        # Case 2: Move to a sibling branch (then/else, row/col, branch).
+        parent_step = node.parent.step
+        parent_type = parent_step.get("type", "")
+        sibling_key = self._find_sibling_key_raw(parent_type, key, direction, parent_step)
+        if sibling_key is not None:
+            dest_raw = parent_step.setdefault(sibling_key, [])
+            raw.pop(idx)
+            if direction == 1:
+                dest_raw.append(node.step)
+            else:
+                dest_raw.insert(0, node.step)
+            node.parent.clear_caches()
+            return True
+
+        # Case 3: Move out of a child list into the parent's parent.
+        grandparent = node.parent.parent
+        if grandparent is not None:
+            parent_key = node.parent.sibling_key()
+            gp_raw = grandparent.step.get(parent_key, [])
+            parent_idx = -1
+            for i, s in enumerate(gp_raw):
+                if s is node.parent.step:
+                    parent_idx = i
+                    break
+            if parent_idx < 0:
+                return False
+            raw.pop(idx)
+            insert_at = parent_idx if direction == -1 else parent_idx + 1
+            gp_raw.insert(insert_at, node.step)
+            node.parent.clear_caches()
+            grandparent.clear_caches()
+            return True
+
+        # Parent is a root node → move into root_nodes.
+        parent_in_roots = -1
+        for i, rn in enumerate(self.root_nodes):
+            if rn is node.parent:
+                parent_in_roots = i
+                break
+        if parent_in_roots < 0:
+            return False
+        raw.pop(idx)
+        insert_at = parent_in_roots if direction == -1 else parent_in_roots + 1
+        self.root_nodes.insert(insert_at, node)
+        self.steps.insert(insert_at, node.step)
+        node.parent.clear_caches()
+        node.parent = None
+        return True
+
+    def _move_root(self, node: StepNode, direction: int) -> bool:
+        """Handle move for a root-level node."""
+        try:
+            idx = self.root_nodes.index(node)
+        except ValueError:
+            return False
+
+        new_idx = idx + direction
+
+        if 0 <= new_idx < len(self.root_nodes):
+            neighbor = self.root_nodes[new_idx]
+            neighbor_type = neighbor.step_type
+            child_key = self._first_child_key(neighbor_type)
+            if child_key is not None:
+                dest_raw = neighbor.step.setdefault(child_key, [] if child_key != "branches" else {})
+                if child_key == "branches":
+                    keys = list(dest_raw.keys())
+                    if not keys:
+                        return False
+                    dest_list = dest_raw[keys[0]]
+                else:
+                    dest_list = dest_raw
+                self.root_nodes.pop(idx)
+                self.steps.pop(idx)
+                node.parent = neighbor
+                if direction == -1:
+                    dest_list.append(node.step)
+                else:
+                    dest_list.insert(0, node.step)
+                neighbor.clear_caches()
+                return True
+
+            # Simple swap.
+            self.root_nodes[idx], self.root_nodes[new_idx] = (
+                self.root_nodes[new_idx],
+                self.root_nodes[idx],
+            )
+            self.steps[idx], self.steps[new_idx] = self.steps[new_idx], self.steps[idx]
+            return True
+
+        return False
+
+    @staticmethod
+    def _first_child_key(step_type: str) -> str | None:
+        """Return the first child-list key for a container step type."""
+        from step_node import CONTAINER_CHILD_KEYS
+
+        keys = CONTAINER_CHILD_KEYS.get(step_type, [])
+        if keys:
+            return keys[0]
+        if step_type == "if_any_image":
+            return "branches"
+        return None
+
+    @staticmethod
+    def _find_sibling_key_raw(step_type: str, current_key: str, direction: int, step: dict | None = None) -> str | None:
+        """Find the key of the next/prev sibling branch from raw step type."""
+        from step_node import CONTAINER_CHILD_KEYS
+
+        if step_type == "if_any_image" and step is not None:
+            keys = list(step.get("branches", {}).keys())
+            try:
+                i = keys.index(current_key)
+            except ValueError:
+                return None
+            next_i = i + direction
+            if 0 <= next_i < len(keys):
+                return keys[next_i]
+            return None
+
+        keys = CONTAINER_CHILD_KEYS.get(step_type, [])
+        try:
+            i = keys.index(current_key)
+        except ValueError:
+            return None
+        next_i = i + direction
+        if 0 <= next_i < len(keys):
+            return keys[next_i]
+        return None
+
+    def _sync_parent_raw(self, node: StepNode) -> None:
+        """After moving, clear caches and sync raw from the cached state.
+
+        This must be called BEFORE any ``get_child_list`` or ``child_lists``
+        access on the parent, because stale caches cause rebuilds from raw.
+        """
+        if node.parent is None:
+            return
+        parent = node.parent
+        for key in CONTAINER_CHILD_KEYS.get(parent.step_type, []):
+            cache_key = f"cached_children_{key}"
+            cached = getattr(parent, cache_key, None)
+            if cached is not None:
+                parent.step[key] = [n.step for n in cached]
+            else:
+                # No cache: raw is already correct (only remove() modifies raw
+                # without cache, and remove() only affects the source branch).
+                pass
+        if parent.step_type == "if_any_image":
+            cached_branches = getattr(parent, "cached_branches", None)
+            if cached_branches is not None:
+                for branch_name, nodes in cached_branches.items():
+                    parent.step.setdefault("branches", {})[branch_name] = [n.step for n in nodes]
+        # Now clear all caches so next get_child_list rebuilds from synced raw.
+        parent.clear_caches()

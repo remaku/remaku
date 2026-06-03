@@ -554,11 +554,12 @@ class MainWindow(FluentWindow):
         if not self.current_runner:
             return
 
-        if row < 0 or row >= len(getattr(self, "flat_steps", [])):
+        flat = getattr(self, "flat_nodes", [])
+        if row < 0 or row >= len(flat):
             self.show_macro_props()
             return
 
-        self.show_props(self.flat_steps[row])
+        self.show_props(flat[row].step)
 
     def show_macro_props(self) -> None:
         self.clear_props()
@@ -727,8 +728,6 @@ class MainWindow(FluentWindow):
 
     def populate_steps(self) -> None:
         self.step_list.clear()
-        self.flat_steps: list[dict] = []
-        self.flat_parents: list[list[dict]] = []
 
         if not self.current_runner:
             self.step_tree = None
@@ -738,9 +737,18 @@ class MainWindow(FluentWindow):
 
         steps = self.current_runner.macro.get("steps", [])
         self.step_tree = StepTree(steps)
-
-        self.add_steps_to_list(steps, steps, indent=0)
         self.flat_nodes = self.step_tree.flatten()
+
+        for i, (node, depth) in enumerate(self.step_tree.flatten_with_depth()):
+            icon, summary = self.step_display(node.step)
+            prefix = "       " * depth
+            text = f"{prefix}{summary}"
+            item = QListWidgetItem(f"{i + 1:>3}   {text}")
+            if icon:
+                item.setIcon(icon)
+            self.apply_step_note(item, node.step)
+            self.step_list.addItem(item)
+
         self.update_empty_states()
 
     def apply_step_note(self, item: QListWidgetItem, step: dict) -> None:
@@ -748,105 +756,6 @@ class MainWindow(FluentWindow):
         if note:
             item.setToolTip(note)
             item.setText(item.text() + f" ({note})")
-
-    def add_steps_to_list(self, steps: list[dict], parent: list[dict], indent: int) -> None:
-        for step in steps:
-            self.flat_steps.append(step)
-            self.flat_parents.append(parent)
-
-            idx = len(self.flat_steps)
-            icon, summary = self.step_display(step)
-            prefix = "       " * indent
-            text = f"{prefix}{summary}"
-            item = QListWidgetItem(f"{idx:>3}   {text}")
-
-            if icon:
-                item.setIcon(icon)
-
-            self.apply_step_note(item, step)
-            self.step_list.addItem(item)
-
-            if step.get("type") == "repeat":
-                sub = step.get("steps", [])
-                self.add_steps_to_list(sub, sub, indent + 1)
-
-            elif step.get("type") in ("if_image", "if_any_image"):
-                for sub in step.get("then", []):
-                    self.flat_steps.append(sub)
-                    self.flat_parents.append(step.get("then", []))
-                    sub_idx = len(self.flat_steps)
-                    sub_icon, sub_summary = self.step_display(sub)
-                    item = QListWidgetItem(
-                        f"{sub_idx:>3}   {'    ' * (indent + 1)}[{t('step.branch.match')}] {sub_summary}"
-                    )
-
-                    if sub_icon:
-                        item.setIcon(sub_icon)
-
-                    self.apply_step_note(item, sub)
-                    self.step_list.addItem(item)
-
-                for sub in step.get("else", []):
-                    self.flat_steps.append(sub)
-                    self.flat_parents.append(step.get("else", []))
-                    sub_idx = len(self.flat_steps)
-                    sub_icon, sub_summary = self.step_display(sub)
-                    item = QListWidgetItem(
-                        f"{sub_idx:>3}   {'    ' * (indent + 1)}[{t('step.branch.else')}] {sub_summary}"
-                    )
-
-                    if sub_icon:
-                        item.setIcon(sub_icon)
-
-                    self.apply_step_note(item, sub)
-                    self.step_list.addItem(item)
-
-                for branch_key, branch_steps in step.get("branches", {}).items():
-                    label = self.template_label(branch_key)
-
-                    for sub in branch_steps:
-                        self.flat_steps.append(sub)
-                        self.flat_parents.append(branch_steps)
-                        sub_idx = len(self.flat_steps)
-                        sub_icon, sub_summary = self.step_display(sub)
-                        item = QListWidgetItem(f"{sub_idx:>3}   {'    ' * (indent + 1)}[{label}] {sub_summary}")
-
-                        if sub_icon:
-                            item.setIcon(sub_icon)
-
-                        self.apply_step_note(item, sub)
-                        self.step_list.addItem(item)
-
-            elif step.get("type") == "grid_nav":
-                for sub in step.get("on_next_row", []):
-                    self.flat_steps.append(sub)
-                    self.flat_parents.append(step.get("on_next_row", []))
-                    sub_idx = len(self.flat_steps)
-                    sub_icon, sub_summary = self.step_display(sub)
-                    item = QListWidgetItem(
-                        f"{sub_idx:>3}   {'    ' * (indent + 1)}[{t('step.branch.next_row')}] {sub_summary}"
-                    )
-
-                    if sub_icon:
-                        item.setIcon(sub_icon)
-
-                    self.apply_step_note(item, sub)
-                    self.step_list.addItem(item)
-
-                for sub in step.get("on_next_col", []):
-                    self.flat_steps.append(sub)
-                    self.flat_parents.append(step.get("on_next_col", []))
-                    sub_idx = len(self.flat_steps)
-                    sub_icon, sub_summary = self.step_display(sub)
-                    item = QListWidgetItem(
-                        f"{sub_idx:>3}   {'    ' * (indent + 1)}[{t('step.branch.next_col')}] {sub_summary}"
-                    )
-
-                    if sub_icon:
-                        item.setIcon(sub_icon)
-
-                    self.apply_step_note(item, sub)
-                    self.step_list.addItem(item)
 
     def step_display(self, step: dict) -> tuple[QIcon | None, str]:
         step_type = step.get("type", "?")
@@ -1496,8 +1405,9 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        if any(s is step for s in self.flat_steps):
-            row = next(i for i, s in enumerate(self.flat_steps) if s is step)
+        new_flat = getattr(self, "flat_nodes", [])
+        if any(n.step is step for n in new_flat):
+            row = next(i for i, n in enumerate(new_flat) if n.step is step)
             self.step_list.setCurrentRow(row)
 
     def on_rename_template(self, step: dict, edit: LineEdit) -> None:
@@ -1534,8 +1444,9 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        if any(s is step for s in self.flat_steps):
-            row = next(i for i, s in enumerate(self.flat_steps) if s is step)
+        new_flat = getattr(self, "flat_nodes", [])
+        if any(n.step is step for n in new_flat):
+            row = next(i for i, n in enumerate(new_flat) if n.step is step)
             self.step_list.setCurrentRow(row)
 
     def template_label(self, name: str) -> str:
@@ -1658,30 +1569,7 @@ class MainWindow(FluentWindow):
                 parent = node.parent
                 return parent.step_type == "repeat" and parent.step.get("skip", False)
             return False
-        return any(s.get("type") == "repeat" and s.get("skip") and step in s.get("steps", []) for s in self.flat_steps)
-
-    def get_descendants(self, step: dict) -> set[int]:
-        result: set[int] = set()
-        for sub in step.get("steps", []):
-            result.add(id(sub))
-            result.update(self.get_descendants(sub))
-        for sub in step.get("then", []):
-            result.add(id(sub))
-            result.update(self.get_descendants(sub))
-        for sub in step.get("else", []):
-            result.add(id(sub))
-            result.update(self.get_descendants(sub))
-        for sub in step.get("on_next_row", []):
-            result.add(id(sub))
-            result.update(self.get_descendants(sub))
-        for sub in step.get("on_next_col", []):
-            result.add(id(sub))
-            result.update(self.get_descendants(sub))
-        for branch in step.get("branches", {}).values():
-            for sub in branch:
-                result.add(id(sub))
-                result.update(self.get_descendants(sub))
-        return result
+        return False
 
     def on_prop_bool(self, step: dict, key: str, checked: bool) -> None:
         step[key] = checked
@@ -1901,7 +1789,8 @@ class MainWindow(FluentWindow):
         parent_step.setdefault(branch, []).append(step)
         self.save_current_macro()
         self.populate_steps()
-        new_row = next((i for i, s in enumerate(self.flat_steps) if s is step), -1)
+        new_flat = getattr(self, "flat_nodes", [])
+        new_row = next((i for i, n in enumerate(new_flat) if n.step is step), -1)
 
         if new_row >= 0:
             self.step_list.setCurrentRow(new_row)
@@ -1911,30 +1800,42 @@ class MainWindow(FluentWindow):
             return
 
         row = self.step_list.currentRow()
+        flat = getattr(self, "flat_nodes", [])
 
-        if row >= 0 and row < len(self.flat_steps):
-            selected = self.flat_steps[row]
-            if selected.get("type") == "repeat":
-                selected.setdefault("steps", []).append(step)
-            elif selected.get("type") in ("if_image", "if_any_image"):
-                selected.setdefault("then", []).append(step)
+        if 0 <= row < len(flat) and self.step_tree is not None:
+            selected_node = flat[row]
+            if selected_node.step_type == "repeat":
+                selected_node.step.setdefault("steps", []).append(step)
+            elif selected_node.step_type in ("if_image", "if_any_image"):
+                selected_node.step.setdefault("then", []).append(step)
             else:
-                parent = self.flat_parents[row]
-                idx = next(i for i, s in enumerate(parent) if s is selected) + 1
-                parent.insert(idx, step)
+                parent_key = selected_node.sibling_key()
+                if selected_node.parent is not None and parent_key:
+                    parent_list = selected_node.parent.step.get(parent_key, [])
+                    idx = (
+                        parent_list.index(selected_node.step) + 1
+                        if selected_node.step in parent_list
+                        else len(parent_list)
+                    )
+                    parent_list.insert(idx, step)
+                else:
+                    steps = self.current_runner.macro.get("steps", [])
+                    idx = steps.index(selected_node.step) + 1 if selected_node.step in steps else len(steps)
+                    steps.insert(idx, step)
         else:
             self.current_runner.macro.get("steps", []).append(step)
 
         self.save_current_macro()
         self.populate_steps()
 
-        new_row = next((i for i, s in enumerate(self.flat_steps) if s is step), -1)
+        new_flat = getattr(self, "flat_nodes", [])
+        new_row = next((i for i, n in enumerate(new_flat) if n.step is step), -1)
 
         if new_row >= 0:
             self.step_list.setCurrentRow(new_row)
 
     def on_delete_step(self) -> None:
-        if not self.current_runner:
+        if not self.current_runner or not self.step_tree:
             return
 
         rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
@@ -1942,16 +1843,11 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
-        for row in reversed(rows):
-            if row >= len(self.flat_steps):
-                continue
+        flat = getattr(self, "flat_nodes", [])
+        nodes_to_delete = [flat[r] for r in rows if r < len(flat)]
 
-            step = self.flat_steps[row]
-            parent = self.flat_parents[row]
-            idx = next((i for i, s in enumerate(parent) if s is step), -1)
-
-            if idx >= 0:
-                parent.pop(idx)
+        for node in reversed(nodes_to_delete):
+            self.step_tree.delete_node(node)
 
         self.sync_macro_templates()
         self.save_current_macro()
@@ -1963,7 +1859,7 @@ class MainWindow(FluentWindow):
             self.step_list.clearSelection()
 
     def copy_steps(self) -> None:
-        if not self.current_runner:
+        if not self.current_runner or not self.step_tree:
             return
 
         rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
@@ -1971,18 +1867,10 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
-        selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
-
-        if self.step_tree is not None:
-            selected_nodes = [self.step_tree.find_node(s) for s in selected]
-            selected_nodes = [n for n in selected_nodes if n is not None]
-            top_level = self.step_tree.get_top_level(selected_nodes)
-            steps = [copy.deepcopy(n.step) for n in top_level]
-        else:
-            descendant_ids: set[int] = set()
-            for step in selected:
-                descendant_ids.update(self.get_descendants(step))
-            steps = [copy.deepcopy(s) for s in selected if id(s) not in descendant_ids]
+        flat = getattr(self, "flat_nodes", [])
+        selected_nodes = [flat[r] for r in rows if r < len(flat)]
+        top_level = self.step_tree.get_top_level(selected_nodes)
+        steps = [copy.deepcopy(n.step) for n in top_level]
 
         if not steps:
             return
@@ -2026,18 +1914,24 @@ class MainWindow(FluentWindow):
         steps_to_paste = copy.deepcopy(clipboard["steps"])
 
         row = self.step_list.currentRow()
+        flat = getattr(self, "flat_nodes", [])
 
-        if row >= 0 and row < len(self.flat_parents):
-            parent = self.flat_parents[row]
-            step = self.flat_steps[row]
-            idx = next((i for i, s in enumerate(parent) if s is step), -1)
-            insert_at = idx + 1 if idx >= 0 else len(parent)
+        if 0 <= row < len(flat) and self.step_tree is not None:
+            node = flat[row]
+            parent_key = node.sibling_key()
+            if node.parent is not None and parent_key:
+                parent_list = node.parent.step.get(parent_key, [])
+                idx = parent_list.index(node.step) if node.step in parent_list else len(parent_list)
+            else:
+                parent_list = self.current_runner.macro.get("steps", [])
+                idx = parent_list.index(node.step) if node.step in parent_list else len(parent_list)
+            insert_at = idx + 1
         else:
-            parent = self.current_runner.macro.get("steps", [])
-            insert_at = len(parent)
+            parent_list = self.current_runner.macro.get("steps", [])
+            insert_at = len(parent_list)
 
         for i, step in enumerate(steps_to_paste):
-            parent.insert(insert_at + i, step)
+            parent_list.insert(insert_at + i, step)
 
         templates_dir = self.macro_templates_dir
 
@@ -2060,16 +1954,14 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        new_row = next(
-            (i for i, s in enumerate(self.flat_steps) if s is steps_to_paste[0]),
-            0,
-        )
+        new_flat = getattr(self, "flat_nodes", [])
+        new_row = next((i for i, n in enumerate(new_flat) if n.step is steps_to_paste[0]), 0)
 
         if new_row < self.step_list.count():
             self.step_list.setCurrentRow(new_row)
 
     def duplicate_steps(self) -> None:
-        if not self.current_runner:
+        if not self.current_runner or not self.step_tree:
             return
 
         rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
@@ -2077,117 +1969,19 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
+        flat = getattr(self, "flat_nodes", [])
+        selected_nodes = [flat[r] for r in rows if r < len(flat)]
         last_row = rows[-1]
 
-        if last_row >= len(self.flat_steps):
-            return
-
-        parent = self.flat_parents[last_row]
-        last_step = self.flat_steps[last_row]
-        insert_idx = next((i for i, s in enumerate(parent) if s is last_step), -1) + 1
-
-        duplicated = [copy.deepcopy(self.flat_steps[r]) for r in rows if r < len(self.flat_steps)]
-
-        for i, step in enumerate(duplicated):
-            parent.insert(insert_idx + i, step)
+        duplicates = self.step_tree.duplicate_nodes(selected_nodes)
 
         self.sync_macro_templates()
         self.save_current_macro()
         self.populate_steps()
 
-        new_row = last_row + len(duplicated)
+        new_row = last_row + len(duplicates)
         if new_row < self.step_list.count():
             self.step_list.setCurrentRow(new_row)
-
-    def get_block_child_list(self, step: dict, direction: int) -> list[dict] | None:
-        """Return the child list to enter when moving into a block step."""
-        step_type = step.get("type")
-
-        if step_type == "repeat":
-            return step.get("steps")
-
-        if step_type == "if_image":
-            if direction == 1:
-                return step.get("then")
-            else:
-                return step.get("else") or step.get("then")
-
-        if step_type == "if_any_image":
-            branches = step.setdefault("branches", {})
-            keys = list(branches.keys())
-
-            if not keys:
-                templates = step.get("templates", [])
-
-                if not templates:
-                    return None
-
-                for template in templates:
-                    branches.setdefault(template, [])
-
-                keys = list(branches.keys())
-
-            key = keys[0] if direction == 1 else keys[-1]
-
-            return branches[key]
-
-        if step_type == "grid_nav":
-            if direction == 1:
-                return step.get("on_next_row")
-            else:
-                return step.get("on_next_col") or step.get("on_next_row")
-
-        return None
-
-    def get_sibling_branch(self, parent: list[dict], direction: int) -> list[dict] | None:
-        """For if_image/if_any_image/grid_nav branches, return the next branch to traverse."""
-        for s in self.flat_steps:
-            if s.get("type") == "if_image":
-                if direction == 1 and s.get("then") is parent:
-                    return s.get("else")
-
-                if direction == -1 and s.get("else") is parent:
-                    return s.get("then")
-            elif s.get("type") == "if_any_image":
-                keys = list(s.get("branches", {}).keys())
-
-                for i, key in enumerate(keys):
-                    if s["branches"][key] is parent:
-                        next_i = i + direction
-
-                        if 0 <= next_i < len(keys):
-                            return s["branches"][keys[next_i]]
-
-                        return None
-            elif s.get("type") == "grid_nav":
-                if direction == 1 and s.get("on_next_row") is parent:
-                    return s.get("on_next_col")
-
-                if direction == -1 and s.get("on_next_col") is parent:
-                    return s.get("on_next_row")
-
-        return None
-
-    def find_repeat_owner(self, child_list: list[dict]) -> tuple[dict, list[dict]] | None:
-        """Find the block whose sub-list is child_list, and its parent list."""
-        for i, s in enumerate(self.flat_steps):
-            if s.get("type") == "repeat" and s.get("steps") is child_list:
-                return s, self.flat_parents[i]
-
-            if s.get("type") == "if_image" and (s.get("then") is child_list or s.get("else") is child_list):
-                return s, self.flat_parents[i]
-
-            if s.get("type") == "if_any_image" and any(
-                branch is child_list for branch in s.get("branches", {}).values()
-            ):
-                return s, self.flat_parents[i]
-
-            if s.get("type") == "grid_nav" and (
-                s.get("on_next_row") is child_list or s.get("on_next_col") is child_list
-            ):
-                return s, self.flat_parents[i]
-
-        return None
 
     def on_step_context_menu(self, pos) -> None:
         if not self.current_runner:
@@ -2230,7 +2024,7 @@ class MainWindow(FluentWindow):
         menu.exec(source.mapToGlobal(pos))
 
     def wrap_in_repeat(self) -> None:
-        if not self.current_runner:
+        if not self.current_runner or not self.step_tree:
             return
 
         rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
@@ -2238,115 +2032,45 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
-        selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
+        flat = getattr(self, "flat_nodes", [])
+        selected_nodes = [flat[r] for r in rows if r < len(flat)]
+        top_level = self.step_tree.get_top_level(selected_nodes)
 
-        selected_nodes: list[StepNode] = []
-        descendant_ids: set[int] = set()
-        if self.step_tree is not None:
-            selected_nodes = [n for n in (self.step_tree.find_node(s) for s in selected) if n is not None]
-            top_level = self.step_tree.get_top_level(selected_nodes)
-            selected_steps = [n.step for n in top_level]
-        else:
-            for step in selected:
-                descendant_ids.update(self.get_descendants(step))
-            selected_steps = [s for s in selected if id(s) not in descendant_ids]
-
-        if not selected_steps:
+        if not top_level:
             return
 
-        parent = self.flat_parents[rows[0]]
-
-        for r in rows:
-            if r < len(self.flat_steps):
-                if self.step_tree is not None:
-                    node = self.step_tree.find_node(self.flat_steps[r])
-                    if node and not any(node.is_descendant_of(n) for n in selected_nodes):
-                        parent = self.flat_parents[r]
-                        break
-                else:
-                    if id(self.flat_steps[r]) not in descendant_ids:
-                        parent = self.flat_parents[r]
-                        break
-
-        indices = [next(i for i, s in enumerate(parent) if s is step) for step in selected_steps]
-        start, end = min(indices), max(indices)
-
-        wrapped = parent[start : end + 1]
-        repeat = {"type": "repeat", "count": 1, "steps": wrapped}
-        parent[start : end + 1] = [repeat]
+        self.step_tree.wrap_in_repeat(top_level)
 
         self.save_current_macro()
         self.populate_steps()
-        new_row = next((i for i, s in enumerate(self.flat_steps) if s is repeat), 0)
-        self.step_list.setCurrentRow(new_row)
+        repeat_step = top_level[0].parent.step if top_level[0].parent else None
+        if repeat_step:
+            new_flat = getattr(self, "flat_nodes", [])
+            new_row = next((i for i, n in enumerate(new_flat) if n.step is repeat_step), 0)
+            self.step_list.setCurrentRow(new_row)
 
     def on_move_step(self, direction: int) -> None:
+        if not self.step_tree:
+            return
+
         row = self.step_list.currentRow()
+        flat = getattr(self, "flat_nodes", [])
 
-        if row < 0 or row >= len(self.flat_steps):
+        if row < 0 or row >= len(flat):
             return
 
-        step = self.flat_steps[row]
-        parent = self.flat_parents[row]
-
-        idx = next((i for i, s in enumerate(parent) if s is step), -1)
-        if idx < 0:
-            return
-
-        new_idx = idx + direction
-        moved = False
-
-        if 0 <= new_idx < len(parent):
-            neighbor = parent[new_idx]
-            target_list = self.get_block_child_list(neighbor, direction)
-
-            if target_list is not None:
-                parent.pop(idx)
-
-                if direction == -1:
-                    target_list.append(step)
-                else:
-                    target_list.insert(0, step)
-
-                moved = True
-            else:
-                parent[idx], parent[new_idx] = parent[new_idx], parent[idx]
-                moved = True
-        else:
-            sibling = self.get_sibling_branch(parent, direction)
-
-            if sibling is not None:
-                parent.pop(idx)
-
-                if direction == 1:
-                    sibling.insert(0, step)
-                else:
-                    sibling.append(step)
-
-                moved = True
-            else:
-                owner = self.find_repeat_owner(parent)
-
-                if owner:
-                    repeat_block, grandparent = owner
-                    ri = next(i for i, s in enumerate(grandparent) if s is repeat_block)
-                    parent.pop(idx)
-
-                    if direction == -1:
-                        grandparent.insert(ri, step)
-                    else:
-                        grandparent.insert(ri + 1, step)
-
-                    moved = True
+        node = flat[row]
+        moved = self.step_tree.move_step(node, direction)
 
         if moved:
             self.save_current_macro()
             self.populate_steps()
 
-            if any(s is step for s in self.flat_steps):
-                new_row = next((i for i, s in enumerate(self.flat_steps) if s is step), -1)
-                if new_row >= 0:
-                    self.step_list.setCurrentRow(new_row)
+            # Re-find the moved step in the new flat list.
+            new_flat = getattr(self, "flat_nodes", [])
+            new_row = next((i for i, n in enumerate(new_flat) if n.step is node.step), -1)
+            if new_row >= 0:
+                self.step_list.setCurrentRow(new_row)
 
     def on_run(self) -> None:
         if not self.current_runner:
@@ -2401,9 +2125,10 @@ class MainWindow(FluentWindow):
 
                 current = getattr(runner, "current_step", None)
 
-                if current and hasattr(self, "flat_steps"):
+                if current:
+                    flat = getattr(self, "flat_nodes", [])
                     try:
-                        idx = next(i for i, s in enumerate(self.flat_steps) if s is current)
+                        idx = next(i for i, n in enumerate(flat) if n.step is current)
                         _, summary = self.step_display(current)
                         msg += f" | #{idx + 1} {summary}"
                     except StopIteration:
@@ -2467,10 +2192,13 @@ class MainWindow(FluentWindow):
     def highlight_current_step(self, runner: MacroRunner) -> None:
         current = getattr(runner, "current_step", None)
 
-        if current is None or not hasattr(self, "flat_steps"):
+        if current is None:
+            return
+        flat = getattr(self, "flat_nodes", [])
+        if not flat:
             return
         try:
-            idx = next(i for i, s in enumerate(self.flat_steps) if s is current)
+            idx = next(i for i, n in enumerate(flat) if n.step is current)
             self.step_list.blockSignals(True)
             self.step_list.setCurrentRow(idx)
             self.step_list.blockSignals(False)
@@ -2831,8 +2559,6 @@ class MainWindow(FluentWindow):
         else:
             self.current_runner = None
             self.step_list.clear()
-            self.flat_steps = []
-            self.flat_parents = []
             self.step_tree = None
             self.flat_nodes = []
             self.clear_props()

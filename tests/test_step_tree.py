@@ -362,3 +362,259 @@ class TestDeeplyNested:
         tree = StepTree(deeply_nested_steps)
         refs = tree.collect_template_refs()
         assert refs == {"deep_btn"}
+
+
+# ---------------------------------------------------------------------------
+# flatten_with_depth
+# ---------------------------------------------------------------------------
+
+
+class TestFlattenWithDepth:
+    def test_simple(self, simple_steps):
+        tree = StepTree(simple_steps)
+        result = tree.flatten_with_depth()
+        assert len(result) == 3
+        assert [(n.step_type, d) for n, d in result] == [
+            ("key", 0),
+            ("delay", 0),
+            ("key", 0),
+        ]
+
+    def test_nested(self, nested_steps):
+        tree = StepTree(nested_steps)
+        result = tree.flatten_with_depth()
+        assert [(n.step_type, d) for n, d in result] == [
+            ("key", 0),
+            ("repeat", 0),
+            ("key", 1),
+            ("delay", 1),
+            ("key", 0),
+        ]
+
+    def test_deeply_nested(self, deeply_nested_steps):
+        tree = StepTree(deeply_nested_steps)
+        result = tree.flatten_with_depth()
+        assert [(n.step_type, d) for n, d in result] == [
+            ("repeat", 0),
+            ("if_image", 1),
+            ("key", 2),
+            ("key", 2),
+        ]
+
+    def test_if_image_branches(self):
+        steps = [
+            {
+                "type": "if_image",
+                "template": "btn",
+                "then": [{"type": "key", "key": "t"}],
+                "else": [{"type": "key", "key": "e"}],
+            },
+        ]
+        tree = StepTree(steps)
+        result = tree.flatten_with_depth()
+        assert [(n.step_type, d) for n, d in result] == [
+            ("if_image", 0),
+            ("key", 1),
+            ("key", 1),
+        ]
+
+    def test_grid_nav(self):
+        steps = [
+            {
+                "type": "grid_nav",
+                "rows": 2,
+                "on_next_row": [{"type": "key", "key": "r"}],
+                "on_next_col": [{"type": "key", "key": "c"}],
+            },
+        ]
+        tree = StepTree(steps)
+        result = tree.flatten_with_depth()
+        assert [(n.step_type, d) for n, d in result] == [
+            ("grid_nav", 0),
+            ("key", 1),
+            ("key", 1),
+        ]
+
+    def test_empty(self):
+        tree = StepTree([])
+        assert tree.flatten_with_depth() == []
+
+
+# ---------------------------------------------------------------------------
+# delete_node
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteNode:
+    def test_root_node(self, simple_steps):
+        tree = StepTree(simple_steps)
+        tree.delete_node(tree.root_nodes[1])
+        assert len(tree.root_nodes) == 2
+        assert len(tree.steps) == 2
+        assert [n.step_type for n in tree.root_nodes] == ["key", "key"]
+
+    def test_nested_node(self, nested_steps):
+        tree = StepTree(nested_steps)
+        repeat = tree.root_nodes[1]
+        child = repeat.get_child_list("steps")[0]
+        tree.delete_node(child)
+        assert len(repeat.get_child_list("steps")) == 1
+        assert len(repeat.step["steps"]) == 1
+
+    def test_branch_node(self):
+        then_step = {"type": "key", "key": "t"}
+        steps = [{"type": "if_image", "then": [then_step], "else": []}]
+        tree = StepTree(steps)
+        if_node = tree.root_nodes[0]
+        then_node = if_node.get_child_list("then")[0]
+        tree.delete_node(then_node)
+        assert len(if_node.get_child_list("then")) == 0
+        assert len(if_node.step["then"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# move_step
+# ---------------------------------------------------------------------------
+
+
+class TestMoveStep:
+    def test_swap_with_leaf_sibling(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "key", "key": "b"},
+            {"type": "key", "key": "c"},
+        ]
+        tree = StepTree(steps)
+        assert tree.move_step(tree.root_nodes[0], 1) is True
+        assert [n.step["key"] for n in tree.root_nodes] == ["b", "a", "c"]
+        assert [s["key"] for s in tree.steps] == ["b", "a", "c"]
+
+    def test_swap_backward(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "key", "key": "b"},
+            {"type": "key", "key": "c"},
+        ]
+        tree = StepTree(steps)
+        assert tree.move_step(tree.root_nodes[2], -1) is True
+        assert [n.step["key"] for n in tree.root_nodes] == ["a", "c", "b"]
+        assert [s["key"] for s in tree.steps] == ["a", "c", "b"]
+
+    def test_move_into_block_down(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "key", "key": "b"},
+            {"type": "repeat", "count": 1, "steps": []},
+        ]
+        tree = StepTree(steps)
+        assert tree.move_step(tree.root_nodes[1], 1) is True
+        assert len(tree.root_nodes) == 2
+        repeat = tree.root_nodes[1]
+        assert repeat.step_type == "repeat"
+        children_raw = repeat.step.get("steps", [])
+        assert len(children_raw) == 1
+        assert children_raw[0]["key"] == "b"
+
+    def test_move_out_of_block_up(self, nested_steps):
+        tree = StepTree(nested_steps)
+        repeat = tree.root_nodes[1]
+        child = repeat.get_child_list("steps")[0]
+        assert tree.move_step(child, -1) is True
+        assert child.parent is None
+        assert len(tree.root_nodes) == 4
+        assert tree.root_nodes[1] is child
+
+    def test_move_out_of_block_down(self, nested_steps):
+        tree = StepTree(nested_steps)
+        repeat = tree.root_nodes[1]
+        child = repeat.get_child_list("steps")[-1]
+        assert tree.move_step(child, 1) is True
+        assert child.parent is None
+        assert tree.root_nodes[2] is child
+
+    def test_cross_branch_then_to_else(self):
+        then_step = {"type": "key", "key": "t"}
+        else_step = {"type": "key", "key": "e"}
+        steps = [{"type": "if_image", "then": [then_step], "else": [else_step]}]
+        tree = StepTree(steps)
+        if_node = tree.root_nodes[0]
+        then_node = if_node.get_child_list("then")[0]
+        assert tree.move_step(then_node, 1) is True
+        assert if_node.step["then"] == []
+        assert [s["key"] for s in if_node.step["else"]] == ["e", "t"]
+
+    def test_cross_branch_else_to_then(self):
+        then_step = {"type": "key", "key": "t"}
+        else_step = {"type": "key", "key": "e"}
+        steps = [{"type": "if_image", "then": [then_step], "else": [else_step]}]
+        tree = StepTree(steps)
+        if_node = tree.root_nodes[0]
+        else_node = if_node.get_child_list("else")[0]
+        assert tree.move_step(else_node, -1) is True
+        assert if_node.step["else"] == []
+        assert [s["key"] for s in if_node.step["then"]] == ["e", "t"]
+
+    def test_cross_grid_nav_branches(self):
+        row_step = {"type": "key", "key": "r"}
+        col_step = {"type": "key", "key": "c"}
+        steps = [{"type": "grid_nav", "on_next_row": [row_step], "on_next_col": [col_step]}]
+        tree = StepTree(steps)
+        grid = tree.root_nodes[0]
+        row_node = grid.get_child_list("on_next_row")[0]
+        assert tree.move_step(row_node, 1) is True
+        assert grid.step["on_next_row"] == []
+        assert [s["key"] for s in grid.step["on_next_col"]] == ["c", "r"]
+        # Re-find col_node after cache clear and move it back.
+        col_node = tree.find_node(col_step)
+        assert col_node is not None
+        assert tree.move_step(col_node, -1) is True
+        assert [s["key"] for s in grid.step["on_next_row"]] == ["c"]
+        assert [s["key"] for s in grid.step["on_next_col"]] == ["r"]
+
+    def test_no_move_at_top_boundary(self, simple_steps):
+        tree = StepTree(simple_steps)
+        assert tree.move_step(tree.root_nodes[0], -1) is False
+
+    def test_no_move_at_bottom_boundary(self, simple_steps):
+        tree = StepTree(simple_steps)
+        assert tree.move_step(tree.root_nodes[2], 1) is False
+
+    def test_root_move_into_block(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "repeat", "count": 1, "steps": []},
+        ]
+        tree = StepTree(steps)
+        assert tree.move_step(tree.root_nodes[0], 1) is True
+        assert len(tree.root_nodes) == 1
+        repeat = tree.root_nodes[0]
+        assert repeat.step_type == "repeat"
+        children_raw = repeat.step.get("steps", [])
+        assert len(children_raw) == 1
+        assert children_raw[0]["key"] == "a"
+
+    def test_raw_steps_preserved_after_moves(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "key", "key": "b"},
+            {"type": "key", "key": "c"},
+        ]
+        tree = StepTree(steps)
+        tree.move_step(tree.root_nodes[0], 1)
+        assert [s["key"] for s in tree.steps] == ["b", "a", "c"]
+        tree.move_step(tree.root_nodes[2], -1)
+        assert [s["key"] for s in tree.steps] == ["b", "c", "a"]
+
+    def test_move_into_if_image_block(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "if_image", "then": [], "else": []},
+        ]
+        tree = StepTree(steps)
+        assert tree.move_step(tree.root_nodes[0], 1) is True
+        assert len(tree.root_nodes) == 1
+        if_node = tree.root_nodes[0]
+        assert if_node.step_type == "if_image"
+        then_raw = if_node.step.get("then", [])
+        assert len(then_raw) == 1
+        assert then_raw[0]["key"] == "a"

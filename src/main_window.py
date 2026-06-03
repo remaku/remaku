@@ -60,6 +60,8 @@ from macro_engine import MacroRunner, load_macro
 from overlay import OverlayWidget
 from region_selector import RegionSelector
 from settings import SettingsPage
+from step_node import StepNode
+from step_tree import StepTree
 from version import __version__, root
 
 
@@ -729,12 +731,16 @@ class MainWindow(FluentWindow):
         self.flat_parents: list[list[dict]] = []
 
         if not self.current_runner:
+            self.step_tree = None
+            self.flat_nodes: list[StepNode] = []
             self.update_empty_states()
             return
 
         steps = self.current_runner.macro.get("steps", [])
+        self.step_tree = StepTree(steps)
 
         self.add_steps_to_list(steps, steps, indent=0)
+        self.flat_nodes = self.step_tree.flatten()
         self.update_empty_states()
 
     def apply_step_note(self, item: QListWidgetItem, step: dict) -> None:
@@ -1646,6 +1652,12 @@ class MainWindow(FluentWindow):
                 self.collect_template_refs(branch, out)
 
     def is_child_of_skipped_repeat(self, step: dict) -> bool:
+        if self.step_tree is not None:
+            node = self.step_tree.find_node(step)
+            if node is not None and node.parent is not None:
+                parent = node.parent
+                return parent.step_type == "repeat" and parent.step.get("skip", False)
+            return False
         return any(s.get("type") == "repeat" and s.get("skip") and step in s.get("steps", []) for s in self.flat_steps)
 
     def get_descendants(self, step: dict) -> set[int]:
@@ -1961,11 +1973,16 @@ class MainWindow(FluentWindow):
 
         selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
 
-        descendant_ids: set[int] = set()
-        for step in selected:
-            descendant_ids.update(self.get_descendants(step))
-
-        steps = [copy.deepcopy(s) for s in selected if id(s) not in descendant_ids]
+        if self.step_tree is not None:
+            selected_nodes = [self.step_tree.find_node(s) for s in selected]
+            selected_nodes = [n for n in selected_nodes if n is not None]
+            top_level = self.step_tree.get_top_level(selected_nodes)
+            steps = [copy.deepcopy(n.step) for n in top_level]
+        else:
+            descendant_ids: set[int] = set()
+            for step in selected:
+                descendant_ids.update(self.get_descendants(step))
+            steps = [copy.deepcopy(s) for s in selected if id(s) not in descendant_ids]
 
         if not steps:
             return
@@ -2223,11 +2240,16 @@ class MainWindow(FluentWindow):
 
         selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
 
+        selected_nodes: list[StepNode] = []
         descendant_ids: set[int] = set()
-        for step in selected:
-            descendant_ids.update(self.get_descendants(step))
-
-        selected_steps = [s for s in selected if id(s) not in descendant_ids]
+        if self.step_tree is not None:
+            selected_nodes = [n for n in (self.step_tree.find_node(s) for s in selected) if n is not None]
+            top_level = self.step_tree.get_top_level(selected_nodes)
+            selected_steps = [n.step for n in top_level]
+        else:
+            for step in selected:
+                descendant_ids.update(self.get_descendants(step))
+            selected_steps = [s for s in selected if id(s) not in descendant_ids]
 
         if not selected_steps:
             return
@@ -2235,9 +2257,16 @@ class MainWindow(FluentWindow):
         parent = self.flat_parents[rows[0]]
 
         for r in rows:
-            if r < len(self.flat_steps) and id(self.flat_steps[r]) not in descendant_ids:
-                parent = self.flat_parents[r]
-                break
+            if r < len(self.flat_steps):
+                if self.step_tree is not None:
+                    node = self.step_tree.find_node(self.flat_steps[r])
+                    if node and not any(node.is_descendant_of(n) for n in selected_nodes):
+                        parent = self.flat_parents[r]
+                        break
+                else:
+                    if id(self.flat_steps[r]) not in descendant_ids:
+                        parent = self.flat_parents[r]
+                        break
 
         indices = [next(i for i, s in enumerate(parent) if s is step) for step in selected_steps]
         start, end = min(indices), max(indices)
@@ -2804,6 +2833,8 @@ class MainWindow(FluentWindow):
             self.step_list.clear()
             self.flat_steps = []
             self.flat_parents = []
+            self.step_tree = None
+            self.flat_nodes = []
             self.clear_props()
 
         self.update_empty_states()

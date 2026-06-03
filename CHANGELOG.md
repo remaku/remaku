@@ -11,6 +11,10 @@
 - Key step input now uses key-press capture instead of manual typing, matching the hotkey field UX and preventing invalid keys
 - Status bar now shows the total elapsed time after a macro finishes running
 
+### Changed
+
+- Refactored internal step data model from flat arrays to a proper tree structure (`StepNode` / `StepTree`), improving correctness of copy, paste, wrap-in-repeat, and move operations
+
 ### Fixed
 
 - Fixed selection after pasting container steps pointing to the wrong step
@@ -34,6 +38,10 @@
 - 按鍵步驟現在使用按鍵捕捉取代手動輸入，與快捷鍵欄位體驗一致且無法輸入無效按鍵
 - 狀態列現在會在巨集執行完成後顯示總執行時間
 
+### 變更
+
+- 重構內部步驟資料模型，從平坦陣列改為正式樹狀結構（`StepNode` / `StepTree`），提升複製、貼上、包進重複區塊及移動操作的正確性
+
 ### 修正
 
 - 修正貼上容器步驟後選取的步驟不正確的問題
@@ -56,6 +64,10 @@
 - 步骤现在可在右侧面板添加备注来说明步骤用途；备注也会显示在步骤列表中，鼠标悬停时以工具提示显示
 - 按键步骤现在使用按键捕捉取代手动输入，与快捷键字段体验一致且无法输入无效按键
 - 状态栏现在会在宏执行完成后显示总执行时间
+
+### 变更
+
+- 重构内部步骤数据模型，从平坦数组改为正式树状结构（`StepNode` / `StepTree`），提升复制、粘贴、包进重复区块及移动操作的正确性
 
 ### 修复
 

@@ -1938,19 +1938,24 @@ class MainWindow(FluentWindow):
 
         templates_dir = self.macro_templates_dir
         template_data: dict[str, bytes] = {}
+        template_meta_files: dict[str, bytes] = {}
 
         for name in refs:
-            path = templates_dir / f"{name}.png"
-            if path.exists():
-                template_data[name] = path.read_bytes()
+            png_path = templates_dir / f"{name}.png"
+            if png_path.exists():
+                template_data[name] = png_path.read_bytes()
+            json_path = templates_dir / f"{name}.json"
+            if json_path.exists():
+                template_meta_files[name] = json_path.read_bytes()
 
         macro_templates = self.current_runner.macro.get("templates", {})
-        template_meta = {name: copy.deepcopy(macro_templates[name]) for name in refs if name in macro_templates}
+        template_labels = {name: copy.deepcopy(macro_templates[name]) for name in refs if name in macro_templates}
 
         self.step_clipboard = {
             "steps": steps,
             "templates": template_data,
-            "template_meta": template_meta,
+            "template_meta_files": template_meta_files,
+            "template_labels": template_labels,
         }
 
     def cut_steps(self) -> None:
@@ -1987,9 +1992,13 @@ class MainWindow(FluentWindow):
             if not dest.exists():
                 dest.write_bytes(data)
 
+        for name, data in clipboard["template_meta_files"].items():
+            dest = templates_dir / f"{name}.json"
+            dest.write_bytes(data)
+
         macro_templates = self.current_runner.macro.setdefault("templates", {})
 
-        for name, meta in clipboard["template_meta"].items():
+        for name, meta in clipboard["template_labels"].items():
             if name not in macro_templates:
                 macro_templates[name] = copy.deepcopy(meta)
 

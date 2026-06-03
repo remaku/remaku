@@ -1,13 +1,15 @@
 """Tests for macro_engine module."""
 
+# pyright: reportAttributeAccessIssue=false
+
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
 import config
-from macro_engine import MacroRunner, load_macro
+from macro_engine import MacroRunner, load_macro, validate_steps
 from runner import Stopped, StopReason
 
 
@@ -432,3 +434,423 @@ class TestWaitImageSkip:
             runner.exec_steps(runner.macro["steps"])
         mock_wait.assert_not_called()
         mock_sleep.assert_called_once_with(5)
+
+
+class TestValidateSteps:
+    def test_missing_type(self):
+        steps = [{"key": "a"}]
+        errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "type" in errors[0]
+
+    def test_unknown_type(self):
+        steps = [{"type": "nonsense"}]
+        errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "nonsense" in errors[0]
+
+    def test_missing_field(self):
+        steps = [{"type": "key"}]
+        errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "key" in errors[0]
+
+    def test_bad_format(self):
+        steps = [{"type": "delay", "ms": "not_a_number"}]
+        errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "format" in errors[0]
+
+    def test_bad_key(self):
+        steps = [{"type": "key", "key": "not_a_real_key"}]
+        with patch("macro_engine.pdi") as mock_pdi:
+            mock_pdi.isValidKey.return_value = False
+            errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "key" in errors[0]
+
+    def test_valid_steps(self):
+        steps = [
+            {"type": "key", "key": "enter"},
+            {"type": "delay", "ms": 100},
+            {"type": "repeat", "steps": [{"type": "key", "key": "a"}]},
+        ]
+        with patch("macro_engine.pdi") as mock_pdi:
+            mock_pdi.isValidKey.return_value = True
+            errors = validate_steps(steps)
+        assert errors == []
+
+    def test_recursive_validation(self):
+        steps = [
+            {
+                "type": "repeat",
+                "steps": [{"type": "bad_type"}],
+            }
+        ]
+        errors = validate_steps(steps)
+        assert len(errors) == 1
+        assert "bad_type" in errors[0]
+
+    def test_recursive_then_else(self):
+        steps = [
+            {
+                "type": "if_image",
+                "template": "btn",
+                "then": [{"type": "delay"}],
+                "else": [{"type": "delay"}],
+            }
+        ]
+        errors = validate_steps(steps)
+        assert len(errors) == 2
+
+    def test_offset(self):
+        steps = [{"type": "delay", "ms": 100}]
+        errors = validate_steps(steps, offset=5)
+        assert errors == []
+
+
+class TestExecStepsNotRunning:
+    def test_returns_early_when_not_running(self):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": [{"type": "delay", "ms": 1}]}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = False
+        with patch.object(runner, "sleep") as mock_sleep:
+            runner.exec_steps(runner.macro["steps"])
+        mock_sleep.assert_not_called()
+
+
+class TestRepeatNotRunning:
+    def test_repeat_stops_when_not_running(self):
+        macro = {
+            "meta": {"name": "t"},
+            "templates": {},
+            "steps": [{"type": "repeat", "count": 5, "steps": [{"type": "delay", "ms": 1}]}],
+        }
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        call_count = 0
+
+        def stop_after_two(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                runner.status.running = False
+
+        with patch.object(runner, "sleep", side_effect=stop_after_two):
+            runner.exec_steps(runner.macro["steps"])
+        assert call_count == 2
+
+
+class TestLoopMissingTemplates:
+    def test_loop_finishes_with_missing_template_message(self):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": [{"type": "wait_image"}]}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {}
+        runner.loop()
+        assert runner.status.last_reason == StopReason.STALE.value
+        assert "template" in runner.status.message
+
+
+class TestHoldKeyUntilGone:
+    def make_runner(self, step):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": [step]}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {"btn": np.zeros((10, 10), dtype=np.uint8)}
+        runner.template_capture_sizes = {}
+        runner.win = MagicMock()
+        runner.grabber = MagicMock()
+        runner.rect = (0, 0, 100, 100)
+        return runner
+
+    def test_holds_key_and_releases_when_gone(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.02
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.side_effect = [(0.9, (5, 5)), (0.1, (5, 5)), (0.1, (5, 5))]
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once_with("w")
+
+    def test_releases_on_hard_timeout(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 10000,
+            "gone_grace_ms": 1500,
+            "hard_timeout_ms": 100,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.05
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.return_value = (0.9, (5, 5))
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once()
+
+    def test_releases_when_window_lost_foreground(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.return_value = (0.9, (5, 5))
+            mock_window.is_foreground.return_value = False
+            mock_time.monotonic.side_effect = lambda: 0.01
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once()
+
+    def test_releases_on_find_timeout(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 50,
+            "gone_grace_ms": 1500,
+            "hard_timeout_ms": 60000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.03
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.return_value = (0.1, (5, 5))
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once()
+
+    def test_skips_none_frame(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+
+        call_count = 0
+
+        def grab_side_effect(rect):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 1:
+                return None
+            return frame
+
+        runner.grabber.grab = MagicMock(side_effect=grab_side_effect)
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.02
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.side_effect = lambda *a: (0.1, (5, 5))
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once()
+
+    def test_uses_scaled_template_with_capture_size(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        runner.template_capture_sizes = {"btn": (1920, 1080)}
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.02
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys"),
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.side_effect = lambda *a: (0.1, (5, 5))
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_vision.scale_template.assert_called_once()
+
+    def test_dispatch_through_exec_step(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.02
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys"),
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.side_effect = lambda *a: (0.1, (5, 5))
+            mock_window.is_foreground.return_value = False
+            mock_time.monotonic.side_effect = tick
+
+            runner.exec_steps(runner.macro["steps"])
+
+    def test_stops_on_stop_event(self):
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 50,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys"),
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            mock_vision.match_one.return_value = (0.9, (5, 5))
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = lambda: 0.01
+            runner.stop_evt.set()
+
+            with pytest.raises(Stopped):
+                runner.do_hold_key_until_gone(step)

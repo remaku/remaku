@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- Fixed pasting container steps (repeat, if_image, if_any_image, grid_nav) duplicating their child steps
 - Skipping a repeat now also skips all its child steps, and children's skip checkboxes are disabled while the repeat is skipped
 - Fixed steps in grid nav branches (on_next_row / on_next_col) cannot be moved in or out of the block
 - Fixed template labels and capture resolution metadata not being copied when copying and pasting steps
@@ -33,6 +34,7 @@
 
 ### 修正
 
+- 修正貼上容器步驟（repeat、if_image、if_any_image、grid_nav）時子步驟被重複貼上的問題
 - 跳過重複區塊時現在會同時跳過所有子步驟，且子步驟的跳過核取方塊在重複區塊被跳過時會停用
 - 修正網格導覽分支（on_next_row / on_next_col）中的步驟無法移入或移出區塊的問題
 - 修正複製貼上步驟時，模板標籤及擷取解析度中繼資料未一併複製的問題
@@ -53,6 +55,7 @@
 
 ### 修复
 
+- 修复粘贴容器步骤（repeat、if_image、if_any_image、grid_nav）时子步骤被重复粘贴的问题
 - 跳过重复区块时现在会同时跳过所有子步骤，且子步骤的跳过复选框在重复区块被跳过时会停用
 - 修复网格导航分支（on_next_row / on_next_col）中的步骤无法移入或移出区块的问题
 - 修复复制粘贴步骤时，模板标签及捕获分辨率元数据未一并复制的问题

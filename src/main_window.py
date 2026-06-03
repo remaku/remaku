@@ -1648,6 +1648,29 @@ class MainWindow(FluentWindow):
     def is_child_of_skipped_repeat(self, step: dict) -> bool:
         return any(s.get("type") == "repeat" and s.get("skip") and step in s.get("steps", []) for s in self.flat_steps)
 
+    def get_descendants(self, step: dict) -> set[int]:
+        result: set[int] = set()
+        for sub in step.get("steps", []):
+            result.add(id(sub))
+            result.update(self.get_descendants(sub))
+        for sub in step.get("then", []):
+            result.add(id(sub))
+            result.update(self.get_descendants(sub))
+        for sub in step.get("else", []):
+            result.add(id(sub))
+            result.update(self.get_descendants(sub))
+        for sub in step.get("on_next_row", []):
+            result.add(id(sub))
+            result.update(self.get_descendants(sub))
+        for sub in step.get("on_next_col", []):
+            result.add(id(sub))
+            result.update(self.get_descendants(sub))
+        for branch in step.get("branches", {}).values():
+            for sub in branch:
+                result.add(id(sub))
+                result.update(self.get_descendants(sub))
+        return result
+
     def on_prop_bool(self, step: dict, key: str, checked: bool) -> None:
         step[key] = checked
         if key == "skip" and step.get("type") == "repeat":
@@ -1936,7 +1959,13 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
-        steps = [copy.deepcopy(self.flat_steps[r]) for r in rows if r < len(self.flat_steps)]
+        selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
+
+        descendant_ids: set[int] = set()
+        for step in selected:
+            descendant_ids.update(self.get_descendants(step))
+
+        steps = [copy.deepcopy(s) for s in selected if id(s) not in descendant_ids]
 
         if not steps:
             return

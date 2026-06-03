@@ -13,6 +13,8 @@
 
 ### Fixed
 
+- Skipping a repeat now also skips all its child steps, and children's skip checkboxes are disabled while the repeat is skipped
+- Fixed steps in grid nav branches (on_next_row / on_next_col) cannot be moved in or out of the block
 - Fixed template labels and capture resolution metadata not being copied when copying and pasting steps
 - Fixed right-click context menu not opening in the center panel when there are no steps
 - Fixed target window selection not being saved when changing macros
@@ -31,6 +33,8 @@
 
 ### 修正
 
+- 跳過重複區塊時現在會同時跳過所有子步驟，且子步驟的跳過核取方塊在重複區塊被跳過時會停用
+- 修正網格導覽分支（on_next_row / on_next_col）中的步驟無法移入或移出區塊的問題
 - 修正複製貼上步驟時，模板標籤及擷取解析度中繼資料未一併複製的問題
 - 修正步驟為空時，中央面板無法開啟右鍵選單的問題
 - 修正切換巨集時，目標視窗選項無法儲存的問題
@@ -49,6 +53,8 @@
 
 ### 修复
 
+- 跳过重复区块时现在会同时跳过所有子步骤，且子步骤的跳过复选框在重复区块被跳过时会停用
+- 修复网格导航分支（on_next_row / on_next_col）中的步骤无法移入或移出区块的问题
 - 修复复制粘贴步骤时，模板标签及捕获分辨率元数据未一并复制的问题
 - 修复步骤为空时，中央面板无法打开右键菜单的问题
 - 修复切换宏时，目标窗口选项无法保存的问题

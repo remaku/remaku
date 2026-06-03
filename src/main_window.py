@@ -890,6 +890,8 @@ class MainWindow(FluentWindow):
         skip_checkbox = CheckBox(t("prop.skip"))
         skip_checkbox.setChecked(bool(step.get("skip", False)))
         skip_checkbox.toggled.connect(lambda checked: self.on_prop_bool(step, "skip", checked))
+        if self.is_child_of_skipped_repeat(step):
+            skip_checkbox.setEnabled(False)
         self.prop_fields_layout.addWidget(skip_checkbox)
 
         note_lbl = BodyLabel(t("prop.note"))
@@ -1643,8 +1645,14 @@ class MainWindow(FluentWindow):
             for branch in step.get("branches", {}).values():
                 self.collect_template_refs(branch, out)
 
+    def is_child_of_skipped_repeat(self, step: dict) -> bool:
+        return any(s.get("type") == "repeat" and s.get("skip") and step in s.get("steps", []) for s in self.flat_steps)
+
     def on_prop_bool(self, step: dict, key: str, checked: bool) -> None:
         step[key] = checked
+        if key == "skip" and step.get("type") == "repeat":
+            for child in step.get("steps", []):
+                child["skip"] = checked
         self.save_current_macro()
 
     def on_combo_edit(self, step: dict, key: str, value: str) -> None:
@@ -2074,10 +2082,16 @@ class MainWindow(FluentWindow):
 
             return branches[key]
 
+        if step_type == "grid_nav":
+            if direction == 1:
+                return step.get("on_next_row")
+            else:
+                return step.get("on_next_col") or step.get("on_next_row")
+
         return None
 
     def get_sibling_branch(self, parent: list[dict], direction: int) -> list[dict] | None:
-        """For if_image/if_any_image branches, return the next branch to traverse."""
+        """For if_image/if_any_image/grid_nav branches, return the next branch to traverse."""
         for s in self.flat_steps:
             if s.get("type") == "if_image":
                 if direction == 1 and s.get("then") is parent:
@@ -2096,6 +2110,12 @@ class MainWindow(FluentWindow):
                             return s["branches"][keys[next_i]]
 
                         return None
+            elif s.get("type") == "grid_nav":
+                if direction == 1 and s.get("on_next_row") is parent:
+                    return s.get("on_next_col")
+
+                if direction == -1 and s.get("on_next_col") is parent:
+                    return s.get("on_next_row")
 
         return None
 
@@ -2110,6 +2130,11 @@ class MainWindow(FluentWindow):
 
             if s.get("type") == "if_any_image" and any(
                 branch is child_list for branch in s.get("branches", {}).values()
+            ):
+                return s, self.flat_parents[i]
+
+            if s.get("type") == "grid_nav" and (
+                s.get("on_next_row") is child_list or s.get("on_next_col") is child_list
             ):
                 return s, self.flat_parents[i]
 

@@ -16,6 +16,7 @@
 - Fixed target window selection not being saved when changing macros
 - Templates without capture resolution metadata now automatically get a metadata file created when the macro is saved or loaded, preventing silent scaling issues
 - Fixed step list selection persisting when switching between macros
+- Fixed target window not waiting for foreground focus before running, which could send keystrokes to the wrong window
 
 <!-- lang:zh_tw -->
 
@@ -31,6 +32,7 @@
 - 修正切換巨集時，目標視窗選項無法儲存的問題
 - 缺少擷取解析度中繼資料的模板現在會在儲存或載入巨集時自動補建，避免無聲的縮放問題
 - 修正切換巨集時步驟列表選擇狀態殘留的問題
+- 修正指定目標視窗時未等待視窗取得前景焦點的問題，避免按鍵發送到錯誤的視窗
 
 <!-- lang:zh_cn -->
 
@@ -46,6 +48,7 @@
 - 修复切换宏时，目标窗口选项无法保存的问题
 - 缺少捕获分辨率元数据的模板现在会在保存或加载宏时自动创建，避免静默的缩放问题
 - 修复切换宏时步骤列表选择状态残留的问题
+- 修复指定目标窗口时未等待窗口获得前台焦点的问题，避免按键发送到错误的窗口
 
 ## v0.2.0
 

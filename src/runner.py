@@ -102,8 +102,10 @@ class StepRunner:
         if target_title:
             win = window.find_target_window(target_title)
 
-            while win is None:
-                self.update(state=t("status.waiting_window"))
+            while win is None or not window.is_foreground(win):
+                waiting_state = t("status.waiting_window") if win is None else t("status.waiting_foreground")
+
+                self.update(state=waiting_state)
 
                 if self.stop_evt.wait(1):
                     raise Stopped

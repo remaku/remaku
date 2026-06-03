@@ -2218,14 +2218,23 @@ class MainWindow(FluentWindow):
         if not rows:
             return
 
+        selected = [self.flat_steps[r] for r in rows if r < len(self.flat_steps)]
+
+        descendant_ids: set[int] = set()
+        for step in selected:
+            descendant_ids.update(self.get_descendants(step))
+
+        selected_steps = [s for s in selected if id(s) not in descendant_ids]
+
+        if not selected_steps:
+            return
+
         parent = self.flat_parents[rows[0]]
-        selected_steps = []
 
         for r in rows:
-            if r >= len(self.flat_steps) or self.flat_parents[r] is not parent:
-                return
-
-            selected_steps.append(self.flat_steps[r])
+            if r < len(self.flat_steps) and id(self.flat_steps[r]) not in descendant_ids:
+                parent = self.flat_parents[r]
+                break
 
         indices = [next(i for i, s in enumerate(parent) if s is step) for step in selected_steps]
         start, end = min(indices), max(indices)

@@ -405,6 +405,9 @@ class MainWindow(FluentWindow):
         self.step_empty_label.setWordWrap(True)
         center_layout.addWidget(self.step_empty_label, 1)
 
+        self.center_panel.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.center_panel.customContextMenuRequested.connect(self.on_step_context_menu)
+
         splitter.addWidget(self.center_panel)
 
         self.right_panel = ScrollArea()
@@ -2140,7 +2143,8 @@ class MainWindow(FluentWindow):
         act_wrap.setEnabled(has_selection)
         menu.addAction(act_wrap)
 
-        menu.exec(self.step_list.mapToGlobal(pos))
+        source = self.step_list if self.step_list.isVisible() else self.center_panel
+        menu.exec(source.mapToGlobal(pos))
 
     def wrap_in_repeat(self) -> None:
         if not self.current_runner:

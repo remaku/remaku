@@ -677,6 +677,12 @@ class MainWindow(FluentWindow):
         self.add_steps_to_list(steps, steps, indent=0)
         self.update_empty_states()
 
+    def apply_step_note(self, item: QListWidgetItem, step: dict) -> None:
+        note = step.get("note", "").strip()
+        if note:
+            item.setToolTip(note)
+            item.setText(item.text() + f" ({note})")
+
     def add_steps_to_list(self, steps: list[dict], parent: list[dict], indent: int) -> None:
         for step in steps:
             self.flat_steps.append(step)
@@ -691,6 +697,7 @@ class MainWindow(FluentWindow):
             if icon:
                 item.setIcon(icon)
 
+            self.apply_step_note(item, step)
             self.step_list.addItem(item)
 
             if step.get("type") == "repeat":
@@ -710,6 +717,7 @@ class MainWindow(FluentWindow):
                     if sub_icon:
                         item.setIcon(sub_icon)
 
+                    self.apply_step_note(item, sub)
                     self.step_list.addItem(item)
 
                 for sub in step.get("else", []):
@@ -724,6 +732,7 @@ class MainWindow(FluentWindow):
                     if sub_icon:
                         item.setIcon(sub_icon)
 
+                    self.apply_step_note(item, sub)
                     self.step_list.addItem(item)
 
                 for branch_key, branch_steps in step.get("branches", {}).items():
@@ -739,6 +748,7 @@ class MainWindow(FluentWindow):
                         if sub_icon:
                             item.setIcon(sub_icon)
 
+                        self.apply_step_note(item, sub)
                         self.step_list.addItem(item)
 
             elif step.get("type") == "grid_nav":
@@ -754,6 +764,7 @@ class MainWindow(FluentWindow):
                     if sub_icon:
                         item.setIcon(sub_icon)
 
+                    self.apply_step_note(item, sub)
                     self.step_list.addItem(item)
 
                 for sub in step.get("on_next_col", []):
@@ -768,6 +779,7 @@ class MainWindow(FluentWindow):
                     if sub_icon:
                         item.setIcon(sub_icon)
 
+                    self.apply_step_note(item, sub)
                     self.step_list.addItem(item)
 
     def step_display(self, step: dict) -> tuple[QIcon | None, str]:
@@ -819,6 +831,15 @@ class MainWindow(FluentWindow):
         skip_checkbox.setChecked(bool(step.get("skip", False)))
         skip_checkbox.toggled.connect(lambda checked: self.on_prop_bool(step, "skip", checked))
         self.prop_fields_layout.addWidget(skip_checkbox)
+
+        note_lbl = BodyLabel(t("prop.note"))
+        self.prop_fields_layout.addWidget(note_lbl)
+
+        note_edit = LineEdit()
+        note_edit.setText(step.get("note", ""))
+        note_edit.setPlaceholderText(t("prop.note_placeholder"))
+        note_edit.editingFinished.connect(lambda: self.on_prop_edit(step, "note", note_edit))
+        self.prop_fields_layout.addWidget(note_edit)
 
         if step_type == "wait_image":
             self.show_wait_image_props(step)

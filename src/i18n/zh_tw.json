@@ -98,6 +98,8 @@
   "prop.hard_timeout_ms": "硬性上限 (ms)",
   "prop.capture_width": "擷取寬度",
   "prop.capture_height": "擷取高度",
+  "prop.note": "備註",
+  "prop.note_placeholder": "為此步驟加入備註…",
 
   "settings.title": "設定",
   "settings.section.general": "一般",

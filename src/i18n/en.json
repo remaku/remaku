@@ -98,6 +98,8 @@
   "prop.hard_timeout_ms": "Hard Timeout (ms)",
   "prop.capture_width": "Capture Width",
   "prop.capture_height": "Capture Height",
+  "prop.note": "Note",
+  "prop.note_placeholder": "Add a note for this step…",
 
   "settings.title": "Settings",
   "settings.section.general": "General",

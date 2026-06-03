@@ -150,6 +150,9 @@ class StepNode:
         idx = self.sibling_index(siblings)
         if idx >= 0:
             siblings.pop(idx)
+            raw_list = self.parent.step.get(key, [])
+            if 0 <= idx < len(raw_list):
+                raw_list.pop(idx)
         self.parent = None
 
     def insert_after(self, sibling: StepNode) -> None:
@@ -160,6 +163,8 @@ class StepNode:
         siblings = sibling.parent.get_child_list(key)
         idx = siblings.index(sibling) if sibling in siblings else len(siblings)
         siblings.insert(idx + 1, self)
+        raw_list = sibling.parent.step.get(key, [])
+        raw_list.insert(idx + 1, self.step)
         self.parent = sibling.parent
 
     def append_to(self, target_list: list[StepNode]) -> None:

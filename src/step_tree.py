@@ -6,6 +6,7 @@ providing high-level operations that replace ad-hoc flat_steps manipulation.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 
 from step_node import StepNode
@@ -82,6 +83,16 @@ class StepTree:
         first = top_level[0]
         first_parent = first.parent
 
+        # Save insertion position before removing (remove updates raw dicts).
+        insert_key = ""
+        insert_idx = 0
+        if first_parent is not None:
+            for key, child_list in first_parent.child_lists():
+                if first in child_list:
+                    insert_key = key
+                    insert_idx = child_list.index(first)
+                    break
+
         # Collect the raw step dicts (deep copy to avoid shared refs).
         wrapped_steps = [copy.deepcopy(n.step) for n in top_level]
 
@@ -95,27 +106,31 @@ class StepTree:
 
         # Insert the repeat at the first node's former position.
         if first_parent is not None:
-            # Find the key the first node belonged to.
-            for key, child_list in first_parent.child_lists():
-                # We need the raw list index.
-                raw_list = first_parent.step.get(key, [])
-                # Find where first.step was in the raw list.
-                try:
-                    raw_idx = raw_list.index(first.step)
-                except ValueError:
-                    raw_idx = len(raw_list)
-                repeat_node.parent = first_parent
-                child_list.insert(raw_idx, repeat_node)
-                raw_list.insert(raw_idx, repeat_step)
-                break
+            raw_list = first_parent.step.get(insert_key, [])
+            repeat_node.parent = first_parent
+            first_parent.get_child_list(insert_key).insert(insert_idx, repeat_node)
+            raw_list.insert(insert_idx, repeat_step)
         else:
-            # First node was a root node.
-            try:
-                idx = self.steps.index(first.step)
-            except ValueError:
-                idx = len(self.steps)
-            self.steps.insert(idx, repeat_step)
-            self.root_nodes.insert(idx, repeat_node)
+            # Root node case: save positions, remove originals, insert repeat.
+            positions = []
+            for node in top_level:
+                try:
+                    positions.append(self.steps.index(node.step))
+                except ValueError:
+                    positions.append(-1)
+
+            for node in top_level:
+                if node in self.root_nodes:
+                    self.root_nodes.remove(node)
+                with contextlib.suppress(ValueError):
+                    self.steps.remove(node.step)
+
+            first_pos = positions[0]
+            removed_before = sum(1 for p in positions if 0 <= p < first_pos)
+            adjusted_idx = first_pos - removed_before
+
+            self.steps.insert(adjusted_idx, repeat_step)
+            self.root_nodes.insert(adjusted_idx, repeat_node)
 
         return repeat_node
 
@@ -130,15 +145,22 @@ class StepTree:
         for node in top_level:
             dup_step = copy.deepcopy(node.step)
             dup_node = StepNode(dup_step)
-            dup_node.insert_after(node)
-            # Also insert into the raw step list.
-            key = node.sibling_key()
-            raw_list = node.parent.step.get(key, []) if node.parent else self.steps
-            try:
-                raw_idx = raw_list.index(node.step)
-            except ValueError:
-                raw_idx = len(raw_list)
-            raw_list.insert(raw_idx + 1, dup_step)
+
+            if node.parent is not None:
+                dup_node.insert_after(node)
+            else:
+                # Root node: insert into root_nodes and steps.
+                try:
+                    idx = self.root_nodes.index(node)
+                except ValueError:
+                    idx = len(self.root_nodes)
+                self.root_nodes.insert(idx + 1, dup_node)
+                try:
+                    raw_idx = self.steps.index(node.step)
+                except ValueError:
+                    raw_idx = len(self.steps)
+                self.steps.insert(raw_idx + 1, dup_step)
+
             duplicates.append(dup_node)
 
         return duplicates

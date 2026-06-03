@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff check
+        run: uv run ruff check src
+
+      - name: Ruff format check
+        run: uv run ruff format --check src
+
+  typecheck:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Pyright
+        run: uv run pyright src
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Pytest
+        run: uv run pytest --cov=src --cov-report=term-missing tests/

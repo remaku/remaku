@@ -386,3 +386,169 @@ class TestRepr:
         r = repr(node)
         assert "key" in r
         assert "StepNode" in r
+
+
+# ---------------------------------------------------------------------------
+# all_child_lists
+# ---------------------------------------------------------------------------
+
+
+class TestAllChildLists:
+    def test_repeat(self):
+        step = {"type": "repeat", "steps": [{"type": "key", "key": "a"}]}
+        node = StepNode(step)
+        result = node.all_child_lists()
+        assert len(result) == 1
+        assert len(result[0]) == 1
+
+    def test_if_image(self):
+        step = {"type": "if_image", "then": [], "else": []}
+        node = StepNode(step)
+        result = node.all_child_lists()
+        assert len(result) == 2
+
+    def test_leaf(self):
+        node = StepNode({"type": "key", "key": "a"})
+        assert node.all_child_lists() == []
+
+
+# ---------------------------------------------------------------------------
+# next_sibling / prev_sibling with no parent
+# ---------------------------------------------------------------------------
+
+
+class TestSiblingNoParent:
+    def test_next_sibling_no_parent(self):
+        node = StepNode({"type": "key", "key": "a"})
+        assert node.next_sibling() is None
+
+    def test_prev_sibling_no_parent(self):
+        node = StepNode({"type": "key", "key": "a"})
+        assert node.prev_sibling() is None
+
+
+# ---------------------------------------------------------------------------
+# insert_after with no parent
+# ---------------------------------------------------------------------------
+
+
+class TestInsertAfterNoParent:
+    def test_sibling_has_no_parent(self):
+        a = StepNode({"type": "key", "key": "a"})
+        b = StepNode({"type": "key", "key": "b"})
+        b.insert_after(a)
+        # a has no parent, so insert_after is a no-op
+        assert b.parent is None
+
+
+# ---------------------------------------------------------------------------
+# append_to / insert_in with parent
+# ---------------------------------------------------------------------------
+
+
+class TestAppendToWithParent:
+    def test_sets_parent(self):
+        parent_step = {"type": "repeat", "steps": []}
+        parent = StepNode(parent_step)
+        child_list = parent.get_child_list("steps")
+        new_node = StepNode({"type": "key", "key": "x"})
+        new_node.append_to(child_list, parent=parent)
+        assert new_node.parent is parent
+        assert len(child_list) == 1
+
+    def test_removes_from_old_parent(self):
+        old_parent_step = {"type": "repeat", "steps": [{"type": "key", "key": "a"}]}
+        old_parent = StepNode(old_parent_step)
+        child = old_parent.get_child_list("steps")[0]
+
+        new_parent_step = {"type": "repeat", "steps": []}
+        new_parent = StepNode(new_parent_step)
+        new_list = new_parent.get_child_list("steps")
+
+        child.append_to(new_list, parent=new_parent)
+        assert child.parent is new_parent
+        assert len(old_parent.get_child_list("steps")) == 0
+
+
+class TestInsertInWithParent:
+    def test_sets_parent(self):
+        parent_step = {"type": "repeat", "steps": []}
+        parent = StepNode(parent_step)
+        child_list = parent.get_child_list("steps")
+        new_node = StepNode({"type": "key", "key": "x"})
+        new_node.insert_in(child_list, 0, parent=parent)
+        assert new_node.parent is parent
+        assert len(child_list) == 1
+
+
+# ---------------------------------------------------------------------------
+# branches_map cache hit
+# ---------------------------------------------------------------------------
+
+
+class TestBranchesMapCache:
+    def test_cache_hit(self):
+        step = {"type": "if_any_image", "branches": {"a": [{"type": "key", "key": "x"}]}}
+        node = StepNode(step)
+        result1 = node.branches_map()
+        result2 = node.branches_map()
+        assert result1 is result2
+
+
+# ---------------------------------------------------------------------------
+# sibling_key / sibling_index edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSiblingKeyEdgeCases:
+    def test_no_match_returns_empty(self):
+        parent_step = {"type": "repeat", "steps": []}
+        parent = StepNode(parent_step)
+        orphan = StepNode({"type": "key", "key": "x"})
+        orphan.parent = parent
+        assert orphan.sibling_key() == ""
+
+
+class TestSiblingIndexEdgeCases:
+    def test_not_found_returns_negative(self):
+        parent_step = {"type": "repeat", "steps": [{"type": "key", "key": "a"}]}
+        parent = StepNode(parent_step)
+        child = parent.get_child_list("steps")[0]
+        other = StepNode({"type": "key", "key": "y"})
+        assert other.sibling_index([child]) == -1
+
+
+# ---------------------------------------------------------------------------
+# clear_caches
+# ---------------------------------------------------------------------------
+
+
+class TestClearCaches:
+    def test_clears_repeat_cache(self):
+        step = {"type": "repeat", "steps": [{"type": "key", "key": "a"}]}
+        node = StepNode(step)
+        _ = node.get_child_list("steps")  # populate cache
+        assert hasattr(node, "cached_children_steps")
+        node.clear_caches()
+        assert not hasattr(node, "cached_children_steps")
+
+    def test_clears_if_image_cache(self):
+        step = {"type": "if_image", "then": [], "else": []}
+        node = StepNode(step)
+        _ = node.get_child_list("then")
+        _ = node.get_child_list("else")
+        node.clear_caches()
+        assert not hasattr(node, "cached_children_then")
+        assert not hasattr(node, "cached_children_else")
+
+    def test_clears_if_any_image_cache(self):
+        step = {"type": "if_any_image", "branches": {"a": []}}
+        node = StepNode(step)
+        _ = node.branches_map()
+        assert hasattr(node, "cached_branches")
+        node.clear_caches()
+        assert not hasattr(node, "cached_branches")
+
+    def test_no_cache_no_error(self):
+        node = StepNode({"type": "key", "key": "a"})
+        node.clear_caches()  # should not raise

@@ -567,16 +567,16 @@ class MainWindow(FluentWindow):
 
         combo = ComboBox()
         combo.blockSignals(True)
-        combo.addItem(t("prop.target_window_foreground"), "")
+        combo.addItem(t("prop.target_window_foreground"), userData="")
 
         for title in window.list_visible_windows():
-            combo.addItem(title, title)
+            combo.addItem(title, userData=title)
 
         current = self.current_runner.target_window
         idx = combo.findData(current)
 
         if idx < 0 and current:
-            combo.addItem(current, current)
+            combo.addItem(current, userData=current)
             idx = combo.count() - 1
 
         if idx >= 0:

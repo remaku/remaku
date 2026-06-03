@@ -133,7 +133,7 @@ class TestMacroList:
         assert main_window.macro_list.item(0).text() == "Test Macro A"
         assert main_window.macro_list.item(1).text() == "Test Macro B"
 
-    def test_switch_macro(self, main_window: MainWindow, qtbot):
+    def test_switch_macro(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(1)
         assert main_window.current_runner is not None
         assert main_window.current_runner.label == "Test Macro B"
@@ -148,11 +148,11 @@ class TestStepList:
     def test_step_count_macro_a(self, main_window: MainWindow):
         assert main_window.step_list.count() == 2
 
-    def test_step_count_macro_b(self, main_window: MainWindow, qtbot):
+    def test_step_count_macro_b(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(1)
         assert main_window.step_list.count() == 4  # key + repeat + key + delay
 
-    def test_step_selection(self, main_window: MainWindow, qtbot):
+    def test_step_selection(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         assert main_window.step_list.currentRow() == 0
 
@@ -173,13 +173,13 @@ class TestStepList:
 
 
 class TestStepOperations:
-    def test_delete_step(self, main_window: MainWindow, qtbot):
+    def test_delete_step(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         assert main_window.step_list.count() == 1
         assert len(get_runner(main_window).macro["steps"]) == 1
 
-    def test_delete_last_step(self, main_window: MainWindow, qtbot):
+    def test_delete_last_step(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         main_window.step_list.setCurrentRow(0)
@@ -187,14 +187,14 @@ class TestStepOperations:
         assert main_window.step_list.count() == 0
         assert len(get_runner(main_window).macro["steps"]) == 0
 
-    def test_add_step(self, main_window: MainWindow, qtbot):
+    def test_add_step(self, main_window: MainWindow):
         initial_count = main_window.step_list.count()
         step = {"type": "key", "key": "escape"}
         main_window.do_add_step(step)
         assert main_window.step_list.count() == initial_count + 1
         assert get_runner(main_window).macro["steps"][-1]["key"] == "escape"
 
-    def test_add_step_after_selected(self, main_window: MainWindow, qtbot):
+    def test_add_step_after_selected(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         step = {"type": "delay", "ms": 200}
         main_window.do_add_step(step)
@@ -202,7 +202,7 @@ class TestStepOperations:
         steps = get_runner(main_window).macro["steps"]
         assert steps[1]["type"] == "delay"
 
-    def test_move_step_down(self, main_window: MainWindow, qtbot):
+    def test_move_step_down(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         steps_before = [s["type"] for s in get_runner(main_window).macro["steps"]]
         main_window.on_move_step(1)
@@ -210,20 +210,20 @@ class TestStepOperations:
         assert steps_before == ["key", "delay"]
         assert steps_after == ["delay", "key"]
 
-    def test_move_step_up(self, main_window: MainWindow, qtbot):
+    def test_move_step_up(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(1)
         main_window.on_move_step(-1)
         steps_after = [s["type"] for s in get_runner(main_window).macro["steps"]]
         assert steps_after == ["delay", "key"]
 
-    def test_duplicate_step(self, main_window: MainWindow, qtbot):
+    def test_duplicate_step(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.duplicate_steps()
         assert main_window.step_list.count() == 3
         steps = get_runner(main_window).macro["steps"]
         assert steps[0]["key"] == steps[1]["key"]
 
-    def test_copy_paste_step(self, main_window: MainWindow, qtbot):
+    def test_copy_paste_step(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.copy_steps()
         main_window.step_list.setCurrentRow(1)
@@ -232,14 +232,14 @@ class TestStepOperations:
         steps = get_runner(main_window).macro["steps"]
         assert steps[2]["type"] == "key"
 
-    def test_cut_step(self, main_window: MainWindow, qtbot):
+    def test_cut_step(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.cut_steps()
         assert main_window.step_list.count() == 1
         assert hasattr(main_window, "step_clipboard")
         assert len(main_window.step_clipboard["steps"]) == 1
 
-    def test_wrap_in_repeat(self, main_window: MainWindow, qtbot):
+    def test_wrap_in_repeat(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         model = main_window.step_list.model()
         selection_model = main_window.step_list.selectionModel()
@@ -260,21 +260,21 @@ class TestStepOperations:
 
 
 class TestUndoRedo:
-    def test_undo_deletes_last_action(self, main_window: MainWindow, qtbot):
+    def test_undo_deletes_last_action(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         assert main_window.step_list.count() == 1
         main_window.undo()
         assert main_window.step_list.count() == 2
 
-    def test_redo_after_undo(self, main_window: MainWindow, qtbot):
+    def test_redo_after_undo(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
         main_window.undo()
         main_window.redo()
         assert main_window.step_list.count() == 1
 
-    def test_undo_button_state(self, main_window: MainWindow, qtbot):
+    def test_undo_button_state(self, main_window: MainWindow):
         assert not main_window.btn_undo.isEnabled()
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
@@ -287,7 +287,7 @@ class TestUndoRedo:
 
 
 class TestEmptyStates:
-    def test_empty_macro_shows_hint(self, main_window: MainWindow, qtbot):
+    def test_empty_macro_shows_hint(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(0)
         main_window.step_list.setCurrentRow(0)
         main_window.on_delete_step()
@@ -298,7 +298,7 @@ class TestEmptyStates:
         assert main_window.step_list.isHidden()
         assert not main_window.step_empty_label.isHidden()
 
-    def test_no_macros_shows_hint(self, main_window: MainWindow, qtbot):
+    def test_no_macros_shows_hint(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(0)
         main_window.on_delete_step()
         # Can't easily test macro empty state without deleting macros
@@ -311,16 +311,16 @@ class TestEmptyStates:
 
 
 class TestPropertyPanel:
-    def test_selecting_step_shows_props(self, main_window: MainWindow, qtbot):
+    def test_selecting_step_shows_props(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         assert main_window.prop_fields_layout.count() > 0
 
-    def test_selecting_different_step_updates_props(self, main_window: MainWindow, qtbot):
+    def test_selecting_different_step_updates_props(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         main_window.step_list.setCurrentRow(1)
         assert main_window.prop_fields_layout.count() > 0
 
-    def test_macro_props_shown_when_no_step_selected(self, main_window: MainWindow, qtbot):
+    def test_macro_props_shown_when_no_step_selected(self, main_window: MainWindow):
         main_window.step_list.clearSelection()
         main_window.show_macro_props()
         assert main_window.prop_title.text() != ""

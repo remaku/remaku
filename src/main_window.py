@@ -539,6 +539,7 @@ class MainWindow(FluentWindow):
 
         self.current_runner = self.runners[row]
         self.populate_steps()
+        self.step_list.clearSelection()
         self.show_macro_props()
         self.update_undo_redo_state()
 

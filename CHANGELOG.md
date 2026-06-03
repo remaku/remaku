@@ -11,6 +11,7 @@
 ### Fixed
 
 - Fixed target window selection not being saved when changing macros
+- Templates without capture resolution metadata now automatically get a metadata file created when the macro is saved or loaded, preventing silent scaling issues
 
 <!-- lang:zh_tw -->
 
@@ -21,6 +22,7 @@
 ### 修正
 
 - 修正切換巨集時，目標視窗選項無法儲存的問題
+- 缺少擷取解析度中繼資料的模板現在會在儲存或載入巨集時自動補建，避免無聲的縮放問題
 
 <!-- lang:zh_cn -->
 
@@ -31,6 +33,7 @@
 ### 修复
 
 - 修复切换宏时，目标窗口选项无法保存的问题
+- 缺少捕获分辨率元数据的模板现在会在保存或加载宏时自动创建，避免静默的缩放问题
 
 ## v0.2.0
 

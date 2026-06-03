@@ -1452,6 +1452,16 @@ class MainWindow(FluentWindow):
         meta_path = self.macro_templates_dir / f"{name}.json"
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
+    def ensure_template_meta(self, name: str) -> None:
+        """Ensure the template has a metadata JSON file. If missing, create one
+        with the current capture resolution."""
+        meta_path = self.macro_templates_dir / f"{name}.json"
+
+        if meta_path.exists():
+            return
+
+        self.write_template_meta(name)
+
     def get_template_meta(self, name: str) -> dict:
         """Read template metadata JSON. Returns an empty dict if the file doesn't exist."""
         meta_path = self.macro_templates_dir / f"{name}.json"
@@ -1519,6 +1529,9 @@ class MainWindow(FluentWindow):
 
         existing = macro.get("templates", {})
         macro["templates"] = {name: existing.get(name, {"label": name}) for name in used}
+
+        for name in used:
+            self.ensure_template_meta(name)
 
         self.current_runner.template_names = list(used)
 

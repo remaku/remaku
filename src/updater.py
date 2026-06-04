@@ -34,8 +34,8 @@ from i18n import t
 from version import __version__
 
 REPO = "remaku/remaku"
-API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
-API_URL_ALL = f"https://api.github.com/repos/{REPO}/releases?per_page=1"
+API_URL_STABLE = f"https://api.github.com/repos/{REPO}/releases/latest"
+API_URL_BETA = f"https://api.github.com/repos/{REPO}/releases?per_page=10"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
 INSTALLER_ASSET_PREFIX = "Remaku_Setup"
 
@@ -53,6 +53,7 @@ class UpdateInfo:
     version: Version
     body: str
     installer_url: str
+    release_url: str
 
 
 @dataclass
@@ -116,14 +117,10 @@ def check() -> CheckResult:
         return CheckResult(status="error", error=f"Cannot parse current version: {__version__}")
 
     conf = cfg.load()
-    url = API_URL_ALL if conf.general.update_channel == "beta" else API_URL
+    channel = conf.general.update_channel
 
     try:
-        req = Request(url, headers={"Accept": "application/vnd.github.v3+json"})
-
-        with urlopen(req, timeout=CHECK_TIMEOUT_S) as resp:
-            raw = json.loads(resp.read())
-            data = raw[0] if isinstance(raw, list) else raw
+        result = _check_beta(current) if channel == "beta" else _check_stable(current)
     except (URLError, OSError) as e:
         logger.warning("updater: update check connection failed: {}", e)
         return CheckResult(status="error", error=f"Connection failed: {e}")
@@ -131,6 +128,57 @@ def check() -> CheckResult:
         logger.warning("updater: update check response format error: {}", e)
         return CheckResult(status="error", error=f"Response format error: {e}")
 
+    return result
+
+
+def _check_stable(current: Version) -> CheckResult:
+    """Check for stable updates using /releases/latest."""
+    data = _fetch_json(API_URL_STABLE)
+    data = data[0] if isinstance(data, list) else data
+
+    return _compare_release(data, current)
+
+
+def _check_beta(current: Version) -> CheckResult:
+    """Check for beta updates from recent releases, picking the highest version."""
+    releases = _fetch_json(API_URL_BETA)
+
+    if not isinstance(releases, list) or not releases:
+        return CheckResult(status="error", error="No releases found")
+
+    best_release = None
+    best_version: Version | None = None
+
+    for release in releases:
+        if release.get("draft", False):
+            continue
+
+        tag = release.get("tag_name", "")
+        version = parse_version(tag)
+
+        if version is None:
+            continue
+
+        if best_version is None or version > best_version:
+            best_version = version
+            best_release = release
+
+    if best_release is None or best_version is None:
+        return CheckResult(status="error", error="No valid releases found")
+
+    return _compare_release(best_release, current)
+
+
+def _fetch_json(url: str) -> dict | list:
+    """Fetch JSON from a GitHub API URL."""
+    req = Request(url, headers={"Accept": "application/vnd.github.v3+json"})
+
+    with urlopen(req, timeout=CHECK_TIMEOUT_S) as resp:
+        return json.loads(resp.read())
+
+
+def _compare_release(data: dict, current: Version) -> CheckResult:
+    """Compare a single release against the current version."""
     latest_tag = data.get("tag_name", "")
     latest = parse_version(latest_tag)
 
@@ -141,14 +189,16 @@ def check() -> CheckResult:
     if latest <= current:
         return CheckResult(status="up_to_date")
 
+    tag = data.get("tag_name", "")
     info = UpdateInfo(
-        tag=latest_tag,
+        tag=tag,
         version=latest,
         body=data.get("body", "") or "",
         installer_url=find_installer_url(data.get("assets", [])),
+        release_url=data.get("html_url") or f"https://github.com/{REPO}/releases/tag/{tag}",
     )
 
-    logger.info("updater: new version found {} (current {})", latest_tag, __version__)
+    logger.info("updater: new version found {} (current {})", tag, __version__)
 
     return CheckResult(status="available", info=info)
 
@@ -286,8 +336,8 @@ def clear_skip() -> None:
     logger.info("updater: skipped version cleared")
 
 
-def open_releases_page() -> None:
-    webbrowser.open(RELEASES_URL)
+def open_releases_page(url: str = RELEASES_URL) -> None:
+    webbrowser.open(url)
 
 
 class UpdateDialog(QDialog):
@@ -308,6 +358,7 @@ class UpdateDialog(QDialog):
         self.info = info
         self.download: Download | None = None
         self.phase = self.PHASE_PROMPT
+        self.channel = cfg.load().general.update_channel
 
         self.build_ui()
 
@@ -323,6 +374,10 @@ class UpdateDialog(QDialog):
 
         subtitle_lbl = CaptionLabel(t("updater.current_version", version=__version__))
         outer.addWidget(subtitle_lbl)
+
+        if self.channel == "beta":
+            channel_lbl = CaptionLabel(t("updater.channel_beta"))
+            outer.addWidget(channel_lbl)
 
         outer.addSpacing(24)
 
@@ -384,8 +439,7 @@ class UpdateDialog(QDialog):
 
     def on_install(self) -> None:
         if not self.info.installer_url:
-            # No installer asset: fallback to opening browser
-            open_releases_page()
+            open_releases_page(self.info.release_url)
             self.close()
             return
         self.enter_download_phase()
@@ -474,7 +528,7 @@ class UpdateDialog(QDialog):
         self.btn_install.clicked.connect(self.fallback_browser)
 
     def fallback_browser(self) -> None:
-        open_releases_page()
+        open_releases_page(self.info.release_url)
         self.close()
 
     def closeEvent(self, event) -> None:

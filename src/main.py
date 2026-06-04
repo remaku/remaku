@@ -70,6 +70,7 @@ def main() -> None:
             version=(99, 0, 0, 999999),
             body="<!-- lang:en -->\n### Added\n- Example feature\n<!-- lang:zh_tw -->\n### 新增\n- 範例功能\n<!-- lang:zh_cn -->\n### 新增\n- 示例功能",
             installer_url="https://example.com/fake.exe",
+            release_url="https://github.com/remaku/remaku/releases/tag/v99.0.0",
         )
         dialog = UpdateDialog(window, info)
         dialog.show()

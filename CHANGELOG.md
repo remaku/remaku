@@ -8,6 +8,9 @@
 
 - Foreground window checking is now automatic during macro execution, removing the need for a separate "Check Foreground" step
 - Template capture resolution metadata is now stored inside the macro file instead of separate JSON files, with automatic migration for existing macros
+- Beta channel now checks both stable and beta releases, always offering the highest available version instead of only the most recently published one
+- Update dialog now shows the active channel when beta is selected
+- "Open Download Page" now links to the specific release instead of always the latest release page
 
 ### Fixed
 
@@ -20,6 +23,9 @@
 
 - 前景視窗檢查現在在巨集執行時自動進行，不再需要獨立的「確認前景」步驟
 - 模板擷取解析度中繼資料現在儲存在巨集檔案內，而非獨立的 JSON 檔案，現有巨集會自動遷移
+- Beta 頻道現在會同時檢查穩定版與測試版，永遠提供最高可用版本，而非僅檢查最新發布的一筆
+- 更新對話框在選用 Beta 頻道時現在會顯示目前頻道
+- 「開啟下載頁」現在會導向該版本的具體頁面，而非固定的最新版本頁面
 
 ### 修正
 
@@ -32,6 +38,9 @@
 
 - 前景窗口检查现在在宏执行时自动进行，不再需要独立的「确认前台」步骤
 - 模板捕获分辨率元数据现在存储在宏文件内，而非独立的 JSON 文件，现有宏会自动迁移
+- Beta 频道现在会同时检查稳定版与测试版，永远提供最高可用版本，而非仅检查最新发布的一笔
+- 更新对话框在选用 Beta 频道时现在会显示当前频道
+- 「打开下载页」现在会导向该版本的具体页面，而非固定的最新版本页面
 
 ### 修复
 

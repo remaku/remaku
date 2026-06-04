@@ -141,6 +141,7 @@
   "updater.check_failed_title": "檢查失敗",
   "updater.download_failed": "下載失敗：{error}",
   "updater.install_failed": "無法啟動安裝程式：{error}",
+  "updater.channel_beta": "頻道：Beta",
 
   "dialog.new_macro": "新增巨集",
   "dialog.name_placeholder": "名稱",

@@ -141,6 +141,7 @@
   "updater.check_failed_title": "Check Failed",
   "updater.download_failed": "Download failed: {error}",
   "updater.install_failed": "Failed to launch installer: {error}",
+  "updater.channel_beta": "Channel: Beta",
 
   "dialog.new_macro": "New Macro",
   "dialog.name_placeholder": "Name",

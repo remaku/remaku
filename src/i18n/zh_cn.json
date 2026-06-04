@@ -141,6 +141,7 @@
   "updater.check_failed_title": "检查失败",
   "updater.download_failed": "下载失败：{error}",
   "updater.install_failed": "无法启动安装程序：{error}",
+  "updater.channel_beta": "频道：Beta",
 
   "dialog.new_macro": "新建宏",
   "dialog.name_placeholder": "名称",

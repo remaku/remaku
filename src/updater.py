@@ -7,6 +7,7 @@ import contextlib
 import json
 import os
 import re
+import ssl
 import subprocess
 import tempfile
 import threading
@@ -17,6 +18,7 @@ from typing import Literal
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+import certifi
 from loguru import logger
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -42,6 +44,11 @@ INSTALLER_ASSET_PREFIX = "Remaku_Setup"
 CHECK_TIMEOUT_S = 5
 DOWNLOAD_TIMEOUT_S = 60
 CHUNK_SIZE = 64 * 1024
+
+
+def ssl_context() -> ssl.SSLContext:
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    return ctx
 
 
 Version = tuple[int, int, int, int]
@@ -173,7 +180,7 @@ def _fetch_json(url: str) -> dict | list:
     """Fetch JSON from a GitHub API URL."""
     req = Request(url, headers={"Accept": "application/vnd.github.v3+json"})
 
-    with urlopen(req, timeout=CHECK_TIMEOUT_S) as resp:
+    with urlopen(req, timeout=CHECK_TIMEOUT_S, context=ssl_context()) as resp:
         return json.loads(resp.read())
 
 
@@ -265,7 +272,7 @@ class Download:
         try:
             req = Request(self.url, headers={"Accept": "application/octet-stream"})
 
-            with urlopen(req, timeout=DOWNLOAD_TIMEOUT_S) as resp:
+            with urlopen(req, timeout=DOWNLOAD_TIMEOUT_S, context=ssl_context()) as resp:
                 total = int(resp.headers.get("Content-Length", "0") or 0)
                 downloaded = 0
 

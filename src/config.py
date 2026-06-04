@@ -7,7 +7,10 @@ import ctypes
 import json
 from ctypes import wintypes
 from dataclasses import asdict, dataclass
+from json import JSONDecodeError
 from pathlib import Path
+
+from loguru import logger
 
 APP_NAME = "remaku"
 DEFAULT_THRESHOLD = 0.85
@@ -106,7 +109,12 @@ def load() -> Config:
     if not path.exists():
         return get_defaults()
 
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (JSONDecodeError, OSError) as e:
+        logger.warning("config: failed to load {}, using defaults: {}", path, e)
+        return get_defaults()
+
     defaults = get_defaults()
 
     def merge(cls, defaults_inst, section: dict):

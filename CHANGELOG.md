@@ -9,6 +9,11 @@
 - Foreground window checking is now automatic during macro execution, removing the need for a separate "Check Foreground" step
 - Template capture resolution metadata is now stored inside the macro file instead of separate JSON files, with automatic migration for existing macros
 
+### Fixed
+
+- Fixed a crash on startup when the config file is empty or contains invalid JSON; the app now falls back to default settings
+- Fixed screen capture failing with an unrecoverable error when the GPU is temporarily busy; the app now retries a few times before giving up
+
 <!-- lang:zh_tw -->
 
 ### 變更
@@ -16,12 +21,22 @@
 - 前景視窗檢查現在在巨集執行時自動進行，不再需要獨立的「確認前景」步驟
 - 模板擷取解析度中繼資料現在儲存在巨集檔案內，而非獨立的 JSON 檔案，現有巨集會自動遷移
 
+### 修正
+
+- 修正設定檔為空或 JSON 格式錯誤時程式無法啟動的問題，現在會自動套用預設值
+- 修正 GPU 暫時忙碌時螢幕擷取直接失敗的問題，現在會自動重試數次後才放棄
+
 <!-- lang:zh_cn -->
 
 ### 变更
 
 - 前景窗口检查现在在宏执行时自动进行，不再需要独立的「确认前台」步骤
 - 模板捕获分辨率元数据现在存储在宏文件内，而非独立的 JSON 文件，现有宏会自动迁移
+
+### 修复
+
+- 修复配置文件为空或 JSON 格式错误时程序无法启动的问题，现在会自动套用默认值
+- 修复 GPU 暂时忙碌时屏幕捕获直接失败的问题，现在会自动重试数次后才放弃
 
 ## v0.3.0
 

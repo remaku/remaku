@@ -4,6 +4,7 @@ Provides screen capture using BetterCam (DXGI Desktop Duplication).
 """
 
 import contextlib
+import time
 
 import bettercam
 import numpy as np
@@ -46,5 +47,12 @@ class Grabber:
             del self.cam
 
 
-def make_grabber() -> Grabber:
-    return Grabber()
+def make_grabber(max_retries: int = 3, retry_delay: float = 1.0) -> Grabber:
+    for attempt in range(1, max_retries + 1):
+        try:
+            return Grabber()
+        except Exception as e:
+            logger.warning("capture: grabber init failed (attempt {}/{}): {}", attempt, max_retries, e)
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+    raise RuntimeError(f"capture: failed to create grabber after {max_retries} attempts")

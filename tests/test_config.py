@@ -101,6 +101,35 @@ class TestLoad:
         assert cfg.capture == config.get_defaults().capture
         assert cfg.input == config.get_defaults().input
 
+    def test_returns_defaults_when_file_is_empty(self, tmp_path):
+        (tmp_path / "config.json").write_text("", encoding="utf-8")
+
+        cfg = config.load()
+        assert cfg == config.get_defaults()
+
+    def test_returns_defaults_when_file_has_invalid_json(self, tmp_path):
+        (tmp_path / "config.json").write_text("{bad json!!", encoding="utf-8")
+
+        cfg = config.load()
+        assert cfg == config.get_defaults()
+
+    def test_returns_defaults_when_file_is_whitespace_only(self, tmp_path):
+        (tmp_path / "config.json").write_text("   \n\t  ", encoding="utf-8")
+
+        cfg = config.load()
+        assert cfg == config.get_defaults()
+
+    def test_returns_defaults_on_os_error(self, tmp_path, monkeypatch):
+        (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+
+        def raise_os_error(*args, **kwargs):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("pathlib.Path.read_text", raise_os_error)
+
+        cfg = config.load()
+        assert cfg == config.get_defaults()
+
 
 class TestSave:
     def test_roundtrip(self):

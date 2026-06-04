@@ -1162,10 +1162,9 @@ class MainWindow(FluentWindow):
             if old_path.exists():
                 old_path.unlink()
 
-            old_meta = self.macro_templates_dir / f"{old_name}.json"
-
-            if old_meta.exists():
-                old_meta.unlink()
+            if self.current_runner:
+                macro_templates = self.current_runner.macro.get("templates", {})
+                macro_templates.pop(old_name, None)
 
         step["templates"][idx] = name
         self.sync_macro_templates()
@@ -1368,9 +1367,9 @@ class MainWindow(FluentWindow):
             old_path = self.macro_templates_dir / f"{old_name}.png"
             if old_path.exists():
                 old_path.unlink()
-            old_meta = self.macro_templates_dir / f"{old_name}.json"
-            if old_meta.exists():
-                old_meta.unlink()
+            if self.current_runner:
+                macro_templates = self.current_runner.macro.get("templates", {})
+                macro_templates.pop(old_name, None)
 
         step["template"] = name
         self.sync_macro_templates()
@@ -1457,52 +1456,80 @@ class MainWindow(FluentWindow):
         return template.get("label", name)
 
     def write_template_meta(self, name: str) -> None:
-        """Write capture-resolution metadata for a template picked from file."""
+        """Write capture-resolution metadata for a template into macro["templates"][name].
+
+        Stores capture_width and capture_height from the current screen resolution
+        into the macro JSON structure (not separate files).
+        """
+        if not self.current_runner:
+            return
+
         grabber = capture.Grabber()
-        meta = {"capture_width": grabber.screen_width, "capture_height": grabber.screen_height}
+        entry = self.current_runner.macro.get("templates", {}).get(name, {"label": name})
+        entry["capture_width"] = grabber.screen_width
+        entry["capture_height"] = grabber.screen_height
         grabber.close()
 
-        meta_path = self.macro_templates_dir / f"{name}.json"
-        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        self.current_runner.macro.setdefault("templates", {})[name] = entry
 
     def ensure_template_meta(self, name: str) -> None:
-        """Ensure the template has a metadata JSON file. If missing, create one
-        with the current capture resolution."""
-        meta_path = self.macro_templates_dir / f"{name}.json"
+        """Ensure the template has capture resolution metadata in macro["templates"][name].
 
-        if meta_path.exists():
+        If the entry already has capture_width and capture_height, this is a no-op.
+        Otherwise, writes the current screen resolution as the capture metadata.
+        """
+        if not self.current_runner:
+            return
+
+        entry = self.current_runner.macro.get("templates", {}).get(name, {})
+        if "capture_width" in entry and "capture_height" in entry:
             return
 
         self.write_template_meta(name)
 
     def get_template_meta(self, name: str) -> dict:
-        """Read template metadata JSON. Returns an empty dict if the file doesn't exist."""
+        """Read template metadata from macro["templates"][name].
+
+        Backward compatibility: if the macro JSON entry doesn't have capture
+        resolution yet, falls back to reading the legacy separate .json file
+        and migrates the data into the macro JSON (deleting the legacy file).
+        Returns the template entry dict containing label, capture_width, capture_height.
+        Returns an empty dict if the runner or template entry doesn't exist.
+        """
+        if not self.current_runner:
+            return {}
+
+        entry = self.current_runner.macro.get("templates", {}).get(name, {})
+        if "capture_width" in entry and "capture_height" in entry:
+            return entry
+
         meta_path = self.macro_templates_dir / f"{name}.json"
+        if meta_path.exists():
+            try:
+                legacy = json.loads(meta_path.read_text(encoding="utf-8"))
+                entry.setdefault("capture_width", legacy.get("capture_width"))
+                entry.setdefault("capture_height", legacy.get("capture_height"))
+                meta_path.unlink(missing_ok=True)
+                self.current_runner.macro.setdefault("templates", {})[name] = entry
+                self.save_current_macro()
+            except (ValueError, OSError):
+                pass
 
-        if not meta_path.exists():
-            return {}
-
-        try:
-            return json.loads(meta_path.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
-            return {}
+        return entry
 
     def on_template_resolution_edit(self, name: str, key: str, edit: LineEdit) -> None:
-        """Update a capture resolution field in the template's metadata JSON."""
-        meta_path = self.macro_templates_dir / f"{name}.json"
-        meta = {}
-
-        if meta_path.exists():
-            with contextlib.suppress(ValueError, OSError):
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        """Update a capture resolution field in macro["templates"][name]."""
+        if not self.current_runner:
+            return
 
         try:
             value = int(edit.text())
         except ValueError:
             return
 
-        meta[key] = value
-        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        entry = self.current_runner.macro.get("templates", {}).get(name, {"label": name})
+        entry[key] = value
+        self.current_runner.macro.setdefault("templates", {})[name] = entry
 
     def add_template_resolution_fields(self, template_name: str, layout: QVBoxLayout) -> None:
         """Add capture width and height edit fields for the given template."""
@@ -1530,8 +1557,41 @@ class MainWindow(FluentWindow):
         )
         layout.addWidget(height_edit)
 
+    def migrate_template_meta(self, name: str, entry: dict) -> None:
+        """Migrate legacy separate .json metadata file into macro["templates"][name].
+
+        Backward compatibility: older versions stored capture resolution in a separate
+        <name>.json file alongside the template .png. This method reads that file,
+        merges capture_width/capture_height into the macro JSON entry, and deletes
+        the legacy file. No-op if the entry already has metadata or no legacy file exists.
+        """
+        if "capture_width" in entry and "capture_height" in entry:
+            return
+
+        meta_path = self.macro_templates_dir / f"{name}.json"
+        if not meta_path.exists():
+            return
+
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            return
+
+        entry.setdefault("capture_width", meta.get("capture_width"))
+        entry.setdefault("capture_height", meta.get("capture_height"))
+        meta_path.unlink(missing_ok=True)
+
     def sync_macro_templates(self) -> None:
-        """Rebuild macro["templates"] to only keep template names actually referenced by steps."""
+        """Rebuild macro["templates"] to only keep template names actually referenced by steps.
+
+        Each template entry in macro["templates"] stores:
+        - label: display name for the template
+        - capture_width: screen width when the template was captured (for runtime scaling)
+        - capture_height: screen height when the template was captured (for runtime scaling)
+
+        Backward compatibility: if separate .json metadata files exist alongside template .png
+        files (legacy format), they are migrated into macro["templates"] and deleted.
+        """
         if not self.current_runner:
             return
 
@@ -1541,7 +1601,14 @@ class MainWindow(FluentWindow):
         self.collect_template_refs(macro.get("steps", []), used)
 
         existing = macro.get("templates", {})
-        macro["templates"] = {name: existing.get(name, {"label": name}) for name in used}
+        migrated: dict[str, dict] = {}
+
+        for name in used:
+            entry = existing.get(name, {"label": name})
+            self.migrate_template_meta(name, entry)
+            migrated[name] = entry
+
+        macro["templates"] = migrated
 
         for name in used:
             self.ensure_template_meta(name)
@@ -1855,6 +1922,11 @@ class MainWindow(FluentWindow):
             self.step_list.clearSelection()
 
     def copy_steps(self) -> None:
+        """Copy selected steps and their template data to the internal clipboard.
+
+        Stores template PNG data and metadata (label, capture_width, capture_height)
+        from macro["templates"] so pasting across macros carries all info.
+        """
         if not self.current_runner or not self.step_tree:
             return
 
@@ -1876,24 +1948,19 @@ class MainWindow(FluentWindow):
 
         templates_dir = self.macro_templates_dir
         template_data: dict[str, bytes] = {}
-        template_meta_files: dict[str, bytes] = {}
 
         for name in refs:
             png_path = templates_dir / f"{name}.png"
             if png_path.exists():
                 template_data[name] = png_path.read_bytes()
-            json_path = templates_dir / f"{name}.json"
-            if json_path.exists():
-                template_meta_files[name] = json_path.read_bytes()
 
         macro_templates = self.current_runner.macro.get("templates", {})
-        template_labels = {name: copy.deepcopy(macro_templates[name]) for name in refs if name in macro_templates}
+        template_meta = {name: copy.deepcopy(macro_templates[name]) for name in refs if name in macro_templates}
 
         self.step_clipboard = {
             "steps": steps,
             "templates": template_data,
-            "template_meta_files": template_meta_files,
-            "template_labels": template_labels,
+            "template_meta": template_meta,
         }
 
     def cut_steps(self) -> None:
@@ -1903,6 +1970,11 @@ class MainWindow(FluentWindow):
             self.on_delete_step()
 
     def paste_steps(self) -> None:
+        """Paste steps from clipboard, carrying template PNG and metadata.
+
+        Template metadata (label, capture_width, capture_height) is merged into
+        macro["templates"], so cross-macro paste preserves capture resolution info.
+        """
         if not self.current_runner or not getattr(self, "step_clipboard", None):
             return
 
@@ -1936,15 +2008,15 @@ class MainWindow(FluentWindow):
             if not dest.exists():
                 dest.write_bytes(data)
 
-        for name, data in clipboard["template_meta_files"].items():
-            dest = templates_dir / f"{name}.json"
-            dest.write_bytes(data)
-
         macro_templates = self.current_runner.macro.setdefault("templates", {})
 
-        for name, meta in clipboard["template_labels"].items():
+        for name, meta in clipboard.get("template_meta", {}).items():
             if name not in macro_templates:
                 macro_templates[name] = copy.deepcopy(meta)
+            else:
+                for key in ("capture_width", "capture_height", "label"):
+                    if key in meta and key not in macro_templates[name]:
+                        macro_templates[name][key] = meta[key]
 
         self.sync_macro_templates()
         self.save_current_macro()
@@ -2287,6 +2359,15 @@ class MainWindow(FluentWindow):
         self.macro_list.setCurrentRow(self.macro_list.count() - 1)
 
     def on_export_json(self) -> None:
+        """Export macro as ZIP.
+
+        The macro JSON already contains template metadata (label, capture_width,
+        capture_height) inside macro["templates"], so no separate .json files
+        are exported. Only the macro JSON and template PNGs are included.
+
+        Backward compatibility: when importing old ZIPs that have separate
+        templates/<name>.json files, the metadata is migrated into macro["templates"].
+        """
         if not self.current_runner:
             return
 
@@ -2313,11 +2394,13 @@ class MainWindow(FluentWindow):
                 if png_path.exists():
                     zf.write(png_path, f"templates/{name}.png")
 
-                meta_path = self.macro_templates_dir / f"{name}.json"
-                if meta_path.exists():
-                    zf.write(meta_path, f"templates/{name}.json")
-
     def on_import_json(self) -> None:
+        """Import macro from ZIP.
+
+        Backward compatibility: old ZIPs may contain separate templates/<name>.json
+        metadata files. These are migrated into macro["templates"][name] during import
+        so the macro JSON becomes the single source of truth.
+        """
         path, _ = QFileDialog.getOpenFileName(self, t("dialog.import_macro"), "", t("dialog.zip_filter"))
 
         if not path:
@@ -2377,6 +2460,8 @@ class MainWindow(FluentWindow):
                         self,
                     ).exec()
 
+                macro_templates = macro.setdefault("templates", {})
+
                 for n in refs:
                     png_destination = cfg.templates_dir(macro_name) / f"{n}.png"
                     if not png_destination.exists() or (overwrite and n in conflicts):
@@ -2384,9 +2469,15 @@ class MainWindow(FluentWindow):
 
                     meta_arc = f"templates/{n}.json"
                     if meta_arc in zf.namelist():
-                        meta_destination = cfg.templates_dir(macro_name) / f"{n}.json"
-                        if not meta_destination.exists() or (overwrite and n in conflicts):
-                            meta_destination.write_bytes(zf.read(meta_arc))
+                        try:
+                            legacy_meta = json.loads(zf.read(meta_arc))
+                            entry = macro_templates.get(n, {"label": n})
+                            for key in ("capture_width", "capture_height"):
+                                if key in legacy_meta and key not in entry:
+                                    entry[key] = legacy_meta[key]
+                            macro_templates[n] = entry
+                        except (ValueError, OSError):
+                            pass
 
                 destination.write_text(json.dumps(macro, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         except zipfile.BadZipFile:

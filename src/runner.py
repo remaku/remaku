@@ -143,9 +143,17 @@ class StepRunner:
         self.win = win
         self.rect = rect
         self.templates = templates
-        self.template_capture_sizes: dict[str, tuple[int, int] | None] = {
-            name: vision.get_template_capture_size(name, self.name) for name in templates
-        }
+
+        # Read capture resolution from macro["templates"] (single source of truth).
+        # Falls back to None for runners without a macro (e.g. tests).
+        macro_templates = getattr(self, "macro", {}).get("templates", {})
+        self.template_capture_sizes: dict[str, tuple[int, int] | None] = {}
+        for name in templates:
+            entry = macro_templates.get(name, {})
+            w = entry.get("capture_width")
+            h = entry.get("capture_height")
+            self.template_capture_sizes[name] = (w, h) if w and h else None
+
         self.grabber = grabber
 
         try:

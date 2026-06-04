@@ -3,8 +3,6 @@
 Provides OpenCV-based template matching for finding specific images on screen.
 """
 
-import json
-
 import cv2
 import numpy as np
 from loguru import logger
@@ -33,20 +31,6 @@ def load_templates(names: list[str], macro_name: str = "") -> dict[str, np.ndarr
         out[name] = img
 
     return out
-
-
-def get_template_capture_size(name: str, macro_name: str = "") -> tuple[int, int] | None:
-    """Read the capture dimensions from template metadata JSON. Returns (width, height) or None."""
-    meta_path = config.templates_dir(macro_name) / f"{name}.json"
-
-    if not meta_path.exists():
-        return None
-
-    try:
-        data = json.loads(meta_path.read_text(encoding="utf-8"))
-        return (data["capture_width"], data["capture_height"])
-    except (KeyError, ValueError, OSError):
-        return None
 
 
 def to_gray(frame: np.ndarray) -> np.ndarray:

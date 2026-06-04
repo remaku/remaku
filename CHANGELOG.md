@@ -7,18 +7,21 @@
 ### Changed
 
 - Foreground window checking is now automatic during macro execution, removing the need for a separate "Check Foreground" step
+- Template capture resolution metadata is now stored inside the macro file instead of separate JSON files, with automatic migration for existing macros
 
 <!-- lang:zh_tw -->
 
 ### 變更
 
 - 前景視窗檢查現在在巨集執行時自動進行，不再需要獨立的「確認前景」步驟
+- 模板擷取解析度中繼資料現在儲存在巨集檔案內，而非獨立的 JSON 檔案，現有巨集會自動遷移
 
 <!-- lang:zh_cn -->
 
 ### 变更
 
 - 前景窗口检查现在在宏执行时自动进行，不再需要独立的「确认前台」步骤
+- 模板捕获分辨率元数据现在存储在宏文件内，而非独立的 JSON 文件，现有宏会自动迁移
 
 ## v0.3.0
 

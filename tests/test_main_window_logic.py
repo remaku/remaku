@@ -2,6 +2,7 @@
 
 # pyright: reportArgumentType=false, reportAttributeAccessIssue=false
 
+import json
 from unittest.mock import MagicMock, patch
 
 from main_window import MainWindow
@@ -248,3 +249,132 @@ class TestIsChildOfSkippedRepeat:
         tree = StepTree([step])
         mw = FakeMainWindow(step_tree=tree, flat_steps=[])
         assert MainWindow.is_child_of_skipped_repeat(mw, step) is False
+
+
+# ---------------------------------------------------------------------------
+# migrate_template_meta / get_template_meta
+# ---------------------------------------------------------------------------
+
+
+class TestMigrateTemplateMeta:
+    """Test backward-compatible migration of legacy separate .json metadata files."""
+
+    def test_migrates_legacy_file(self, tmp_path):
+        """Legacy .json file is read, merged into entry, and deleted."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("migrate_template_meta")
+
+        meta_path = tmp_path / "t1.json"
+        meta_path.write_text(json.dumps({"capture_width": 1920, "capture_height": 1080}), encoding="utf-8")
+
+        entry = {"label": "T1"}
+        mw.migrate_template_meta("t1", entry)
+
+        assert entry["capture_width"] == 1920
+        assert entry["capture_height"] == 1080
+        assert not meta_path.exists()
+
+    def test_no_legacy_file(self, tmp_path):
+        """No-op when no legacy .json file exists."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("migrate_template_meta")
+
+        entry = {"label": "T1"}
+        mw.migrate_template_meta("t1", entry)
+
+        assert entry == {"label": "T1"}
+
+    def test_already_migrated(self, tmp_path):
+        """No-op when entry already has capture resolution."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("migrate_template_meta")
+
+        meta_path = tmp_path / "t1.json"
+        meta_path.write_text(json.dumps({"capture_width": 1920, "capture_height": 1080}), encoding="utf-8")
+
+        entry = {"label": "T1", "capture_width": 2560, "capture_height": 1440}
+        mw.migrate_template_meta("t1", entry)
+
+        assert entry["capture_width"] == 2560
+        assert entry["capture_height"] == 1440
+        assert meta_path.exists()
+
+    def test_corrupt_json_file(self, tmp_path):
+        """No-op when legacy .json file is corrupt."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("migrate_template_meta")
+
+        meta_path = tmp_path / "t1.json"
+        meta_path.write_text("not json", encoding="utf-8")
+
+        entry = {"label": "T1"}
+        mw.migrate_template_meta("t1", entry)
+
+        assert entry == {"label": "T1"}
+
+
+class TestGetTemplateMeta:
+    """Test reading template metadata with backward-compatible fallback."""
+
+    def test_reads_from_macro_json(self, tmp_path):
+        """Returns metadata directly from macro JSON when available."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1", "capture_width": 1920, "capture_height": 1080}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("get_template_meta")
+
+        result = mw.get_template_meta("t1")
+        assert result == {"label": "T1", "capture_width": 1920, "capture_height": 1080}
+
+    def test_falls_back_to_legacy_file(self, tmp_path):
+        """Reads from legacy .json file when macro JSON lacks capture resolution."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.save_current_macro = MagicMock()
+        mw.bind_method("get_template_meta")
+
+        meta_path = tmp_path / "t1.json"
+        meta_path.write_text(json.dumps({"capture_width": 1920, "capture_height": 1080}), encoding="utf-8")
+
+        result = mw.get_template_meta("t1")
+
+        assert result["capture_width"] == 1920
+        assert result["capture_height"] == 1080
+        assert not meta_path.exists()
+        mw.save_current_macro.assert_called_once()
+
+    def test_no_runner_returns_empty(self, tmp_path):
+        """Returns empty dict when no current runner."""
+        mw = FakeMainWindow(current_runner=None, macro_templates_dir=tmp_path)
+        mw.bind_method("get_template_meta")
+
+        assert mw.get_template_meta("t1") == {}
+
+    def test_missing_template_returns_empty(self, tmp_path):
+        """Returns empty dict when template not in macro."""
+        runner = MagicMock()
+        runner.macro = {"templates": {}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("get_template_meta")
+
+        assert mw.get_template_meta("missing") == {}
+
+    def test_no_legacy_file_returns_partial(self, tmp_path):
+        """Returns entry without capture resolution when no legacy file."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.bind_method("get_template_meta")
+
+        result = mw.get_template_meta("t1")
+        assert result == {"label": "T1"}
+        assert "capture_width" not in result

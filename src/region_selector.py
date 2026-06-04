@@ -3,7 +3,6 @@
 Provides a semi-transparent window for the user to select a screen region.
 """
 
-import json
 import time
 
 import cv2
@@ -12,7 +11,6 @@ from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
-import capture
 import config
 
 
@@ -115,13 +113,5 @@ class RegionSelector(QWidget):
         template_dir = config.templates_dir(self.macro_name)
         path = template_dir / f"{name}.png"
         cv2.imencode(".png", gray)[1].tofile(str(path))
-
-        # Store the BetterCam capture resolution for runtime scaling
-        grabber = capture.Grabber()
-        meta = {"capture_width": grabber.screen_width, "capture_height": grabber.screen_height}
-        grabber.close()
-
-        meta_path = template_dir / f"{name}.json"
-        meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
         self.region_selected.emit(name)

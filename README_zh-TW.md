@@ -148,6 +148,7 @@ Documents\remaku\
 src/
   main.py              # 進入點，初始化設定與啟動主視窗
   main_window.py       # 主視窗，三欄介面、選單、步驟編輯
+  overlay.py           # 狀態浮窗元件，含播放/停止按鈕
   runner.py            # 步驟執行器基礎類別，管理執行緒與狀態
   macro_engine.py      # JSON 巨集解析與執行引擎
   vision.py            # OpenCV 影像辨識（模板匹配）
@@ -157,9 +158,13 @@ src/
   region_selector.py   # 螢幕區域選取工具
   config.py            # 設定檔讀寫
   settings.py          # 設定頁面介面
+  step_node.py         # 步驟樹節點模型，含父子參照
+  step_tree.py         # 步驟樹管理器，處理巨集步驟操作
   updater.py           # 自動更新檢查與安裝
   version.py           # 版本資訊（從 pyproject.toml 讀取）
   icons.py             # SVG 圖示引擎（Lucide 圖示）
+  icons/               # SVG 圖示檔案
+    *.svg
   i18n/                # 多國語言翻譯檔案
     __init__.py
     zh_tw.json

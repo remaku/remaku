@@ -148,6 +148,7 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). GUI uses PySide6 (Qt6
 src/
   main.py              # Entry point, initializes config and launches the main window
   main_window.py       # Main window: three-panel layout, menus, step editing
+  overlay.py           # Status overlay floating window with play/stop controls
   runner.py            # Step runner base class, manages threads and status
   macro_engine.py      # JSON macro parsing and execution engine
   vision.py            # OpenCV image recognition (template matching)
@@ -157,9 +158,13 @@ src/
   region_selector.py   # Screen region selection tool
   config.py            # Configuration file read/write
   settings.py          # Settings page UI
+  step_node.py         # Step tree node model with parent-child references
+  step_tree.py         # Step tree manager for macro step operations
   updater.py           # Auto-update check and installation
   version.py           # Version info (read from pyproject.toml)
   icons.py             # SVG icon engine (Lucide icons)
+  icons/               # SVG icon files
+    *.svg
   i18n/                # Internationalization translation files
     __init__.py
     zh_tw.json

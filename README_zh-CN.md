@@ -148,6 +148,7 @@ Documents\remaku\
 src/
   main.py              # 入口点，初始化设置与启动主窗口
   main_window.py       # 主窗口，三栏界面、菜单、步骤编辑
+  overlay.py           # 状态浮窗组件，含播放/停止按钮
   runner.py            # 步骤执行器基础类，管理线程与状态
   macro_engine.py      # JSON 宏解析与执行引擎
   vision.py            # OpenCV 图像识别（模板匹配）
@@ -157,9 +158,13 @@ src/
   region_selector.py   # 屏幕区域选取工具
   config.py            # 配置文件读写
   settings.py          # 设置页面界面
+  step_node.py         # 步骤树节点模型，含父子引用
+  step_tree.py         # 步骤树管理器，处理宏步骤操作
   updater.py           # 自动更新检查与安装
   version.py           # 版本信息（从 pyproject.toml 读取）
   icons.py             # SVG 图标引擎（Lucide 图标）
+  icons/               # SVG 图标文件
+    *.svg
   i18n/                # 多语言翻译文件
     __init__.py
     zh_tw.json

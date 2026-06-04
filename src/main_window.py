@@ -652,9 +652,7 @@ class MainWindow(FluentWindow):
             edit.setText("")
             edit.blockSignals(False)
             step["key"] = ""
-            self.save_current_macro()
-            self.populate_steps_and_keep_row()
-            QTimer.singleShot(0, lambda: self.show_props(step))
+            self._mutate_steps(select_step=step)
             return
 
         if key in (
@@ -682,23 +680,51 @@ class MainWindow(FluentWindow):
         edit.setText(key_name)
         edit.blockSignals(False)
         step["key"] = key_name
-        self.save_current_macro()
-        self.populate_steps_and_keep_row()
-        QTimer.singleShot(0, lambda: self.show_props(step))
+        self._mutate_steps(select_step=step)
 
     def on_key_step_cleared(self, step: dict) -> None:
         step["key"] = ""
-        self.save_current_macro()
-        self.populate_steps_and_keep_row()
-        QTimer.singleShot(0, lambda: self.show_props(step))
+        self._mutate_steps(select_step=step)
 
-    def populate_steps_and_keep_row(self) -> None:
-        row = self.step_list.currentRow()
+    def _refresh_step_list(self, *, select_step=None, select_row=None) -> None:
+        """Rebuild the step list and restore selection without triggering signals."""
         self.step_list.blockSignals(True)
         self.populate_steps()
+
+        flat = getattr(self, "flat_nodes", [])
+        if select_step is not None:
+            try:
+                row = next(i for i, n in enumerate(flat) if n.step is select_step)
+            except StopIteration:
+                row = -1
+        elif select_row is not None:
+            row = select_row
+        else:
+            row = -1
+
         if 0 <= row < self.step_list.count():
             self.step_list.setCurrentRow(row)
+
         self.step_list.blockSignals(False)
+
+        if 0 <= row < len(getattr(self, "flat_nodes", [])):
+            self.show_props(self.flat_nodes[row].step)
+        else:
+            self.show_macro_props()
+
+    def _mutate_steps(self, mutation_fn=None, *, select_step=None) -> None:
+        """Apply a step mutation, save, push undo, and refresh the UI atomically."""
+        if not self.current_runner:
+            return
+
+        if mutation_fn is not None:
+            mutation_fn(self.current_runner)
+
+        self.save_current_macro()
+        self._refresh_step_list(select_step=select_step)
+
+    def populate_steps_and_keep_row(self) -> None:
+        self._refresh_step_list(select_row=self.step_list.currentRow())
 
     def set_macro_hotkey(self, hotkey: str) -> None:
         if not self.current_runner:
@@ -1168,10 +1194,9 @@ class MainWindow(FluentWindow):
 
         step["templates"][idx] = name
         self.sync_macro_templates()
-        self.save_current_macro()
         self.showNormal()
         self.any_image_expand_idx = idx
-        self.refresh_current_step()
+        self._mutate_steps(select_step=step)
         self.step_list.setFocus()
 
     def on_pick_any_template(self, step: dict, idx: int) -> None:
@@ -1188,9 +1213,8 @@ class MainWindow(FluentWindow):
         step["templates"][idx] = template_name
 
         self.sync_macro_templates()
-        self.save_current_macro()
         self.any_image_expand_idx = idx
-        self.refresh_current_step()
+        self._mutate_steps(select_step=step)
 
     def on_rename_any_template(self, step: dict, idx: int, edit: LineEdit) -> None:
         """Rename the label of a specified template in if_any_image."""
@@ -1204,9 +1228,8 @@ class MainWindow(FluentWindow):
         macro_templates = self.current_runner.macro.get("templates", {}) if self.current_runner else {}
         macro_templates.setdefault(name, {})["label"] = new_label
 
-        self.save_current_macro()
         self.any_image_expand_idx = idx
-        self.refresh_current_step()
+        self._mutate_steps(select_step=step)
 
     def on_delete_any_template(self, step: dict, idx: int) -> None:
         """Delete the specified template from if_any_image."""
@@ -1226,8 +1249,7 @@ class MainWindow(FluentWindow):
         branches.pop(name, None)
 
         self.sync_macro_templates()
-        self.save_current_macro()
-        self.refresh_current_step()
+        self._mutate_steps(select_step=step)
 
     def add_step_to_any_branch(self, parent_step: dict, template_name: str) -> None:
         """Add a step to the specified template branch in if_any_image."""
@@ -1256,17 +1278,19 @@ class MainWindow(FluentWindow):
         menu.exec(QCursor.pos())
 
     def do_add_step_to_any_branch(self, parent_step: dict, template_name: str, step: dict) -> None:
-        branches = parent_step.setdefault("branches", {})
-        branches.setdefault(template_name, []).append(step)
+        if not self.step_tree:
+            return
+        parent_node = self.step_tree.find_node(parent_step)
+        if not parent_node:
+            return
+        new_node = self.step_tree.add_step_to_any_branch(parent_node, template_name, step)
 
         self.sync_macro_templates()
-        self.save_current_macro()
-        self.populate_steps()
 
         idx = parent_step.get("templates", []).index(template_name)
 
         self.any_image_expand_idx = idx
-        self.refresh_current_step()
+        self._mutate_steps(select_step=new_node.step)
 
     def on_add_any_template(self, step: dict) -> None:
         """Add an empty template to if_any_image."""
@@ -1274,18 +1298,12 @@ class MainWindow(FluentWindow):
         step.setdefault("templates", []).append(placeholder)
 
         self.sync_macro_templates()
-        self.save_current_macro()
         self.any_image_expand_idx = len(step["templates"]) - 1
-        self.refresh_current_step()
+        self._mutate_steps(select_step=step)
 
     def refresh_current_step(self) -> None:
         """Re-render the currently selected step's property panel."""
-        row = self.step_list.currentRow()
-
-        self.populate_steps()
-
-        if 0 <= row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
+        self._refresh_step_list(select_row=self.step_list.currentRow())
 
     def show_hold_key_props(self, step: dict) -> None:
         """hold_key_until_gone property panel."""
@@ -1373,14 +1391,8 @@ class MainWindow(FluentWindow):
 
         step["template"] = name
         self.sync_macro_templates()
-        self.save_current_macro()
         self.showNormal()
-        row = self.step_list.currentRow()
-        self.populate_steps()
-
-        if 0 <= row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
-
+        self._mutate_steps(select_step=step)
         self.step_list.setFocus()
 
     def on_pick_template(self, step: dict) -> None:
@@ -1399,13 +1411,7 @@ class MainWindow(FluentWindow):
         self.write_template_meta(template_name)
 
         self.sync_macro_templates()
-        self.save_current_macro()
-        self.populate_steps()
-
-        new_flat = getattr(self, "flat_nodes", [])
-        if any(n.step is step for n in new_flat):
-            row = next(i for i, n in enumerate(new_flat) if n.step is step)
-            self.step_list.setCurrentRow(row)
+        self._mutate_steps(select_step=step)
 
     def on_rename_template(self, step: dict, edit: LineEdit) -> None:
         name = step.get("template", "")
@@ -1415,15 +1421,7 @@ class MainWindow(FluentWindow):
 
         templates = self.current_runner.macro.get("templates", {}) if self.current_runner else {}
         templates.setdefault(name, {})["label"] = new_label
-        self.save_current_macro()
-        row = self.step_list.currentRow()
-        self.step_list.blockSignals(True)
-        self.populate_steps()
-
-        if 0 <= row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
-
-        self.step_list.blockSignals(False)
+        self._mutate_steps(select_step=step)
 
     def on_delete_template(self, step: dict) -> None:
         name = step.get("template", "")
@@ -1438,13 +1436,7 @@ class MainWindow(FluentWindow):
         step["template"] = ""
 
         self.sync_macro_templates()
-        self.save_current_macro()
-        self.populate_steps()
-
-        new_flat = getattr(self, "flat_nodes", [])
-        if any(n.step is step for n in new_flat):
-            row = next(i for i, n in enumerate(new_flat) if n.step is step)
-            self.step_list.setCurrentRow(row)
+        self._mutate_steps(select_step=step)
 
     def template_label(self, name: str) -> str:
         """Get the display name of a template."""
@@ -1678,15 +1670,7 @@ class MainWindow(FluentWindow):
                     value = float(value)
 
         step[key] = value
-        self.save_current_macro()
-        row = self.step_list.currentRow()
-        self.step_list.blockSignals(True)
-        self.populate_steps()
-
-        if row >= 0 and row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
-
-        self.step_list.blockSignals(False)
+        self._mutate_steps(select_step=step)
 
     def on_grid_nav_start_edit(self, step: dict, edit: LineEdit) -> None:
         try:
@@ -1695,15 +1679,7 @@ class MainWindow(FluentWindow):
             return
 
         step["start"] = max(0, val)
-        self.save_current_macro()
-        row = self.step_list.currentRow()
-        self.step_list.blockSignals(True)
-        self.populate_steps()
-
-        if row >= 0 and row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
-
-        self.step_list.blockSignals(False)
+        self._mutate_steps(select_step=step)
 
     def clear_props(self) -> None:
         while self.prop_fields_layout.count():
@@ -1849,53 +1825,24 @@ class MainWindow(FluentWindow):
         menu.exec(QCursor.pos())
 
     def do_add_step_to_branch(self, parent_step: dict, branch: str, step: dict) -> None:
-        parent_step.setdefault(branch, []).append(step)
-        self.save_current_macro()
-        self.populate_steps()
-        new_flat = getattr(self, "flat_nodes", [])
-        new_row = next((i for i, n in enumerate(new_flat) if n.step is step), -1)
-
-        if new_row >= 0:
-            self.step_list.setCurrentRow(new_row)
+        if not self.step_tree:
+            return
+        parent_node = self.step_tree.find_node(parent_step)
+        if not parent_node:
+            return
+        new_node = self.step_tree.add_step_to_branch(parent_node, branch, step)
+        self._mutate_steps(select_step=new_node.step)
 
     def do_add_step(self, step: dict) -> None:
-        if not self.current_runner:
+        if not self.current_runner or not self.step_tree:
             return
 
         row = self.step_list.currentRow()
         flat = getattr(self, "flat_nodes", [])
+        target_node = flat[row] if 0 <= row < len(flat) else None
 
-        if 0 <= row < len(flat) and self.step_tree is not None:
-            selected_node = flat[row]
-            if selected_node.step_type == "repeat":
-                selected_node.step.setdefault("steps", []).append(step)
-            elif selected_node.step_type in ("if_image", "if_any_image"):
-                selected_node.step.setdefault("then", []).append(step)
-            else:
-                parent_key = selected_node.sibling_key()
-                if selected_node.parent is not None and parent_key:
-                    parent_list = selected_node.parent.step.get(parent_key, [])
-                    idx = (
-                        parent_list.index(selected_node.step) + 1
-                        if selected_node.step in parent_list
-                        else len(parent_list)
-                    )
-                    parent_list.insert(idx, step)
-                else:
-                    steps = self.current_runner.macro.get("steps", [])
-                    idx = steps.index(selected_node.step) + 1 if selected_node.step in steps else len(steps)
-                    steps.insert(idx, step)
-        else:
-            self.current_runner.macro.get("steps", []).append(step)
-
-        self.save_current_macro()
-        self.populate_steps()
-
-        new_flat = getattr(self, "flat_nodes", [])
-        new_row = next((i for i, n in enumerate(new_flat) if n.step is step), -1)
-
-        if new_row >= 0:
-            self.step_list.setCurrentRow(new_row)
+        new_node = self.step_tree.add_step(target_node, step)
+        self._mutate_steps(select_step=new_node.step)
 
     def on_delete_step(self) -> None:
         if not self.current_runner or not self.step_tree:
@@ -1981,25 +1928,14 @@ class MainWindow(FluentWindow):
         clipboard = self.step_clipboard
         steps_to_paste = copy.deepcopy(clipboard["steps"])
 
+        if not self.step_tree:
+            return
+
         row = self.step_list.currentRow()
         flat = getattr(self, "flat_nodes", [])
+        target_node = flat[row] if 0 <= row < len(flat) else None
 
-        if 0 <= row < len(flat) and self.step_tree is not None:
-            node = flat[row]
-            parent_key = node.sibling_key()
-            if node.parent is not None and parent_key:
-                parent_list = node.parent.step.get(parent_key, [])
-                idx = parent_list.index(node.step) if node.step in parent_list else len(parent_list)
-            else:
-                parent_list = self.current_runner.macro.get("steps", [])
-                idx = parent_list.index(node.step) if node.step in parent_list else len(parent_list)
-            insert_at = idx + 1
-        else:
-            parent_list = self.current_runner.macro.get("steps", [])
-            insert_at = len(parent_list)
-
-        for i, step in enumerate(steps_to_paste):
-            parent_list.insert(insert_at + i, step)
+        nodes = self.step_tree.insert_steps_after(target_node, steps_to_paste)
 
         templates_dir = self.macro_templates_dir
 
@@ -2019,14 +1955,7 @@ class MainWindow(FluentWindow):
                         macro_templates[name][key] = meta[key]
 
         self.sync_macro_templates()
-        self.save_current_macro()
-        self.populate_steps()
-
-        new_flat = getattr(self, "flat_nodes", [])
-        new_row = next((i for i, n in enumerate(new_flat) if n.step is steps_to_paste[0]), 0)
-
-        if new_row < self.step_list.count():
-            self.step_list.setCurrentRow(new_row)
+        self._mutate_steps(select_step=nodes[0].step if nodes else None)
 
     def duplicate_steps(self) -> None:
         if not self.current_runner or not self.step_tree:

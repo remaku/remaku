@@ -202,6 +202,14 @@ class TestStepOperations:
         steps = get_runner(main_window).macro["steps"]
         assert steps[1]["type"] == "delay"
 
+    def test_add_multiple_steps_selects_latest(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(main_window.step_list.count() - 1)
+        for _ in range(5):
+            before = main_window.step_list.currentRow()
+            step = {"type": "key", "key": "a"}
+            main_window.do_add_step(step)
+            assert main_window.step_list.currentRow() == before + 1
+
     def test_move_step_down(self, main_window: MainWindow):
         main_window.step_list.setCurrentRow(0)
         steps_before = [s["type"] for s in get_runner(main_window).macro["steps"]]

@@ -6,7 +6,6 @@ providing high-level operations that replace ad-hoc flat_steps manipulation.
 
 from __future__ import annotations
 
-import contextlib
 import copy
 
 from step_node import CONTAINER_CHILD_KEYS, StepNode
@@ -115,15 +114,17 @@ class StepTree:
             positions = []
             for node in top_level:
                 try:
-                    positions.append(self.steps.index(node.step))
-                except ValueError:
+                    positions.append(next(i for i, s in enumerate(self.steps) if s is node.step))
+                except StopIteration:
                     positions.append(-1)
 
             for node in top_level:
-                if node in self.root_nodes:
-                    self.root_nodes.remove(node)
-                with contextlib.suppress(ValueError):
-                    self.steps.remove(node.step)
+                try:
+                    idx = next(i for i, n in enumerate(self.root_nodes) if n is node)
+                    self.root_nodes.pop(idx)
+                    self.steps.pop(idx)
+                except StopIteration:
+                    pass
 
             first_pos = positions[0]
             removed_before = sum(1 for p in positions if 0 <= p < first_pos)
@@ -156,14 +157,68 @@ class StepTree:
                     idx = len(self.root_nodes)
                 self.root_nodes.insert(idx + 1, dup_node)
                 try:
-                    raw_idx = self.steps.index(node.step)
-                except ValueError:
+                    raw_idx = next(i for i, s in enumerate(self.steps) if s is node.step)
+                except StopIteration:
                     raw_idx = len(self.steps)
                 self.steps.insert(raw_idx + 1, dup_step)
 
             duplicates.append(dup_node)
 
         return duplicates
+
+    # ------------------------------------------------------------------
+    # Add step
+    # ------------------------------------------------------------------
+
+    def add_step(self, target_node: StepNode | None, step: dict) -> StepNode:
+        """Insert *step* after *target_node*, or append if *target_node* is None.
+
+        If *target_node* is a container (repeat, if_image, if_any_image),
+        append to its default child list instead of inserting after it.
+        """
+        if target_node is None:
+            self.steps.append(step)
+            return StepNode(step)
+
+        if target_node.step_type == "repeat":
+            target_node.step.setdefault("steps", []).append(step)
+            return StepNode(step, parent=target_node)
+
+        if target_node.step_type in ("if_image", "if_any_image"):
+            target_node.step.setdefault("then", []).append(step)
+            return StepNode(step, parent=target_node)
+
+        parent_key = target_node.sibling_key()
+        if target_node.parent is not None and parent_key:
+            raw_list = target_node.parent.step.get(parent_key, [])
+            idx = next((i for i, s in enumerate(raw_list) if s is target_node.step), len(raw_list))
+            raw_list.insert(idx + 1, step)
+            return StepNode(step, parent=target_node.parent)
+
+        idx = next((i for i, s in enumerate(self.steps) if s is target_node.step), len(self.steps))
+        self.steps.insert(idx + 1, step)
+        return StepNode(step)
+
+    def add_step_to_branch(self, parent_node: StepNode, branch_key: str, step: dict) -> StepNode:
+        """Add a step to a specific branch of a container node."""
+        parent_node.step.setdefault(branch_key, []).append(step)
+        return StepNode(step, parent=parent_node)
+
+    def add_step_to_any_branch(self, parent_node: StepNode, template_name: str, step: dict) -> StepNode:
+        """Add a step to a template branch in if_any_image."""
+        branches = parent_node.step.setdefault("branches", {})
+        branches.setdefault(template_name, []).append(step)
+        return StepNode(step, parent=parent_node)
+
+    def insert_steps_after(self, target_node: StepNode | None, steps: list[dict]) -> list[StepNode]:
+        """Insert multiple steps consecutively after *target_node*."""
+        nodes: list[StepNode] = []
+        current_target = target_node
+        for step in steps:
+            node = self.add_step(current_target, step)
+            nodes.append(node)
+            current_target = node
+        return nodes
 
     # ------------------------------------------------------------------
     # Sync raw step lists from tree (write-back)
@@ -226,10 +281,12 @@ class StepTree:
         if node.parent is not None:
             node.remove()
         else:
-            if node in self.root_nodes:
-                self.root_nodes.remove(node)
-            with contextlib.suppress(ValueError):
-                self.steps.remove(node.step)
+            try:
+                idx = next(i for i, n in enumerate(self.root_nodes) if n is node)
+                self.root_nodes.pop(idx)
+                self.steps.pop(idx)
+            except StopIteration:
+                pass
 
     # ------------------------------------------------------------------
     # Move step

@@ -2934,6 +2934,36 @@ class TestTreeWidgetCoverage:
         item = main_window.step_list.currentItem()
         assert item is not None
 
+    def test_on_move_step_preserves_collapsed_repeat_state(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [
+            {
+                "type": "repeat",
+                "count": 1,
+                "steps": [
+                    {"type": "key", "key": "enter"},
+                    {"type": "key", "key": "enter"},
+                ],
+            },
+            {"type": "key", "key": "enter"},
+            {"type": "key", "key": "enter"},
+        ]
+        main_window.on_macro_selected(0)
+
+        repeat_node = main_window.flat_nodes[0]
+        repeat_item = main_window.node_to_item[repeat_node]
+        repeat_item.setExpanded(False)
+        assert repeat_item.isExpanded() is False
+
+        selected_node = main_window.flat_nodes[3]
+        selected_item = main_window.node_to_item[selected_node]
+        main_window.step_list.setCurrentItem(selected_item)
+        main_window.on_move_step(1)
+
+        moved_repeat_node = main_window.flat_nodes[0]
+        moved_repeat_item = main_window.node_to_item[moved_repeat_node]
+        assert moved_repeat_item.isExpanded() is False
+
     def test_highlight_current_step_no_step_tree(self, main_window: MainWindow):
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "key", "key": "a"}]

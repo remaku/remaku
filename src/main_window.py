@@ -709,7 +709,7 @@ class MainWindow(FluentWindow):
 
         if item is not None:
             self.step_list.setCurrentItem(item)
-            self.step_list.expandItem(item)
+            self.expand_item_ancestors(item)
 
         self.step_list.blockSignals(False)
 
@@ -729,6 +729,34 @@ class MainWindow(FluentWindow):
 
         self.save_current_macro()
         self.refresh_step_list(select_step=select_step)
+
+    def capture_step_list_collapsed_state(self) -> set[int]:
+        """Capture collapsed container steps by raw step identity."""
+        collapsed_steps: set[int] = set()
+
+        for item, node in self.item_to_node.items():
+            if not node.is_container:
+                continue
+
+            if not item.isExpanded():
+                collapsed_steps.add(id(node.step))
+
+        return collapsed_steps
+
+    def apply_step_list_collapsed_state(self, collapsed_steps: set[int]) -> None:
+        """Restore collapsed container steps after rebuilding the tree."""
+        for item, node in self.item_to_node.items():
+            if not node.is_container:
+                continue
+
+            item.setExpanded(id(node.step) not in collapsed_steps)
+
+    def expand_item_ancestors(self, item: QTreeWidgetItem) -> None:
+        """Expand all ancestors of *item* so the selection remains visible."""
+        current = item
+        while current is not None:
+            self.step_list.expandItem(current)
+            current = current.parent()
 
     def populate_steps_and_keep_row(self) -> None:
         item = self.step_list.currentItem()
@@ -762,6 +790,8 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
 
     def populate_steps(self) -> None:
+        collapsed_steps = self.capture_step_list_collapsed_state() if hasattr(self, "item_to_node") else set()
+
         self.step_list.clear()
         self.item_to_node: dict[QTreeWidgetItem, StepNode] = {}
         self.node_to_item: dict[StepNode, QTreeWidgetItem] = {}
@@ -780,6 +810,10 @@ class MainWindow(FluentWindow):
             self.build_tree_item(node, None)
 
         self.step_list.expandAll()
+
+        if collapsed_steps:
+            self.apply_step_list_collapsed_state(collapsed_steps)
+
         self.update_empty_states()
 
     def build_tree_item(self, node: StepNode, parent_item: QTreeWidgetItem | None) -> QTreeWidgetItem:
@@ -2100,7 +2134,7 @@ class MainWindow(FluentWindow):
                 new_item = self.node_to_item.get(new_node)
                 if new_item:
                     self.step_list.setCurrentItem(new_item)
-                    self.step_list.expandItem(new_item)
+                    self.expand_item_ancestors(new_item)
 
     def on_run(self) -> None:
         if not self.current_runner:

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtWidgets import QListWidgetItem, QTreeWidgetItem
 
 import config as cfg
 import window
@@ -103,6 +103,47 @@ def get_runner(mw: MainWindow) -> MacroRunner:
     """Assert current_runner is not None and return it."""
     assert mw.current_runner is not None
     return mw.current_runner
+
+
+def step_count(mw: MainWindow) -> int:
+    """Count all items in the step tree (flattened)."""
+    return len(mw.flat_nodes)
+
+
+def set_current_step_row(mw: MainWindow, row: int) -> None:
+    """Select the nth item in the flattened step tree."""
+    if row < 0 or row >= len(mw.flat_nodes):
+        mw.step_list.clearSelection()
+        return
+    node = mw.flat_nodes[row]
+    item = mw.node_to_item.get(node)
+    if item is not None:
+        mw.step_list.setCurrentItem(item)
+
+
+def get_current_step_row(mw: MainWindow) -> int:
+    """Get the index of the current item in the flattened step tree."""
+    item = mw.step_list.currentItem()
+    if item is None:
+        return -1
+    node = mw.item_to_node.get(item)
+    if node is None:
+        return -1
+    try:
+        return mw.flat_nodes.index(node)
+    except ValueError:
+        return -1
+
+
+def select_step_rows(mw: MainWindow, rows: list[int]) -> None:
+    """Select multiple items in the step tree by their flat indices."""
+    mw.step_list.clearSelection()
+    for row in rows:
+        if 0 <= row < len(mw.flat_nodes):
+            node = mw.flat_nodes[row]
+            item = mw.node_to_item.get(node)
+            if item is not None:
+                item.setSelected(True)
 
 
 original_startup_check_update = MainWindow.startup_check_update
@@ -229,15 +270,15 @@ class TestMacroList:
 
 class TestStepList:
     def test_step_count_macro_a(self, main_window: MainWindow):
-        assert main_window.step_list.count() == 2
+        assert step_count(main_window) == 2
 
     def test_step_count_macro_b(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(1)
-        assert main_window.step_list.count() == 4  # key + repeat + key + delay
+        assert step_count(main_window) == 4  # key + repeat + key + delay
 
     def test_step_selection(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
-        assert main_window.step_list.currentRow() == 0
+        set_current_step_row(main_window, 0)
+        assert get_current_step_row(main_window) == 0
 
     def test_step_tree_built(self, main_window: MainWindow):
         assert main_window.step_tree is not None
@@ -257,44 +298,44 @@ class TestStepList:
 
 class TestStepOperations:
     def test_delete_step(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        assert main_window.step_list.count() == 1
+        assert step_count(main_window) == 1
         assert len(get_runner(main_window).macro["steps"]) == 1
 
     def test_delete_last_step(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        assert main_window.step_list.count() == 0
+        assert step_count(main_window) == 0
         assert len(get_runner(main_window).macro["steps"]) == 0
 
     def test_add_step(self, main_window: MainWindow):
-        initial_count = main_window.step_list.count()
+        initial_count = step_count(main_window)
         step = {"type": "key", "key": "escape"}
         main_window.do_add_step(step)
-        assert main_window.step_list.count() == initial_count + 1
+        assert step_count(main_window) == initial_count + 1
         assert get_runner(main_window).macro["steps"][-1]["key"] == "escape"
 
     def test_add_step_after_selected(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = {"type": "delay", "ms": 200}
         main_window.do_add_step(step)
-        assert main_window.step_list.count() == 3
+        assert step_count(main_window) == 3
         steps = get_runner(main_window).macro["steps"]
         assert steps[1]["type"] == "delay"
 
     def test_add_multiple_steps_selects_latest(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(main_window.step_list.count() - 1)
+        set_current_step_row(main_window, step_count(main_window) - 1)
         for _ in range(5):
-            before = main_window.step_list.currentRow()
+            before = get_current_step_row(main_window)
             step = {"type": "key", "key": "a"}
             main_window.do_add_step(step)
-            assert main_window.step_list.currentRow() == before + 1
+            assert get_current_step_row(main_window) == before + 1
 
     def test_move_step_down(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         steps_before = [s["type"] for s in get_runner(main_window).macro["steps"]]
         main_window.on_move_step(1)
         steps_after = [s["type"] for s in get_runner(main_window).macro["steps"]]
@@ -302,42 +343,37 @@ class TestStepOperations:
         assert steps_after == ["delay", "key"]
 
     def test_move_step_up(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 1)
         main_window.on_move_step(-1)
         steps_after = [s["type"] for s in get_runner(main_window).macro["steps"]]
         assert steps_after == ["delay", "key"]
 
     def test_duplicate_step(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.duplicate_steps()
-        assert main_window.step_list.count() == 3
+        assert step_count(main_window) == 3
         steps = get_runner(main_window).macro["steps"]
         assert steps[0]["key"] == steps[1]["key"]
 
     def test_copy_paste_step(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.copy_steps()
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 1)
         main_window.paste_steps()
-        assert main_window.step_list.count() == 3
+        assert step_count(main_window) == 3
         steps = get_runner(main_window).macro["steps"]
         assert steps[2]["type"] == "key"
 
     def test_cut_step(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.cut_steps()
-        assert main_window.step_list.count() == 1
+        assert step_count(main_window) == 1
         assert hasattr(main_window, "step_clipboard")
         assert len(main_window.step_clipboard["steps"]) == 1
 
     def test_wrap_in_repeat(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
-        model = main_window.step_list.model()
-        selection_model = main_window.step_list.selectionModel()
-        clear_and_select = selection_model.SelectionFlag.ClearAndSelect | selection_model.SelectionFlag.Rows
-        select = selection_model.SelectionFlag.Select | selection_model.SelectionFlag.Rows
-        selection_model.select(model.index(0), clear_and_select)  # type: ignore
-        selection_model.select(model.index(1), select)  # type: ignore
+        set_current_step_row(main_window, 0)
+        select_step_rows(main_window, [0, 1])
         main_window.wrap_in_repeat()
         steps = get_runner(main_window).macro["steps"]
         assert len(steps) == 1
@@ -352,22 +388,22 @@ class TestStepOperations:
 
 class TestUndoRedo:
     def test_undo_deletes_last_action(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        assert main_window.step_list.count() == 1
+        assert step_count(main_window) == 1
         main_window.undo()
-        assert main_window.step_list.count() == 2
+        assert step_count(main_window) == 2
 
     def test_redo_after_undo(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
         main_window.undo()
         main_window.redo()
-        assert main_window.step_list.count() == 1
+        assert step_count(main_window) == 1
 
     def test_undo_button_state(self, main_window: MainWindow):
         assert not main_window.btn_undo.isEnabled()
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
         assert main_window.btn_undo.isEnabled()
 
@@ -380,11 +416,11 @@ class TestUndoRedo:
 class TestEmptyStates:
     def test_empty_macro_shows_hint(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_delete_step()
-        assert main_window.step_list.count() == 0
+        assert step_count(main_window) == 0
         main_window.update_empty_states()
         assert main_window.step_list.isHidden()
         assert not main_window.step_empty_label.isHidden()
@@ -403,12 +439,12 @@ class TestEmptyStates:
 
 class TestPropertyPanel:
     def test_selecting_step_shows_props(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         assert main_window.prop_fields_layout.count() > 0
 
     def test_selecting_different_step_updates_props(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 0)
+        set_current_step_row(main_window, 1)
         assert main_window.prop_fields_layout.count() > 0
 
     def test_macro_props_shown_when_no_step_selected(self, main_window: MainWindow):
@@ -424,7 +460,7 @@ class TestPropertyPanel:
 
 class TestPropertyEditing:
     def test_edit_numeric_field(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         step["ms"] = 100
         edit = MagicMock()
@@ -433,7 +469,7 @@ class TestPropertyEditing:
         assert step["ms"] == 250
 
     def test_edit_invalid_numeric_ignored(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         step["ms"] = 100
         edit = MagicMock()
@@ -442,7 +478,7 @@ class TestPropertyEditing:
         assert step["ms"] == 100
 
     def test_edit_hold_ms_field(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         edit = MagicMock()
         edit.text.return_value = "150"
@@ -450,7 +486,7 @@ class TestPropertyEditing:
         assert step["hold_ms"] == 150
 
     def test_edit_key_field(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         edit = MagicMock()
         edit.text.return_value = "space"
@@ -458,7 +494,7 @@ class TestPropertyEditing:
         assert step["key"] == "space"
 
     def test_prop_bool_sets_value(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         step["skip"] = False
         main_window.on_prop_bool(step, "skip", True)
@@ -466,7 +502,7 @@ class TestPropertyEditing:
 
     def test_prop_bool_skip_repeat_propagates(self, main_window: MainWindow):
         main_window.macro_list.setCurrentRow(1)
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 1)
         step = get_runner(main_window).macro["steps"][1]
         assert step["type"] == "repeat"
         step["steps"] = [{"type": "key", "key": "a"}, {"type": "delay", "ms": 100}]
@@ -476,13 +512,13 @@ class TestPropertyEditing:
             assert child["skip"] is True
 
     def test_combo_edit(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         main_window.on_combo_edit(step, "key", "escape")
         assert step["key"] == "escape"
 
     def test_threshold_changed(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = get_runner(main_window).macro["steps"][0]
         label = MagicMock()
         main_window.on_threshold_changed(step, 90, label)
@@ -500,7 +536,7 @@ class TestTemplateManagement:
         runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
         runner.macro["templates"] = {"btn": {"label": "Button"}}
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.on_delete_template(step)
         assert step["template"] == ""
@@ -510,7 +546,7 @@ class TestTemplateManagement:
         runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
         runner.macro["templates"] = {"btn": {"label": "Button"}}
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         edit = MagicMock()
         edit.text.return_value = "Submit"
@@ -813,7 +849,7 @@ class TestStepPropertyPanels:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "wait_image", "template": "btn", "timeout_ms": 5000}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.show_props(step)
         assert main_window.prop_fields_layout.count() > 0
@@ -822,7 +858,7 @@ class TestStepPropertyPanels:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "if_image", "template": "cond", "then": [], "else": []}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.show_props(step)
         assert main_window.prop_fields_layout.count() > 0
@@ -831,7 +867,7 @@ class TestStepPropertyPanels:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "grid_nav", "rows": 3, "start": 0, "on_next_row": [], "on_next_col": []}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.show_props(step)
         assert main_window.prop_fields_layout.count() > 0
@@ -840,7 +876,7 @@ class TestStepPropertyPanels:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "hold_key_until_gone", "key": "w", "template": "", "load_delay_ms": 2000}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.show_props(step)
         assert main_window.prop_fields_layout.count() > 0
@@ -849,7 +885,7 @@ class TestStepPropertyPanels:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "if_any_image", "templates": ["a"], "branches": {"a": []}}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         step = runner.macro["steps"][0]
         main_window.show_props(step)
         assert main_window.prop_fields_layout.count() > 0
@@ -860,7 +896,7 @@ class TestStepPropertyPanels:
             {"type": "repeat", "count": 1, "skip": True, "steps": [{"type": "key", "key": "a"}]},
         ]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 1)
         step = runner.macro["steps"][0]["steps"][0]
         main_window.show_props(step)
         layout = main_window.prop_fields_layout
@@ -1099,12 +1135,7 @@ class TestStepEdgeCases:
             {"type": "key", "key": "c"},
         ]
         main_window.on_macro_selected(0)
-        model = main_window.step_list.model()
-        selection_model = main_window.step_list.selectionModel()
-        clear_and_select = selection_model.SelectionFlag.ClearAndSelect | selection_model.SelectionFlag.Rows
-        select = selection_model.SelectionFlag.Select | selection_model.SelectionFlag.Rows
-        selection_model.select(model.index(0), clear_and_select)
-        selection_model.select(model.index(2), select)
+        select_step_rows(main_window, [0, 2])
         main_window.on_delete_step()
         keys = [s["key"] for s in runner.macro["steps"]]
         assert keys == ["b"]
@@ -1115,7 +1146,7 @@ class TestStepEdgeCases:
         runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
         runner.macro["templates"] = {"btn": {"label": "Button"}}
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.copy_steps()
         main_window.step_list.clearSelection()
         main_window.paste_steps()
@@ -1126,7 +1157,7 @@ class TestStepEdgeCases:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "key", "key": "a"}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.duplicate_steps()
         assert len(runner.macro["steps"]) == 2
         assert runner.macro["steps"][0] == runner.macro["steps"][1]
@@ -1142,7 +1173,7 @@ class TestStepEdgeCases:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.wrap_in_repeat()
         assert runner.macro["steps"][0]["type"] == "repeat"
         assert len(runner.macro["steps"][0]["steps"]) == 1
@@ -1153,7 +1184,7 @@ class TestStepEdgeCases:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.on_move_step(-1)
         assert runner.macro["steps"][0]["key"] == "a"
         assert runner.macro["steps"][1]["key"] == "b"
@@ -1162,7 +1193,7 @@ class TestStepEdgeCases:
         runner = get_runner(main_window)
         runner.macro["steps"] = [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}]
         main_window.on_macro_selected(0)
-        main_window.step_list.setCurrentRow(1)
+        set_current_step_row(main_window, 1)
         main_window.on_move_step(1)
         assert runner.macro["steps"][0]["key"] == "a"
         assert runner.macro["steps"][1]["key"] == "b"
@@ -1173,16 +1204,16 @@ class TestStepEdgeCases:
     def test_populate_steps_no_runner(self, main_window: MainWindow):
         main_window.current_runner = None
         main_window.populate_steps()
-        assert main_window.step_list.count() == 0
+        assert step_count(main_window) == 0
         assert main_window.step_tree is None
 
     def test_on_step_selected_negative_row(self, main_window: MainWindow):
-        main_window.on_step_selected(-1)
+        main_window.on_step_selected(None, None)
         assert main_window.prop_title.text() != ""
 
     def test_on_step_selected_no_runner(self, main_window: MainWindow):
         main_window.current_runner = None
-        main_window.on_step_selected(0)
+        main_window.on_step_selected(None, None)
         # no exception
 
     def test_on_prop_edit_invalid_key_ignored(self, main_window: MainWindow):
@@ -1196,11 +1227,11 @@ class TestStepEdgeCases:
         assert step["key"] == "a"
 
     def test_apply_step_note(self, main_window: MainWindow):
-        item = QListWidgetItem("step")
+        item = QTreeWidgetItem(["step"])
         step = {"type": "key", "key": "a", "note": "  do this  "}
         main_window.apply_step_note(item, step)
-        assert "do this" in item.toolTip()
-        assert "do this" in item.text()
+        assert "do this" in item.toolTip(0)
+        assert "do this" in item.text(0)
 
 
 # ---------------------------------------------------------------------------
@@ -1242,7 +1273,7 @@ class TestStatusAndRunner:
         main_window.on_macro_selected(0)
         runner.current_step = runner.macro["steps"][1]
         main_window.highlight_current_step(runner)
-        assert main_window.step_list.currentRow() == 1
+        assert get_current_step_row(main_window) == 1
 
     def test_set_editing_locked(self, main_window: MainWindow):
         main_window.set_editing_locked(True)
@@ -1637,7 +1668,7 @@ class TestMutateStepsEdge:
 
 class TestPopulateStepsAndKeepRow:
     def test_keeps_row(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.populate_steps_and_keep_row()
         assert True
 
@@ -1992,7 +2023,7 @@ class TestPasteStepsEdge:
             "templates": {"new_png": MINI_PNG},
             "template_meta": {},
         }
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.paste_steps()
         assert (templates_dir / "new_png.png").exists()
 
@@ -2003,7 +2034,7 @@ class TestPasteStepsEdge:
             "templates": {"new_png": MINI_PNG},
             "template_meta": {"new_png": {"label": "New"}},
         }
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.paste_steps()
         macro_templates = get_runner(main_window).macro.get("templates", {})
         assert "new_png" in macro_templates
@@ -2017,7 +2048,7 @@ class TestPasteStepsEdge:
             "templates": {"existing": MINI_PNG},
             "template_meta": {"existing": {"label": "Updated"}},
         }
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.paste_steps()
         meta = get_runner(main_window).macro["templates"]["existing"]
         assert meta["label"] == "Existing"
@@ -2062,10 +2093,10 @@ class TestWrapInRepeatEdge:
             main_window.wrap_in_repeat()
 
     def test_finds_repeat_step_after_wrap(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.step_list.currentItem().setSelected(True)
         main_window.wrap_in_repeat()
-        current = main_window.step_list.currentRow()
+        current = get_current_step_row(main_window)
         assert current >= -1
 
 
@@ -2080,7 +2111,7 @@ class TestMoveStepEdge:
         main_window.on_move_step(1)
 
     def test_invalid_row_returns_early(self, main_window: MainWindow):
-        main_window.step_list.setCurrentRow(-1)
+        set_current_step_row(main_window, -1)
         main_window.on_move_step(1)
 
 
@@ -2581,7 +2612,7 @@ class TestDeleteMacroEdge:
             main_window.delete_macro(0)
 
         assert main_window.current_runner is None
-        assert main_window.step_list.count() == 0
+        assert step_count(main_window) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -2787,7 +2818,7 @@ class TestPasteMergeMeta:
             "templates": {"existing": MINI_PNG},
             "template_meta": {"existing": {"label": "FromClipboard"}},
         }
-        main_window.step_list.setCurrentRow(0)
+        set_current_step_row(main_window, 0)
         main_window.paste_steps()
         meta = get_runner(main_window).macro["templates"]["existing"]
         assert "label" in meta
@@ -2856,3 +2887,94 @@ class TestDoAddStepToAnyBranch:
         main_window.on_macro_selected(0)
         main_window.do_add_step_to_any_branch(main_window.flat_nodes[0].step, "t1", {"type": "delay", "ms": 100})
         assert True
+
+
+class TestTreeWidgetCoverage:
+    def test_on_step_selected_item_not_in_mapping(self, main_window: MainWindow):
+        item = QTreeWidgetItem(["orphan"])
+        main_window.step_list.addTopLevelItem(item)
+        main_window.on_step_selected(item, None)
+
+    def test_refresh_step_list_with_select_row(self, main_window: MainWindow):
+        main_window.refresh_step_list(select_row=0)
+        assert main_window.step_list.currentItem() is not None
+
+    def test_refresh_step_list_select_row_out_of_range(self, main_window: MainWindow):
+        main_window.refresh_step_list(select_row=999)
+
+    def test_undo_selects_item_after_restore(self, main_window: MainWindow):
+        set_current_step_row(main_window, 0)
+        main_window.do_add_step({"type": "key", "key": "z"})
+        main_window.undo()
+        assert main_window.step_list.currentItem() is not None
+
+    def test_duplicate_steps_selects_new_item(self, main_window: MainWindow):
+        set_current_step_row(main_window, 0)
+        main_window.duplicate_steps()
+        assert main_window.step_list.currentItem() is not None
+
+    def test_wrap_in_repeat_selects_repeat_item(self, main_window: MainWindow):
+        select_step_rows(main_window, [0, 1])
+        main_window.wrap_in_repeat()
+        item = main_window.step_list.currentItem()
+        assert item is not None
+        node = main_window.item_to_node.get(item)
+        assert node is not None
+        assert node.step["type"] == "repeat"
+
+    def test_on_move_step_node_none_returns_early(self, main_window: MainWindow):
+        item = QTreeWidgetItem(["orphan"])
+        main_window.step_list.addTopLevelItem(item)
+        main_window.step_list.setCurrentItem(item)
+        main_window.on_move_step(1)
+
+    def test_on_move_step_selects_moved_item(self, main_window: MainWindow):
+        set_current_step_row(main_window, 0)
+        main_window.on_move_step(1)
+        item = main_window.step_list.currentItem()
+        assert item is not None
+
+    def test_highlight_current_step_no_step_tree(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "key", "key": "a"}]
+        main_window.on_macro_selected(0)
+        main_window.step_tree = None
+        runner.current_step = runner.macro["steps"][0]
+        main_window.highlight_current_step(runner)
+
+    def test_highlight_current_step_node_not_found(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "key", "key": "a"}]
+        main_window.on_macro_selected(0)
+        runner.current_step = {"type": "delay", "ms": 999}
+        main_window.highlight_current_step(runner)
+
+    def test_highlight_current_step_item_not_in_mapping(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "key", "key": "a"}]
+        main_window.on_macro_selected(0)
+        node = main_window.step_tree.find_node(runner.macro["steps"][0])
+        assert node is not None
+        item = main_window.node_to_item.pop(node)
+        runner.current_step = runner.macro["steps"][0]
+        main_window.highlight_current_step(runner)
+        main_window.node_to_item[node] = item
+
+    def test_tree_widget_has_nested_items(self, main_window: MainWindow):
+        main_window.macro_list.setCurrentRow(1)
+        top_count = main_window.step_list.topLevelItemCount()
+        assert top_count == 2
+        top_item = main_window.step_list.topLevelItem(1)
+        assert top_item is not None
+        assert top_item.childCount() > 0
+
+    def test_populate_steps_clears_mappings(self, main_window: MainWindow):
+        main_window.populate_steps()
+        assert len(main_window.item_to_node) == len(main_window.flat_nodes)
+        assert len(main_window.node_to_item) == len(main_window.flat_nodes)
+
+    def test_populate_steps_no_runner_clears_mappings(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.populate_steps()
+        assert len(main_window.item_to_node) == 0
+        assert len(main_window.node_to_item) == 0

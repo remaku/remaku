@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidgetItem,
     QSplitter,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -46,6 +47,7 @@ from qfluentwidgets import (
     Theme,
     TransparentPushButton,
     TransparentToolButton,
+    TreeWidget,
     qrouter,
     setTheme,
 )
@@ -394,10 +396,11 @@ class MainWindow(FluentWindow):
         center_layout.setContentsMargins(8, 8, 8, 8)
         center_layout.setSpacing(0)
 
-        self.step_list = ListWidget()
+        self.step_list = TreeWidget()
+        self.step_list.setHeaderHidden(True)
         self.step_list.setIconSize(QSize(18, 18))
-        self.step_list.setSelectionMode(ListWidget.SelectionMode.ExtendedSelection)
-        self.step_list.currentRowChanged.connect(self.on_step_selected)
+        self.step_list.setSelectionMode(TreeWidget.SelectionMode.ExtendedSelection)
+        self.step_list.currentItemChanged.connect(self.on_step_selected)
         self.step_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.step_list.customContextMenuRequested.connect(self.on_step_context_menu)
         center_layout.addWidget(self.step_list, 1)
@@ -513,7 +516,7 @@ class MainWindow(FluentWindow):
         self.macro_list.setVisible(has_macros)
         self.macro_empty_label.setVisible(not has_macros)
 
-        has_steps = self.step_list.count() > 0
+        has_steps = self.step_list.topLevelItemCount() > 0
         self.step_list.setVisible(has_steps)
         self.step_empty_label.setVisible(not has_steps)
 
@@ -548,18 +551,22 @@ class MainWindow(FluentWindow):
         self.show_macro_props()
         self.update_undo_redo_state()
 
-    def on_step_selected(self, row: int) -> None:
+    def on_step_selected(self, current: QTreeWidgetItem | None, previous: QTreeWidgetItem | None) -> None:
         self.commit_field_edits()
 
         if not self.current_runner:
             return
 
-        flat = getattr(self, "flat_nodes", [])
-        if row < 0 or row >= len(flat):
+        if current is None:
             self.show_macro_props()
             return
 
-        self.show_props(flat[row].step)
+        node = self.item_to_node.get(current)
+        if node is None:
+            self.show_macro_props()
+            return
+
+        self.show_props(node.step)
 
     def show_macro_props(self) -> None:
         self.clear_props()
@@ -687,28 +694,28 @@ class MainWindow(FluentWindow):
         self.mutate_steps(select_step=step)
 
     def refresh_step_list(self, *, select_step=None, select_row=None) -> None:
-        """Rebuild the step list and restore selection without triggering signals."""
         self.step_list.blockSignals(True)
         self.populate_steps()
 
-        flat = getattr(self, "flat_nodes", [])
-        if select_step is not None:
-            try:
-                row = next(i for i, n in enumerate(flat) if n.step is select_step)
-            except StopIteration:
-                row = -1
+        item = None
+        if select_step is not None and self.step_tree:
+            node = self.step_tree.find_node(select_step)
+            if node is not None:
+                item = self.node_to_item.get(node)
         elif select_row is not None:
-            row = select_row
-        else:
-            row = -1
+            flat = getattr(self, "flat_nodes", [])
+            if 0 <= select_row < len(flat):
+                item = self.node_to_item.get(flat[select_row])
 
-        if 0 <= row < self.step_list.count():
-            self.step_list.setCurrentRow(row)
+        if item is not None:
+            self.step_list.setCurrentItem(item)
+            self.step_list.expandItem(item)
 
         self.step_list.blockSignals(False)
 
-        if 0 <= row < len(getattr(self, "flat_nodes", [])):
-            self.show_props(self.flat_nodes[row].step)
+        node = self.item_to_node.get(self.step_list.currentItem()) if self.step_list.currentItem() else None
+        if node is not None:
+            self.show_props(node.step)
         else:
             self.show_macro_props()
 
@@ -724,7 +731,9 @@ class MainWindow(FluentWindow):
         self.refresh_step_list(select_step=select_step)
 
     def populate_steps_and_keep_row(self) -> None:
-        self.refresh_step_list(select_row=self.step_list.currentRow())
+        item = self.step_list.currentItem()
+        node = self.item_to_node.get(item) if item else None
+        self.refresh_step_list(select_step=node.step if node else None)
 
     def set_macro_hotkey(self, hotkey: str) -> None:
         if not self.current_runner:
@@ -754,6 +763,8 @@ class MainWindow(FluentWindow):
 
     def populate_steps(self) -> None:
         self.step_list.clear()
+        self.item_to_node: dict[QTreeWidgetItem, StepNode] = {}
+        self.node_to_item: dict[StepNode, QTreeWidgetItem] = {}
 
         if not self.current_runner:
             self.step_tree = None
@@ -765,23 +776,37 @@ class MainWindow(FluentWindow):
         self.step_tree = StepTree(steps)
         self.flat_nodes = self.step_tree.flatten()
 
-        for i, (node, depth) in enumerate(self.step_tree.flatten_with_depth()):
-            icon, summary = self.step_display(node.step)
-            prefix = "       " * depth
-            text = f"{prefix}{summary}"
-            item = QListWidgetItem(f"{i + 1:>3}   {text}")
-            if icon:
-                item.setIcon(icon)
-            self.apply_step_note(item, node.step)
-            self.step_list.addItem(item)
+        for node in self.step_tree.root_nodes:
+            self.build_tree_item(node, None)
 
+        self.step_list.expandAll()
         self.update_empty_states()
 
-    def apply_step_note(self, item: QListWidgetItem, step: dict) -> None:
+    def build_tree_item(self, node: StepNode, parent_item: QTreeWidgetItem | None) -> QTreeWidgetItem:
+        step_icon, summary = self.step_display(node.step)
+        item = QTreeWidgetItem([summary])
+        if step_icon:
+            item.setIcon(0, step_icon)
+        self.apply_step_note(item, node.step)
+        self.item_to_node[item] = node
+        self.node_to_item[node] = item
+
+        if parent_item is None:
+            self.step_list.addTopLevelItem(item)
+        else:
+            parent_item.addChild(item)
+
+        for _branch_name, child_nodes in node.child_lists():
+            for child_node in child_nodes:
+                self.build_tree_item(child_node, item)
+
+        return item
+
+    def apply_step_note(self, item: QTreeWidgetItem, step: dict) -> None:
         note = step.get("note", "").strip()
         if note:
-            item.setToolTip(note)
-            item.setText(item.text() + f" ({note})")
+            item.setToolTip(0, note)
+            item.setText(0, item.text(0) + f" ({note})")
 
     def step_display(self, step: dict) -> tuple[QIcon | None, str]:
         step_type = step.get("type", "?")
@@ -1302,8 +1327,9 @@ class MainWindow(FluentWindow):
         self.mutate_steps(select_step=step)
 
     def refresh_current_step(self) -> None:
-        """Re-render the currently selected step's property panel."""
-        self.refresh_step_list(select_row=self.step_list.currentRow())
+        item = self.step_list.currentItem()
+        node = self.item_to_node.get(item) if item else None
+        self.refresh_step_list(select_step=node.step if node else None)
 
     def show_hold_key_props(self, step: dict) -> None:
         """hold_key_until_gone property panel."""
@@ -1725,7 +1751,15 @@ class MainWindow(FluentWindow):
         if not self.current_runner or not self.current_runner.undo_stack:
             return
 
-        row = self.step_list.currentRow()
+        item = self.step_list.currentItem()
+        node = self.item_to_node.get(item) if item else None
+        select_index = -1
+        if node is not None:
+            flat = getattr(self, "flat_nodes", [])
+            try:
+                select_index = flat.index(node)
+            except ValueError:
+                select_index = -1
 
         self.current_runner.redo_stack.append(copy.deepcopy(self.current_runner.macro))
         self.current_runner.macro = self.current_runner.undo_stack.pop()
@@ -1733,8 +1767,12 @@ class MainWindow(FluentWindow):
         self.save_runner(self.current_runner)
         self.on_macro_selected(self.macro_list.currentRow())
 
-        if self.step_list.count():
-            self.step_list.setCurrentRow(min(row, self.step_list.count() - 1))
+        if select_index >= 0:
+            flat = getattr(self, "flat_nodes", [])
+            if select_index < len(flat):
+                new_item = self.node_to_item.get(flat[select_index])
+                if new_item:
+                    self.step_list.setCurrentItem(new_item)
 
         self.update_undo_redo_state()
 
@@ -1837,24 +1875,22 @@ class MainWindow(FluentWindow):
         if not self.current_runner or not self.step_tree:
             return
 
-        row = self.step_list.currentRow()
-        flat = getattr(self, "flat_nodes", [])
-        target_node = flat[row] if 0 <= row < len(flat) else None
+        item = self.step_list.currentItem()
+        node = self.item_to_node.get(item) if item else None
 
-        new_node = self.step_tree.add_step(target_node, step)
+        new_node = self.step_tree.add_step(node, step)
         self.mutate_steps(select_step=new_node.step)
 
     def on_delete_step(self) -> None:
         if not self.current_runner or not self.step_tree:
             return
 
-        rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
+        selected_items = self.step_list.selectedItems()
 
-        if not rows:
+        if not selected_items:
             return
 
-        flat = getattr(self, "flat_nodes", [])
-        nodes_to_delete = [flat[r] for r in rows if r < len(flat)]
+        nodes_to_delete = [self.item_to_node[item] for item in selected_items if item in self.item_to_node]
 
         for node in reversed(nodes_to_delete):
             self.step_tree.delete_node(node)
@@ -1863,27 +1899,23 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        if self.step_list.count():
-            self.step_list.setCurrentRow(min(rows[0], self.step_list.count() - 1))
+        if self.step_list.topLevelItemCount() > 0:
+            first_item = self.step_list.topLevelItem(0)
+            if first_item is not None:
+                self.step_list.setCurrentItem(first_item)
         else:
             self.step_list.clearSelection()
 
     def copy_steps(self) -> None:
-        """Copy selected steps and their template data to the internal clipboard.
-
-        Stores template PNG data and metadata (label, capture_width, capture_height)
-        from macro["templates"] so pasting across macros carries all info.
-        """
         if not self.current_runner or not self.step_tree:
             return
 
-        rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
+        selected_items = self.step_list.selectedItems()
 
-        if not rows:
+        if not selected_items:
             return
 
-        flat = getattr(self, "flat_nodes", [])
-        selected_nodes = [flat[r] for r in rows if r < len(flat)]
+        selected_nodes = [self.item_to_node[item] for item in selected_items if item in self.item_to_node]
         top_level = self.step_tree.get_top_level(selected_nodes)
         steps = [copy.deepcopy(n.step) for n in top_level]
 
@@ -1917,11 +1949,6 @@ class MainWindow(FluentWindow):
             self.on_delete_step()
 
     def paste_steps(self) -> None:
-        """Paste steps from clipboard, carrying template PNG and metadata.
-
-        Template metadata (label, capture_width, capture_height) is merged into
-        macro["templates"], so cross-macro paste preserves capture resolution info.
-        """
         if not self.current_runner or not getattr(self, "step_clipboard", None):
             return
 
@@ -1931,11 +1958,10 @@ class MainWindow(FluentWindow):
         if not self.step_tree:
             return
 
-        row = self.step_list.currentRow()
-        flat = getattr(self, "flat_nodes", [])
-        target_node = flat[row] if 0 <= row < len(flat) else None
+        item = self.step_list.currentItem()
+        node = self.item_to_node.get(item) if item else None
 
-        nodes = self.step_tree.insert_steps_after(target_node, steps_to_paste)
+        nodes = self.step_tree.insert_steps_after(node, steps_to_paste)
 
         templates_dir = self.macro_templates_dir
 
@@ -1961,14 +1987,12 @@ class MainWindow(FluentWindow):
         if not self.current_runner or not self.step_tree:
             return
 
-        rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
+        selected_items = self.step_list.selectedItems()
 
-        if not rows:
+        if not selected_items:
             return
 
-        flat = getattr(self, "flat_nodes", [])
-        selected_nodes = [flat[r] for r in rows if r < len(flat)]
-        last_row = rows[-1]
+        selected_nodes = [self.item_to_node[item] for item in selected_items if item in self.item_to_node]
 
         duplicates = self.step_tree.duplicate_nodes(selected_nodes)
 
@@ -1976,9 +2000,13 @@ class MainWindow(FluentWindow):
         self.save_current_macro()
         self.populate_steps()
 
-        new_row = last_row + len(duplicates)
-        if new_row < self.step_list.count():
-            self.step_list.setCurrentRow(new_row)
+        if duplicates:
+            dup_step = duplicates[-1].step
+            new_node = self.step_tree.find_node(dup_step) if self.step_tree else None
+            if new_node:
+                new_item = self.node_to_item.get(new_node)
+                if new_item:
+                    self.step_list.setCurrentItem(new_item)
 
     def on_step_context_menu(self, pos) -> None:
         if not self.current_runner:
@@ -1986,7 +2014,7 @@ class MainWindow(FluentWindow):
 
         menu = RoundMenu(parent=self)
 
-        has_selection = bool(self.step_list.selectedIndexes())
+        has_selection = bool(self.step_list.selectedItems())
         has_clipboard = bool(getattr(self, "step_clipboard", None))
 
         act_copy = Action(t("menu.edit.copy"), triggered=self.copy_steps, shortcut="Ctrl+C")
@@ -2024,50 +2052,55 @@ class MainWindow(FluentWindow):
         if not self.current_runner or not self.step_tree:
             return
 
-        rows = sorted(idx.row() for idx in self.step_list.selectedIndexes())
+        selected_items = self.step_list.selectedItems()
 
-        if not rows:
+        if not selected_items:
             return
 
-        flat = getattr(self, "flat_nodes", [])
-        selected_nodes = [flat[r] for r in rows if r < len(flat)]
+        selected_nodes = [self.item_to_node[item] for item in selected_items if item in self.item_to_node]
         top_level = self.step_tree.get_top_level(selected_nodes)
 
         if not top_level:
             return
 
-        self.step_tree.wrap_in_repeat(top_level)
+        repeat_node = self.step_tree.wrap_in_repeat(top_level)
+        repeat_step = repeat_node.step
 
         self.save_current_macro()
         self.populate_steps()
-        repeat_step = top_level[0].parent.step if top_level[0].parent else None
-        if repeat_step:
-            new_flat = getattr(self, "flat_nodes", [])
-            new_row = next((i for i, n in enumerate(new_flat) if n.step is repeat_step), 0)
-            self.step_list.setCurrentRow(new_row)
+        if self.step_tree:
+            new_repeat_node = self.step_tree.find_node(repeat_step)
+            if new_repeat_node:
+                repeat_item = self.node_to_item.get(new_repeat_node)
+                if repeat_item:
+                    self.step_list.setCurrentItem(repeat_item)
+                    self.step_list.expandItem(repeat_item)
 
     def on_move_step(self, direction: int) -> None:
         if not self.step_tree:
             return
 
-        row = self.step_list.currentRow()
-        flat = getattr(self, "flat_nodes", [])
-
-        if row < 0 or row >= len(flat):
+        item = self.step_list.currentItem()
+        if item is None:
             return
 
-        node = flat[row]
+        node = self.item_to_node.get(item)
+        if node is None:
+            return
+
+        moved_step = node.step
         moved = self.step_tree.move_step(node, direction)
 
         if moved:
             self.save_current_macro()
             self.populate_steps()
 
-            # Re-find the moved step in the new flat list.
-            new_flat = getattr(self, "flat_nodes", [])
-            new_row = next((i for i, n in enumerate(new_flat) if n.step is node.step), -1)
-            if new_row >= 0:
-                self.step_list.setCurrentRow(new_row)
+            new_node = self.step_tree.find_node(moved_step) if self.step_tree else None
+            if new_node:
+                new_item = self.node_to_item.get(new_node)
+                if new_item:
+                    self.step_list.setCurrentItem(new_item)
+                    self.step_list.expandItem(new_item)
 
     def on_run(self) -> None:
         if not self.current_runner:
@@ -2191,16 +2224,23 @@ class MainWindow(FluentWindow):
 
         if current is None:
             return
-        flat = getattr(self, "flat_nodes", [])
-        if not flat:
+
+        if not self.step_tree:
             return
-        try:
-            idx = next(i for i, n in enumerate(flat) if n.step is current)
-            self.step_list.blockSignals(True)
-            self.step_list.setCurrentRow(idx)
-            self.step_list.blockSignals(False)
-        except StopIteration:
-            pass
+
+        node = self.step_tree.find_node(current)
+        if node is None:
+            return
+
+        item = self.node_to_item.get(node)
+        if item is None:
+            return
+
+        self.step_list.blockSignals(True)
+        self.step_list.setCurrentItem(item)
+        self.step_list.expandItem(item)
+        self.step_list.scrollToItem(item)
+        self.step_list.blockSignals(False)
 
     def open_settings(self) -> None:
         self.settings_page = SettingsPage(self, self.conf, on_save=self.apply_settings)
@@ -2577,6 +2617,8 @@ class MainWindow(FluentWindow):
             self.step_list.clear()
             self.step_tree = None
             self.flat_nodes = []
+            self.item_to_node = {}
+            self.node_to_item = {}
             self.clear_props()
 
         self.update_empty_states()

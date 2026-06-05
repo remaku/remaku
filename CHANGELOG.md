@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Changed
+
+- Macro editor step list now uses a tree view, allowing nested steps (repeat, if_image, if_any_image, grid_nav) to be collapsed and expanded for better organization
+
+<!-- lang:zh_tw -->
+
+### 變更
+
+- 巨集編輯器步驟列表現在使用樹狀檢視，允許巢狀步驟（重複、if_image、if_any_image、grid_nav）折疊與展開，以便更好地組織
+
+<!-- lang:zh_cn -->
+
+### 变更
+
+- 宏编辑器步骤列表现在使用树状视图，允许嵌套步骤（重复、if_image、if_any_image、grid_nav）折叠与展开，以便更好地组织
+
 ## v0.4.0
 
 <!-- lang:en -->

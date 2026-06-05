@@ -33,10 +33,14 @@ package = false
 
 [tool.ruff]
 line-length = 120
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 extend-select = ["I", "UP", "B", "SIM", "C4", "PT", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pyright]
+include = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

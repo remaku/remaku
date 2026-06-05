@@ -34,8 +34,9 @@ Rules:
 
 ## Git Rules
 
-- Never commit or push on your own; always wait for explicit user instruction.
-- After modifying `pyproject.toml`, run `uv sync` to update the lockfile, then commit both together.
+- **STRICTLY PROHIBITED**: Never execute `git commit` or `git push` on your own under any circumstances. You do not have the authority to commit changes independently.
+- **Post-Modification Protocol**: After modifying code, running linters, and completing tests, you must **STOP IMMEDIATELY**. Report the exact files and changes made to the user, and explicitly ask: _"I have completed the modifications. Would you like me to commit these changes now?"_
+- **Dependency Updates**: After modifying `pyproject.toml`, run `uv sync` to update the lockfile. Once done, **STOP** and wait for explicit user instructions to commit them together. Do not proceed to commit automatically.
 
 ## Development & Build
 

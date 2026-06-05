@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Fixed a crash when adding a note containing only numbers to a step
 - Fixed a crash on startup when the config file is empty or contains invalid JSON; the app now falls back to default settings
 - Fixed screen capture failing with an unrecoverable error when the GPU is temporarily busy; the app now retries a few times before giving up
 - Fixed update check always failing with a certificate error in the packaged build; the app now uses a bundled certificate store
@@ -31,6 +32,7 @@
 
 ### 修正
 
+- 修正步驟備註僅包含數字時導致程式崩潰的問題
 - 修正設定檔為空或 JSON 格式錯誤時程式無法啟動的問題，現在會自動套用預設值
 - 修正 GPU 暫時忙碌時螢幕擷取直接失敗的問題，現在會自動重試數次後才放棄
 - 修正打包版更新檢查必定因憑證錯誤而失敗的問題，現在使用內建憑證存取區
@@ -48,6 +50,7 @@
 
 ### 修复
 
+- 修复步骤备注仅包含数字时导致程序崩溃的问题
 - 修复配置文件为空或 JSON 格式错误时程序无法启动的问题，现在会自动套用默认值
 - 修复 GPU 暂时忙碌时屏幕捕获直接失败的问题，现在会自动重试数次后才放弃
 - 修复打包版更新检查必定因证书错误而失败的问题，现在使用内置证书存储区

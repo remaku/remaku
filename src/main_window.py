@@ -1662,7 +1662,7 @@ class MainWindow(FluentWindow):
                 value = int(value)
             except ValueError:
                 return
-        else:
+        elif key != "note":
             try:
                 value = int(value)
             except ValueError:

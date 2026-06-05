@@ -494,6 +494,24 @@ class TestDownload:
 
         assert not os.path.exists(part)
 
+    def test_run_cleans_stale_part_remove_fails(self, tmp_path):
+        dest = str(tmp_path / "setup.exe")
+        part = dest + ".part"
+        with open(part, "wb") as f:
+            f.write(b"stale data")
+
+        on_error = MagicMock()
+        dl = Download(None, "http://example.com/setup.exe", dest, MagicMock(), MagicMock(), on_error)
+
+        with (
+            patch("updater.urlopen", side_effect=URLError("fail")),
+            patch("updater.os.remove", side_effect=OSError("locked")),
+        ):
+            dl.run()
+
+        on_error.assert_called_once()
+        assert os.path.exists(part)
+
 
 # ---------------------------------------------------------------------------
 # installer_temp_path
@@ -722,3 +740,50 @@ class TestUpdateDialog:
         assert dialog.progress.value() == 0
         mock_dl_cls.assert_called_once()
         instance.start.assert_called_once()
+
+    def test_enter_download_phase_clears_stale_part(self, dialog):
+        dialog.show()
+        with patch("updater.Download") as mock_dl_cls:
+            mock_dl_cls.return_value = MagicMock()
+            dialog.enter_download_phase()
+        assert dialog.phase == dialog.PHASE_DOWNLOAD
+
+    def test_enter_download_phase_stale_part_remove_fails(self, dialog):
+        import os
+
+        part = installer_temp_path(dialog.info.tag) + ".part"
+        with open(part, "wb") as f:
+            f.write(b"stale")
+        try:
+            dialog.show()
+            with patch("updater.os.remove", side_effect=OSError("locked")), patch("updater.Download") as mock_dl_cls:
+                mock_dl_cls.return_value = MagicMock()
+                dialog.enter_download_phase()
+            assert dialog.phase == dialog.PHASE_DOWNLOAD
+        finally:
+            if os.path.exists(part):
+                os.remove(part)
+
+    def test_beta_channel_label(self, qtbot):
+        info = UpdateInfo(tag="v0.4.0-beta.1", version=(0, 4, 0, 1), body="", installer_url="", release_url="")
+        with patch("updater.cfg.load") as mock_load:
+            conf = MagicMock()
+            conf.general.update_channel = "beta"
+            mock_load.return_value = conf
+            dialog = UpdateDialog(None, info)
+            qtbot.addWidget(dialog)
+        assert dialog.channel == "beta"
+
+
+class TestPromptUpdate:
+    def test_returns_dialog(self, qtbot):
+        info = UpdateInfo(tag="v1.0.0", version=(1, 0, 0, 999999), body="", installer_url="", release_url="")
+        with patch("updater.cfg.load") as mock_load:
+            conf = MagicMock()
+            conf.general.update_channel = "stable"
+            mock_load.return_value = conf
+            dlg = updater.prompt_update(None, info)
+            qtbot.addWidget(dlg)
+        assert isinstance(dlg, UpdateDialog)
+        assert dlg.isVisible()
+        dlg.close()

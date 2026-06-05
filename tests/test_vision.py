@@ -1,6 +1,86 @@
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 
 import vision
+
+
+class TestLoadTemplates:
+    def test_loads_existing_templates(self):
+        names = ["btn", "icon"]
+        mock_dir = MagicMock()
+        mock_paths = {}
+
+        for name in names:
+            mock_path = MagicMock()
+            mock_path.exists.return_value = True
+            mock_path.__str__ = lambda self, n=name: f"/tmp/{n}.png"
+            mock_paths[name] = mock_path
+
+        mock_dir.__truediv__ = lambda self, name: mock_paths.get(name.replace(".png", ""), MagicMock())
+
+        def decode(arr, flags):
+            return np.zeros((10, 10), dtype=np.uint8)
+
+        with (
+            patch("vision.config.templates_dir", return_value=mock_dir),
+            patch("vision.cv2.imdecode", side_effect=decode),
+            patch("vision.np.fromfile", return_value=np.zeros(100, dtype=np.uint8)),
+        ):
+            result = vision.load_templates(names, macro_name="test")
+
+        assert len(result) == 2
+        assert "btn" in result
+        assert "icon" in result
+
+    def test_skips_missing_files(self):
+        mock_dir = MagicMock()
+        mock_path = MagicMock()
+        mock_path.exists.return_value = False
+        mock_dir.__truediv__ = lambda self, name: mock_path
+
+        with patch("vision.config.templates_dir", return_value=mock_dir):
+            result = vision.load_templates(["missing"], macro_name="test")
+
+        assert result == {}
+
+    def test_skips_unreadable_files(self):
+        mock_dir = MagicMock()
+        mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_path.__str__ = lambda self: "/tmp/bad.png"
+        mock_dir.__truediv__ = lambda self, name: mock_path
+
+        with (
+            patch("vision.config.templates_dir", return_value=mock_dir),
+            patch("vision.cv2.imdecode", return_value=None),
+            patch("vision.np.fromfile", return_value=np.zeros(100, dtype=np.uint8)),
+        ):
+            result = vision.load_templates(["bad"], macro_name="test")
+
+        assert result == {}
+
+
+class TestScaleTemplate:
+    def test_no_scaling_when_same_size(self):
+        template = np.zeros((10, 10), dtype=np.uint8)
+        result = vision.scale_template(template, (100, 100), (100, 100))
+        assert result is template
+
+    def test_scales_down_when_frame_smaller(self):
+        template = np.zeros((100, 100), dtype=np.uint8)
+        result = vision.scale_template(template, (50, 50), (100, 100))
+        assert result.shape == (50, 50)
+
+    def test_scales_up_when_frame_larger(self):
+        template = np.zeros((50, 50), dtype=np.uint8)
+        result = vision.scale_template(template, (100, 100), (50, 50))
+        assert result.shape == (100, 100)
+
+    def test_minimum_size_one(self):
+        template = np.zeros((10, 10), dtype=np.uint8)
+        result = vision.scale_template(template, (1, 1), (1000, 1000))
+        assert result.shape == (1, 1)
 
 
 class TestToGray:

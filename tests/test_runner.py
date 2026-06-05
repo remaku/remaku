@@ -273,6 +273,70 @@ class TestRunMethod:
             with pytest.raises(RuntimeError, match="grabber fail"):
                 runner.run()
 
+    def test_stopped_while_waiting_foreground(self):
+        runner = self.make_runner()
+        runner.target_window = "Game"
+        runner.start_time = time.monotonic()
+        mock_win = MagicMock()
+        with (
+            patch("runner.window.find_target_window", return_value=mock_win),
+            patch("runner.window.is_foreground", return_value=False),
+            patch.object(runner.stop_evt, "wait", return_value=True),
+            pytest.raises(Stopped),
+        ):
+            runner.run()
+
+    def test_template_capture_sizes_populated(self):
+        runner = self.make_runner()
+        runner.start_time = time.monotonic()
+        runner.template_names = ["btn"]
+        object.__setattr__(
+            runner,
+            "macro",
+            {
+                "templates": {
+                    "btn": {"capture_width": 1920, "capture_height": 1080},
+                }
+            },
+        )
+        mock_win = MagicMock()
+        with (
+            patch("runner.window.find_target_window", return_value=mock_win),
+            patch("runner.window.check_elevation_mismatch", return_value=False),
+            patch("runner.window.client_rect", return_value=MagicMock(width=100, height=100)),
+            patch("runner.vision.load_templates", return_value={"btn": np.zeros((10, 10), dtype=np.uint8)}),
+            patch("runner.capture.make_grabber") as mock_make_grabber,
+        ):
+            mock_grabber = MagicMock()
+            mock_make_grabber.return_value = mock_grabber
+            runner.loop = lambda: None
+            runner.run()
+        assert runner.template_capture_sizes["btn"] == (1920, 1080)
+
+    def test_template_capture_sizes_none_when_missing(self):
+        runner = self.make_runner()
+        runner.start_time = time.monotonic()
+        runner.template_names = ["btn"]
+        object.__setattr__(runner, "macro", {"templates": {}})
+        mock_win = MagicMock()
+        with (
+            patch("runner.window.find_target_window", return_value=mock_win),
+            patch("runner.window.check_elevation_mismatch", return_value=False),
+            patch("runner.window.client_rect", return_value=MagicMock(width=100, height=100)),
+            patch("runner.vision.load_templates", return_value={"btn": np.zeros((10, 10), dtype=np.uint8)}),
+            patch("runner.capture.make_grabber") as mock_make_grabber,
+        ):
+            mock_grabber = MagicMock()
+            mock_make_grabber.return_value = mock_grabber
+            runner.loop = lambda: None
+            runner.run()
+        assert runner.template_capture_sizes["btn"] is None
+
+    def test_loop_not_implemented(self):
+        runner = self.make_runner()
+        with pytest.raises(NotImplementedError):
+            runner.loop()
+
 
 # ---------------------------------------------------------------------------
 # wait_for_template
@@ -339,6 +403,26 @@ class TestWaitForTemplate:
             mock_vision.match_one.return_value = (0.1, (5, 5))
             with pytest.raises(Stopped):
                 runner.wait_for_template("btn", 5000)
+
+    def test_none_frame_then_match(self):
+        runner = self.make_runner()
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        call_count = 0
+
+        def capture_side_effect():
+            nonlocal call_count
+            call_count += 1
+            return None if call_count == 1 else frame
+
+        with (
+            patch.object(runner, "capture_tick", side_effect=capture_side_effect),
+            patch("runner.vision") as mock_vision,
+            patch.object(runner, "sleep_remaining"),
+        ):
+            mock_vision.match_one.return_value = (0.99, (5, 5))
+            result = runner.wait_for_template("btn", 5000)
+        assert result is True
+        assert call_count == 2
 
 
 # ---------------------------------------------------------------------------
@@ -409,6 +493,26 @@ class TestWaitForAny:
             mock_vision.match_one.return_value = (0.1, (5, 5))
             with pytest.raises(Stopped):
                 runner.wait_for_any(["a", "b"], 5000)
+
+    def test_none_frame_then_match(self):
+        runner = self.make_runner()
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        call_count = 0
+
+        def capture_side_effect():
+            nonlocal call_count
+            call_count += 1
+            return None if call_count == 1 else frame
+
+        with (
+            patch.object(runner, "capture_tick", side_effect=capture_side_effect),
+            patch("runner.vision") as mock_vision,
+            patch.object(runner, "sleep_remaining"),
+        ):
+            mock_vision.match_one.side_effect = [(0.1, (1, 1)), (0.99, (2, 2))]
+            result = runner.wait_for_any(["a", "b"], 5000)
+        assert result == "b"
+        assert call_count == 2
 
 
 # ---------------------------------------------------------------------------

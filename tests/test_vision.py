@@ -5,6 +5,18 @@ import numpy as np
 import vision
 
 
+class MockPath:
+    def __init__(self, path: str, exists: bool = True):
+        self._path = path
+        self._exists = exists
+
+    def exists(self) -> bool:
+        return self._exists
+
+    def __str__(self) -> str:
+        return self._path
+
+
 class TestLoadTemplates:
     def test_loads_existing_templates(self):
         names = ["btn", "icon"]
@@ -12,10 +24,7 @@ class TestLoadTemplates:
         mock_paths = {}
 
         for name in names:
-            mock_path = MagicMock()
-            mock_path.exists.return_value = True
-            mock_path.__str__ = lambda self, n=name: f"/tmp/{n}.png"
-            mock_paths[name] = mock_path
+            mock_paths[name] = MockPath(f"/tmp/{name}.png")
 
         mock_dir.__truediv__ = lambda self, name: mock_paths.get(name.replace(".png", ""), MagicMock())
 
@@ -35,8 +44,7 @@ class TestLoadTemplates:
 
     def test_skips_missing_files(self):
         mock_dir = MagicMock()
-        mock_path = MagicMock()
-        mock_path.exists.return_value = False
+        mock_path = MockPath("/tmp/missing.png", exists=False)
         mock_dir.__truediv__ = lambda self, name: mock_path
 
         with patch("vision.config.templates_dir", return_value=mock_dir):
@@ -46,9 +54,7 @@ class TestLoadTemplates:
 
     def test_skips_unreadable_files(self):
         mock_dir = MagicMock()
-        mock_path = MagicMock()
-        mock_path.exists.return_value = True
-        mock_path.__str__ = lambda self: "/tmp/bad.png"
+        mock_path = MockPath("/tmp/bad.png")
         mock_dir.__truediv__ = lambda self, name: mock_path
 
         with (

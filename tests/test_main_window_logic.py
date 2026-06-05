@@ -260,18 +260,21 @@ class TestMigrateTemplateMeta:
     """Test backward-compatible migration of legacy separate .json metadata files."""
 
     def test_migrates_legacy_file(self, tmp_path):
-        """Legacy .json file is read, merged into entry, and deleted."""
+        """Legacy .json file is read, merged into entry, deleted, and reports migration."""
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
         mw.bind_method("migrate_template_meta")
 
         meta_path = tmp_path / "t1.json"
         meta_path.write_text(json.dumps({"capture_width": 1920, "capture_height": 1080}), encoding="utf-8")
 
         entry = {"label": "T1"}
-        mw.migrate_template_meta("t1", entry)
+        migrated = mw.migrate_template_meta("t1", entry)
 
+        assert migrated is True
         assert entry["capture_width"] == 1920
         assert entry["capture_height"] == 1080
         assert not meta_path.exists()
@@ -281,11 +284,14 @@ class TestMigrateTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
         mw.bind_method("migrate_template_meta")
 
         entry = {"label": "T1"}
-        mw.migrate_template_meta("t1", entry)
+        migrated = mw.migrate_template_meta("t1", entry)
 
+        assert migrated is False
         assert entry == {"label": "T1"}
 
     def test_already_migrated(self, tmp_path):
@@ -293,14 +299,17 @@ class TestMigrateTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
         mw.bind_method("migrate_template_meta")
 
         meta_path = tmp_path / "t1.json"
         meta_path.write_text(json.dumps({"capture_width": 1920, "capture_height": 1080}), encoding="utf-8")
 
         entry = {"label": "T1", "capture_width": 2560, "capture_height": 1440}
-        mw.migrate_template_meta("t1", entry)
+        migrated = mw.migrate_template_meta("t1", entry)
 
+        assert migrated is False
         assert entry["capture_width"] == 2560
         assert entry["capture_height"] == 1440
         assert meta_path.exists()
@@ -310,15 +319,37 @@ class TestMigrateTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
         mw.bind_method("migrate_template_meta")
 
         meta_path = tmp_path / "t1.json"
         meta_path.write_text("not json", encoding="utf-8")
 
         entry = {"label": "T1"}
-        mw.migrate_template_meta("t1", entry)
+        migrated = mw.migrate_template_meta("t1", entry)
 
+        assert migrated is False
         assert entry == {"label": "T1"}
+
+    def test_invalid_dimensions_do_not_migrate(self, tmp_path):
+        """Invalid legacy dimensions should not be treated as migrated metadata."""
+        runner = MagicMock()
+        runner.macro = {"templates": {"t1": {"label": "T1"}}}
+        mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
+        mw.bind_method("migrate_template_meta")
+
+        meta_path = tmp_path / "t1.json"
+        meta_path.write_text(json.dumps({"capture_width": 0, "capture_height": 1080}), encoding="utf-8")
+
+        entry = {"label": "T1"}
+        migrated = mw.migrate_template_meta("t1", entry)
+
+        assert migrated is False
+        assert entry == {"label": "T1"}
+        assert meta_path.exists()
 
 
 class TestGetTemplateMeta:
@@ -329,6 +360,9 @@ class TestGetTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1", "capture_width": 1920, "capture_height": 1080}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
+        mw.bind_method("migrate_template_meta")
         mw.bind_method("get_template_meta")
 
         result = mw.get_template_meta("t1")
@@ -340,6 +374,9 @@ class TestGetTemplateMeta:
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
         mw.save_current_macro = MagicMock()
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
+        mw.bind_method("migrate_template_meta")
         mw.bind_method("get_template_meta")
 
         meta_path = tmp_path / "t1.json"
@@ -364,6 +401,9 @@ class TestGetTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
+        mw.bind_method("migrate_template_meta")
         mw.bind_method("get_template_meta")
 
         assert mw.get_template_meta("missing") == {}
@@ -373,6 +413,9 @@ class TestGetTemplateMeta:
         runner = MagicMock()
         runner.macro = {"templates": {"t1": {"label": "T1"}}}
         mw = FakeMainWindow(current_runner=runner, macro_templates_dir=tmp_path)
+        mw.has_valid_template_meta = lambda entry: MainWindow.has_valid_template_meta(entry)
+        mw.read_legacy_template_meta_file = lambda meta_path: MainWindow.read_legacy_template_meta_file(meta_path)
+        mw.bind_method("migrate_template_meta")
         mw.bind_method("get_template_meta")
 
         result = mw.get_template_meta("t1")

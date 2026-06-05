@@ -8,17 +8,32 @@
 
 - Macro editor step list now uses a tree view, allowing nested steps (repeat, if_image, if_any_image, grid_nav) to be collapsed and expanded for better organization
 
+### Fixed
+
+- Running a macro now migrates legacy template resolution metadata before execution, so older templates keep matching at the resolution they were originally captured at
+- Templates with missing or invalid legacy resolution metadata no longer silently fall back to the current screen resolution, avoiding incorrect scaling during image matching
+
 <!-- lang:zh_tw -->
 
 ### 變更
 
 - 巨集編輯器步驟列表現在使用樹狀檢視，允許巢狀步驟（重複、if_image、if_any_image、grid_nav）折疊與展開，以便更好地組織
 
+### 修正
+
+- 現在執行巨集前會先遷移舊版模板解析度中繼資料，讓舊模板仍能依照原本擷取時的解析度進行比對
+- 缺少或損壞的舊版模板解析度中繼資料現在不會再悄悄改用目前螢幕解析度，避免影像比對時出現錯誤縮放
+
 <!-- lang:zh_cn -->
 
 ### 变更
 
 - 宏编辑器步骤列表现在使用树状视图，允许嵌套步骤（重复、if_image、if_any_image、grid_nav）折叠与展开，以便更好地组织
+
+### 修复
+
+- 现在执行宏前会先迁移旧版模板分辨率元数据，让旧模板仍能按照原本捕获时的分辨率进行匹配
+- 缺少或损坏的旧版模板分辨率元数据现在不会再悄悄改用当前屏幕分辨率，避免图像匹配时出现错误缩放
 
 ## v0.4.0
 

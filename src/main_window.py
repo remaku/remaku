@@ -13,6 +13,7 @@ import shutil
 import time
 import webbrowser
 import zipfile
+from typing import Any
 
 import pydirectinput as pdi
 from loguru import logger
@@ -1524,20 +1525,70 @@ class MainWindow(FluentWindow):
 
         self.current_runner.macro.setdefault("templates", {})[name] = entry
 
-    def ensure_template_meta(self, name: str) -> None:
+    @staticmethod
+    def has_valid_template_meta(entry: dict[str, Any]) -> bool:
+        """Return True when capture metadata exists and contains positive integer dimensions."""
+        width = entry.get("capture_width")
+        height = entry.get("capture_height")
+        return isinstance(width, int) and width > 0 and isinstance(height, int) and height > 0
+
+    @staticmethod
+    def read_legacy_template_meta_file(meta_path) -> dict[str, int] | None:
+        """Read a legacy template metadata file and return validated capture dimensions."""
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            return None
+
+        width = meta.get("capture_width")
+        height = meta.get("capture_height")
+
+        if not isinstance(width, int) or width <= 0 or not isinstance(height, int) or height <= 0:
+            return None
+
+        return {"capture_width": width, "capture_height": height}
+
+    def migrate_template_meta(self, name: str, entry: dict[str, Any]) -> bool:
+        """Migrate legacy separate .json metadata file into macro["templates"][name].
+
+        Backward compatibility: older versions stored capture resolution in a separate
+        <name>.json file alongside the template .png. This method reads that file,
+        merges validated capture_width/capture_height into the macro JSON entry, and
+        deletes the legacy file. Returns True only when a valid migration occurred.
+        """
+        if self.has_valid_template_meta(entry):
+            return False
+
+        meta_path = self.macro_templates_dir / f"{name}.json"
+        if not meta_path.exists():
+            return False
+
+        meta = self.read_legacy_template_meta_file(meta_path)
+        if meta is None:
+            return False
+
+        entry["capture_width"] = meta["capture_width"]
+        entry["capture_height"] = meta["capture_height"]
+        meta_path.unlink(missing_ok=True)
+        return True
+
+    def ensure_template_meta(self, name: str) -> bool:
         """Ensure the template has capture resolution metadata in macro["templates"][name].
 
-        If the entry already has capture_width and capture_height, this is a no-op.
-        Otherwise, writes the current screen resolution as the capture metadata.
+        Returns True when valid metadata already exists or legacy metadata was migrated.
+        Returns False when metadata is still missing; in that case the caller may decide
+        whether writing the current screen resolution is appropriate.
         """
         if not self.current_runner:
-            return
+            return False
 
         entry = self.current_runner.macro.get("templates", {}).get(name, {})
-        if "capture_width" in entry and "capture_height" in entry:
-            return
+        if self.has_valid_template_meta(entry):
+            return True
 
-        self.write_template_meta(name)
+        migrated = self.migrate_template_meta(name, entry)
+        self.current_runner.macro.setdefault("templates", {})[name] = entry
+        return migrated or self.has_valid_template_meta(entry)
 
     def get_template_meta(self, name: str) -> dict:
         """Read template metadata from macro["templates"][name].
@@ -1551,21 +1602,17 @@ class MainWindow(FluentWindow):
         if not self.current_runner:
             return {}
 
-        entry = self.current_runner.macro.get("templates", {}).get(name, {})
-        if "capture_width" in entry and "capture_height" in entry:
+        templates = self.current_runner.macro.get("templates", {})
+        entry = templates.get(name)
+        if entry is None:
+            return {}
+
+        if self.has_valid_template_meta(entry):
             return entry
 
-        meta_path = self.macro_templates_dir / f"{name}.json"
-        if meta_path.exists():
-            try:
-                legacy = json.loads(meta_path.read_text(encoding="utf-8"))
-                entry.setdefault("capture_width", legacy.get("capture_width"))
-                entry.setdefault("capture_height", legacy.get("capture_height"))
-                meta_path.unlink(missing_ok=True)
-                self.current_runner.macro.setdefault("templates", {})[name] = entry
-                self.save_current_macro()
-            except (ValueError, OSError):
-                pass
+        if self.migrate_template_meta(name, entry):
+            templates[name] = entry
+            self.save_current_macro()
 
         return entry
 
@@ -1609,30 +1656,6 @@ class MainWindow(FluentWindow):
         )
         layout.addWidget(height_edit)
 
-    def migrate_template_meta(self, name: str, entry: dict) -> None:
-        """Migrate legacy separate .json metadata file into macro["templates"][name].
-
-        Backward compatibility: older versions stored capture resolution in a separate
-        <name>.json file alongside the template .png. This method reads that file,
-        merges capture_width/capture_height into the macro JSON entry, and deletes
-        the legacy file. No-op if the entry already has metadata or no legacy file exists.
-        """
-        if "capture_width" in entry and "capture_height" in entry:
-            return
-
-        meta_path = self.macro_templates_dir / f"{name}.json"
-        if not meta_path.exists():
-            return
-
-        try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
-            return
-
-        entry.setdefault("capture_width", meta.get("capture_width"))
-        entry.setdefault("capture_height", meta.get("capture_height"))
-        meta_path.unlink(missing_ok=True)
-
     def sync_macro_templates(self) -> None:
         """Rebuild macro["templates"] to only keep template names actually referenced by steps.
 
@@ -1643,6 +1666,8 @@ class MainWindow(FluentWindow):
 
         Backward compatibility: if separate .json metadata files exist alongside template .png
         files (legacy format), they are migrated into macro["templates"] and deleted.
+        Missing metadata is preserved as-is here; callers that create or recapture templates
+        are responsible for writing fresh capture dimensions.
         """
         if not self.current_runner:
             return
@@ -1654,18 +1679,18 @@ class MainWindow(FluentWindow):
 
         existing = macro.get("templates", {})
         migrated: dict[str, dict] = {}
+        did_migrate = False
 
         for name in used:
             entry = existing.get(name, {"label": name})
-            self.migrate_template_meta(name, entry)
+            did_migrate = self.migrate_template_meta(name, entry) or did_migrate
             migrated[name] = entry
 
         macro["templates"] = migrated
-
-        for name in used:
-            self.ensure_template_meta(name)
-
         self.current_runner.template_names = list(used)
+
+        if did_migrate:
+            self.save_current_macro()
 
     def collect_template_refs(self, steps: list[dict], out: set) -> None:
         for step in steps:
@@ -2149,6 +2174,7 @@ class MainWindow(FluentWindow):
         if not runner.macro.get("meta", {}).get("enabled", True):
             return
 
+        self.sync_macro_templates()
         runner.conf = self.conf
         runner.start()
 

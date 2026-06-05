@@ -932,15 +932,30 @@ class TestTemplatePreviewAndMeta:
         runner = get_runner(main_window)
         runner.macro.setdefault("templates", {})["btn"] = {"label": "Btn", "capture_width": 100, "capture_height": 200}
         with patch.object(main_window, "write_template_meta") as mock_write:
-            main_window.ensure_template_meta("btn")
+            result = main_window.ensure_template_meta("btn")
+        assert result is True
         mock_write.assert_not_called()
 
-    def test_ensure_template_meta_writes_when_missing(self, main_window: MainWindow):
+    def test_ensure_template_meta_migrates_legacy_file(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro.setdefault("templates", {})["btn"] = {"label": "Btn"}
+        meta_path = main_window.macro_templates_dir / "btn.json"
+        meta_path.write_text(json.dumps({"capture_width": 1600, "capture_height": 900}), encoding="utf-8")
+        with patch.object(main_window, "write_template_meta") as mock_write:
+            result = main_window.ensure_template_meta("btn")
+        assert result is True
+        assert runner.macro["templates"]["btn"]["capture_width"] == 1600
+        assert runner.macro["templates"]["btn"]["capture_height"] == 900
+        assert not meta_path.exists()
+        mock_write.assert_not_called()
+
+    def test_ensure_template_meta_returns_false_when_missing(self, main_window: MainWindow):
         runner = get_runner(main_window)
         runner.macro.setdefault("templates", {})["btn"] = {"label": "Btn"}
         with patch.object(main_window, "write_template_meta") as mock_write:
-            main_window.ensure_template_meta("btn")
-        mock_write.assert_called_once_with("btn")
+            result = main_window.ensure_template_meta("btn")
+        assert result is False
+        mock_write.assert_not_called()
 
     def test_on_template_resolution_edit(self, main_window: MainWindow):
         runner = get_runner(main_window)
@@ -1866,7 +1881,7 @@ class TestTemplateMetaEdge:
 
     def test_ensure_template_meta_no_runner(self, main_window: MainWindow):
         main_window.current_runner = None
-        main_window.ensure_template_meta("test")
+        assert main_window.ensure_template_meta("test") is False
 
     def test_get_template_meta_corrupt_json(self, main_window: MainWindow):
         macro = get_runner(main_window).macro
@@ -1878,6 +1893,27 @@ class TestTemplateMetaEdge:
         with patch("main_window.logger.warning"):
             result = main_window.get_template_meta("corrupt")
         assert result == {}
+
+    def test_on_run_migrates_legacy_template_meta_before_start(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "wait_image", "template": "btn", "timeout_ms": 1000}]
+        runner.macro["templates"] = {"btn": {"label": "Btn"}}
+        meta_path = main_window.macro_templates_dir / "btn.json"
+        meta_path.write_text(json.dumps({"capture_width": 1280, "capture_height": 720}), encoding="utf-8")
+
+        with (
+            patch.object(main_window, "save_current_macro") as mock_save,
+            patch.object(runner, "start") as mock_start,
+            patch.object(main_window, "start_refresh_timer") as mock_refresh,
+        ):
+            main_window.on_run()
+
+        assert runner.macro["templates"]["btn"]["capture_width"] == 1280
+        assert runner.macro["templates"]["btn"]["capture_height"] == 720
+        assert not meta_path.exists()
+        mock_save.assert_called_once()
+        mock_start.assert_called_once()
+        mock_refresh.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

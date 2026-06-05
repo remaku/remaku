@@ -3,6 +3,7 @@
 # pyright: reportArgumentType=false, reportAttributeAccessIssue=false
 
 import contextlib
+import runpy
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -247,3 +248,78 @@ class TestMain:
                 self._run_main_and_catch_exit()
 
         mock_set_theme.assert_called_once_with(mock_theme.DARK)
+
+    def test_name_main_guard(self, tmp_path: Path):
+        fake_conf = self._make_conf()
+        logs = tmp_path / "logs"
+        logs.mkdir()
+
+        mock_qtwidgets = MagicMock()
+        mock_qtwidgets.QApplication = MagicMock()
+        mock_qtgui = MagicMock()
+        mock_qtgui.QIcon = MagicMock()
+        mock_qtgui.QFont = MagicMock()
+        mock_qtcore = MagicMock()
+        mock_qtcore.Qt = MagicMock()
+        mock_qfluent = MagicMock()
+        mock_qfluent.setTheme = MagicMock()
+        mock_theme = MagicMock()
+        mock_theme.LIGHT = 0
+        mock_theme.DARK = 1
+        mock_theme.AUTO = 2
+        mock_qfluent.Theme = mock_theme
+        mock_loguru = MagicMock()
+        mock_config = MagicMock()
+        mock_config.load.return_value = fake_conf
+        mock_config.logs_dir.return_value = logs
+        mock_i18n_mod = MagicMock()
+        mock_main_window_mod = MagicMock()
+        mock_main_window_mod.MainWindow = MagicMock()
+        mock_version_mod = MagicMock()
+        mock_version_mod.__version__ = "99.0.0"
+        mock_version_mod.root = Path("/fake")
+
+        module_names = [
+            "PySide6.QtWidgets",
+            "PySide6.QtGui",
+            "PySide6.QtCore",
+            "qfluentwidgets",
+            "loguru",
+            "config",
+            "i18n",
+            "main_window",
+            "version",
+        ]
+        mocks = {
+            "PySide6.QtWidgets": mock_qtwidgets,
+            "PySide6.QtGui": mock_qtgui,
+            "PySide6.QtCore": mock_qtcore,
+            "qfluentwidgets": mock_qfluent,
+            "loguru": mock_loguru,
+            "config": mock_config,
+            "i18n": mock_i18n_mod,
+            "main_window": mock_main_window_mod,
+            "version": mock_version_mod,
+        }
+
+        saved = {name: sys.modules.get(name) for name in module_names}
+
+        for name in module_names:
+            sys.modules[name] = mocks[name]
+
+        try:
+            with patch.object(sys, "exit", _exit_raiser), contextlib.suppress(SystemExit):
+                runpy.run_path(str(Path(main_mod.__file__).resolve()), run_name="__main__")
+
+            mock_qtwidgets.QApplication.assert_called_once()
+            mock_main_window_mod.MainWindow.assert_called_once()
+            mock_config.load.assert_called_once()
+            mock_config.logs_dir.assert_called_once()
+            mock_i18n_mod.load.assert_called_once()
+            mock_loguru.logger.remove.assert_called_once()
+        finally:
+            for name in module_names:
+                if name in saved and saved[name] is not None:
+                    sys.modules[name] = saved[name]
+                elif name in sys.modules and name not in saved:
+                    del sys.modules[name]

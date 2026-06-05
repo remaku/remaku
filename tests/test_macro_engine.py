@@ -222,7 +222,8 @@ class TestLoop:
         return runner
 
     def test_missing_templates_finishes_stale(self):
-        runner = self.make_runner([{"type": "wait_image"}])
+        # Use empty string template so validate_steps passes but find_empty_templates catches it
+        runner = self.make_runner([{"type": "wait_image", "template": ""}])
         runner.loop()
         assert runner.status.last_reason == StopReason.STALE.value
         assert "template" in runner.status.message

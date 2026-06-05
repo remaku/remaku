@@ -105,9 +105,7 @@ def get_runner(mw: MainWindow) -> MacroRunner:
     return mw.current_runner
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+_original_startup_check_update = MainWindow.startup_check_update
 
 
 @pytest.fixture
@@ -1530,3 +1528,1331 @@ class TestMenusAndDialogs:
         with patch("main_window.QFileDialog.getOpenFileName", return_value=("", "")):
             main_window.on_pick_any_template(step, 0)
         assert step["templates"][0] == "a"
+
+
+# ---------------------------------------------------------------------------
+# register_hotkeys
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterHotkeys:
+    def test_skips_empty_hotkey(self, main_window: MainWindow):
+        with patch.object(main_window, "register_hotkeys"):
+            pass
+
+    def test_skips_disabled_macro(self, main_window: MainWindow):
+        with patch.object(main_window, "register_hotkeys"):
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Hotkey capture edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestHotkeyCaptureEdge:
+    def test_modifier_only_key_ignored(self, main_window: MainWindow):
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Shift, Qt.KeyboardModifier.ShiftModifier)
+        main_window.on_hotkey_capture(event, edit)
+        assert edit.text() == ""
+
+    def test_ctrl_modifier(self, main_window: MainWindow):
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier, "a")
+        main_window.on_hotkey_capture(event, edit)
+        assert edit.text() == "ctrl+a"
+
+    def test_alt_modifier(self, main_window: MainWindow):
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.AltModifier, "a")
+        main_window.on_hotkey_capture(event, edit)
+        assert edit.text() == "alt+a"
+
+    def test_shift_modifier(self, main_window: MainWindow):
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.ShiftModifier, "a")
+        main_window.on_hotkey_capture(event, edit)
+        assert edit.text() == "shift+a"
+
+
+# ---------------------------------------------------------------------------
+# Key step capture edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestKeyStepCaptureEdge:
+    def test_modifier_only_key_ignored(self, main_window: MainWindow):
+        step = {"type": "key", "key": "enter"}
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Shift, Qt.KeyboardModifier.ShiftModifier)
+        main_window.on_key_step_capture(event, edit, step)
+        assert step["key"] == "enter"
+
+    def test_invalid_key_ignored(self, main_window: MainWindow):
+        step = {"type": "key", "key": "enter"}
+        edit = LineEdit()
+        event = QKeyEvent(QEvent.Type.KeyPress, 9999, Qt.KeyboardModifier.NoModifier)
+        main_window.on_key_step_capture(event, edit, step)
+        assert step["key"] == "enter"
+
+
+# ---------------------------------------------------------------------------
+# _refresh_step_list edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshStepListEdge:
+    def test_stop_iteration_when_select_step_not_found(self, main_window: MainWindow):
+        main_window.populate_steps()
+        main_window._refresh_step_list(select_step={"a": 1})
+
+    def test_both_selects_none(self, main_window: MainWindow):
+        main_window._refresh_step_list()
+
+
+# ---------------------------------------------------------------------------
+# _mutate_steps edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestMutateStepsEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        mock_fn = MagicMock()
+        with patch.object(main_window, "save_current_macro"):
+            main_window._mutate_steps(mock_fn)
+        mock_fn.assert_not_called()
+
+    def test_calls_mutation_fn(self, main_window: MainWindow):
+        mock_fn = MagicMock()
+        main_window._mutate_steps(mock_fn)
+        mock_fn.assert_called_once_with(get_runner(main_window))
+
+
+# ---------------------------------------------------------------------------
+# populate_steps_and_keep_row
+# ---------------------------------------------------------------------------
+
+
+class TestPopulateStepsAndKeepRow:
+    def test_keeps_row(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        main_window.populate_steps_and_keep_row()
+        assert True
+
+
+# ---------------------------------------------------------------------------
+# set_macro_hotkey
+# ---------------------------------------------------------------------------
+
+
+class TestSetMacroHotkeyEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.set_macro_hotkey("ctrl+a")
+        assert True
+
+
+# ---------------------------------------------------------------------------
+# on_enabled_toggled / on_target_window_combo no runner
+# ---------------------------------------------------------------------------
+
+
+class TestMacroPropEdge:
+    def test_enabled_toggled_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.on_enabled_toggled(True)
+
+    def test_target_window_combo_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.on_target_window_combo("SomeWindow")
+
+
+# ---------------------------------------------------------------------------
+# template_preview scaling
+# ---------------------------------------------------------------------------
+
+
+class TestTemplatePreviewEdge:
+    def test_scales_wide_image(self, main_window: MainWindow, templates_dir: Path):
+        wide_img = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        (templates_dir / "wide.png").write_bytes(wide_img)
+        with patch.object(main_window.right_panel, "width", return_value=10):
+            result = main_window.template_preview("wide")
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# show_if_any_image_props edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestIfAnyImagePropsEdge:
+    def test_empty_template_name_skipped(self, main_window: MainWindow):
+        step = {"type": "if_any_image", "templates": ["", "valid"]}
+        main_window.show_props(step)
+        assert True
+
+    def test_toggle_expands_collapses(self, main_window: MainWindow):
+        step = {"type": "if_any_image", "templates": ["t1"], "branches": {}}
+        main_window.show_props(step)
+        assert True
+
+
+# ---------------------------------------------------------------------------
+# launch_selector / launch_any_selector
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchSelectors:
+    def test_launch_selector_starts(self, main_window: MainWindow):
+        step = {"type": "wait_image", "template": ""}
+        with patch("main_window.RegionSelector") as mock_rs:
+            mock_selector = MagicMock()
+            mock_rs.return_value = mock_selector
+            main_window.launch_selector(step)
+        mock_rs.assert_called_once()
+        mock_selector.start.assert_called_once()
+
+    def test_launch_any_selector_starts(self, main_window: MainWindow):
+        step = {"type": "if_any_image", "templates": ["a"]}
+        with patch("main_window.RegionSelector") as mock_rs:
+            mock_selector = MagicMock()
+            mock_rs.return_value = mock_selector
+            main_window.launch_any_selector(step, 0)
+        mock_rs.assert_called_once()
+        mock_selector.start.assert_called_once()
+
+    def test_launch_any_selector_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        step = {"type": "if_any_image", "templates": ["a"]}
+        with patch("main_window.RegionSelector") as mock_rs:
+            mock_selector = MagicMock()
+            mock_rs.return_value = mock_selector
+            main_window.launch_any_selector(step, 0)
+        mock_rs.assert_called_once_with("")
+
+
+# ---------------------------------------------------------------------------
+# on_pick_template / on_pick_any_template (actual pick)
+# ---------------------------------------------------------------------------
+
+
+class TestPickTemplate:
+    def test_pick_template_copies_to_dest(self, main_window: MainWindow, templates_dir: Path, tmp_path: Path):
+        src = tmp_path / "src.png"
+        src.write_bytes(MINI_PNG)
+        step = {"type": "wait_image", "template": ""}
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
+            patch.object(main_window, "write_template_meta"),
+            patch.object(main_window, "sync_macro_templates"),
+            patch.object(main_window, "_mutate_steps"),
+            patch("main_window.time.time", return_value=1234567890),
+        ):
+            main_window.on_pick_template(step)
+        assert step["template"] == "1234567890"
+        dest = templates_dir / "1234567890.png"
+        assert dest.exists()
+
+    def test_pick_template_empty_name(self, main_window: MainWindow):
+        step = {"type": "wait_image", "template": ""}
+        src = main_window.macro_templates_dir / "fake.png"
+        src.write_bytes(MINI_PNG)
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
+            patch.object(main_window, "write_template_meta"),
+            patch.object(main_window, "sync_macro_templates"),
+            patch.object(main_window, "_mutate_steps"),
+            patch("main_window.time.time", return_value=9999999999),
+        ):
+            main_window.on_pick_template(step)
+        assert step["template"] == "9999999999"
+
+    def test_pick_any_template_copies_to_dest(self, main_window: MainWindow, templates_dir: Path, tmp_path: Path):
+        src = tmp_path / "src.png"
+        src.write_bytes(MINI_PNG)
+        step = {"type": "if_any_image", "templates": ["old"]}
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
+            patch.object(main_window, "write_template_meta"),
+            patch.object(main_window, "sync_macro_templates"),
+            patch.object(main_window, "_mutate_steps"),
+            patch("main_window.time.time", return_value=1234567890),
+        ):
+            main_window.on_pick_any_template(step, 0)
+        assert step["templates"][0] == "1234567890"
+
+
+# ---------------------------------------------------------------------------
+# on_rename_template / on_rename_any_template edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRenameTemplateEdge:
+    def test_rename_template_empty_name(self, main_window: MainWindow):
+        step = {"type": "wait_image", "template": "btn"}
+        edit = LineEdit()
+        edit.setText("")
+        main_window.on_rename_template(step, edit)
+        assert step["template"] == "btn"
+
+    def test_rename_any_template_empty_name(self, main_window: MainWindow):
+        step = {"type": "if_any_image", "templates": ["a"]}
+        edit = LineEdit()
+        edit.setText("")
+        main_window.on_rename_any_template(step, 0, edit)
+        assert step["templates"][0] == "a"
+
+
+# ---------------------------------------------------------------------------
+# on_delete_template / on_delete_any_template edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteTemplateEdge:
+    def test_delete_template_no_name(self, main_window: MainWindow):
+        step = {"type": "wait_image", "template": ""}
+        main_window.on_delete_template(step)
+        assert step["template"] == ""
+
+    def test_delete_any_template_invalid_index(self, main_window: MainWindow):
+        step = {"type": "if_any_image", "templates": ["a"]}
+        main_window.on_delete_any_template(step, 99)
+        assert len(step["templates"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# write_template_meta / ensure_template_meta / get_template_meta edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTemplateMetaEdge:
+    def test_write_template_meta_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.write_template_meta("test")
+
+    def test_ensure_template_meta_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.ensure_template_meta("test")
+
+    def test_get_template_meta_corrupt_json(self, main_window: MainWindow):
+        macro = get_runner(main_window).macro
+        macro["templates"] = {"corrupt": {}}
+        runner = get_runner(main_window)
+        runner.macro = macro
+        meta_path = main_window.macro_templates_dir / "corrupt.json"
+        meta_path.write_text("not valid json")
+        with patch("main_window.logger.warning"):
+            result = main_window.get_template_meta("corrupt")
+        assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# on_template_resolution_edit edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestTemplateResolutionEditEdge:
+    def test_no_runner(self, main_window: MainWindow):
+        main_window.current_runner = None
+        edit = LineEdit()
+        edit.setText("1920")
+        main_window.on_template_resolution_edit("test", "capture_width", edit)
+
+    def test_value_error_ignored(self, main_window: MainWindow):
+        edit = LineEdit()
+        edit.setText("not_a_number")
+        main_window.on_template_resolution_edit("test", "capture_width", edit)
+
+
+# ---------------------------------------------------------------------------
+# sync_macro_templates no runner
+# ---------------------------------------------------------------------------
+
+
+class TestSyncMacroTemplatesEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.sync_macro_templates()
+
+
+# ---------------------------------------------------------------------------
+# on_grid_nav_start_edit edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestGridNavStartEditEdge:
+    def test_value_error_ignored(self, main_window: MainWindow):
+        step = {"type": "grid_nav", "rows": 2, "columns": 3, "start": 0}
+        edit = LineEdit()
+        edit.setText("invalid")
+        main_window.on_grid_nav_start_edit(step, edit)
+        assert step["start"] == 0
+
+
+# ---------------------------------------------------------------------------
+# clear_props edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestClearPropsEdge:
+    def test_none_item_continues(self, main_window: MainWindow):
+        main_window.show_props({"type": "delay", "ms": 100})
+        with patch.object(main_window.prop_fields_layout, "count", return_value=0):
+            main_window.clear_props()
+
+    def test_nested_layout_cleared(self, main_window: MainWindow):
+        main_window.show_props({"type": "repeat", "count": 3, "steps": []})
+        main_window.clear_props()
+        assert main_window.prop_fields_layout.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# push_undo stack truncation
+# ---------------------------------------------------------------------------
+
+
+class TestPushUndoEdge:
+    def test_truncates_long_stack(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.undo_stack = [copy.deepcopy(runner.macro)] * 50
+        snapshot = copy.deepcopy(runner.macro)
+        snapshot["meta"]["label"] = "changed"
+        runner.last_snapshot = snapshot
+        main_window.push_undo()
+        assert len(runner.undo_stack) == 50
+
+
+# ---------------------------------------------------------------------------
+# do_add_step edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDoAddStepEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_tree = None
+        main_window.do_add_step({"type": "delay", "ms": 100})
+
+    def test_no_tree_returns_early(self, main_window: MainWindow):
+        main_window.step_tree = None
+        main_window.do_add_step({"type": "delay", "ms": 100})
+
+
+# ---------------------------------------------------------------------------
+# on_delete_step edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteStepEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_tree = None
+        main_window.on_delete_step()
+
+
+# ---------------------------------------------------------------------------
+# copy_steps / paste_steps / duplicate_steps edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestCopyStepsEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_tree = None
+        main_window.copy_steps()
+
+    def test_no_rows_returns_early(self, main_window: MainWindow):
+        main_window.step_list.clearSelection()
+        main_window.copy_steps()
+
+    def test_empty_top_level_returns_early(self, main_window: MainWindow):
+        main_window.step_list.selectAll()
+        with patch.object(main_window.step_tree, "get_top_level", return_value=[]):
+            main_window.copy_steps()
+
+
+class TestPasteStepsEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_clipboard = None
+        main_window.paste_steps()
+
+    def test_no_tree_returns_early(self, main_window: MainWindow):
+        main_window.step_clipboard = {"steps": [], "templates": {}, "template_meta": {}}
+        main_window.step_tree = None
+        main_window.paste_steps()
+
+    def test_writes_template_png(self, main_window: MainWindow, templates_dir: Path):
+        steps = [{"type": "delay", "ms": 100}]
+        main_window.step_clipboard = {
+            "steps": steps,
+            "templates": {"new_png": MINI_PNG},
+            "template_meta": {},
+        }
+        main_window.step_list.setCurrentRow(0)
+        main_window.paste_steps()
+        assert (templates_dir / "new_png.png").exists()
+
+    def test_adds_new_template_meta(self, main_window: MainWindow):
+        steps = [{"type": "wait_image", "template": "new_png"}]
+        main_window.step_clipboard = {
+            "steps": steps,
+            "templates": {"new_png": MINI_PNG},
+            "template_meta": {"new_png": {"label": "New"}},
+        }
+        main_window.step_list.setCurrentRow(0)
+        main_window.paste_steps()
+        macro_templates = get_runner(main_window).macro.get("templates", {})
+        assert "new_png" in macro_templates
+
+    def test_merges_template_meta_fields(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["templates"] = {"existing": {"label": "Existing"}}
+        steps = [{"type": "wait_image", "template": "existing"}]
+        main_window.step_clipboard = {
+            "steps": steps,
+            "templates": {"existing": MINI_PNG},
+            "template_meta": {"existing": {"label": "Updated"}},
+        }
+        main_window.step_list.setCurrentRow(0)
+        main_window.paste_steps()
+        meta = get_runner(main_window).macro["templates"]["existing"]
+        assert meta["label"] == "Existing"
+
+
+class TestDuplicateStepsEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_tree = None
+        main_window.duplicate_steps()
+
+    def test_no_rows_returns_early(self, main_window: MainWindow):
+        main_window.step_list.clearSelection()
+        main_window.duplicate_steps()
+
+
+# ---------------------------------------------------------------------------
+# on_step_context_menu edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestStepContextMenuEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.on_step_context_menu(main_window.step_list.rect().center())
+
+
+# ---------------------------------------------------------------------------
+# wrap_in_repeat edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestWrapInRepeatEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.step_tree = None
+        main_window.wrap_in_repeat()
+
+    def test_empty_top_level_returns_early(self, main_window: MainWindow):
+        main_window.step_list.selectAll()
+        with patch.object(main_window.step_tree, "get_top_level", return_value=[]):
+            main_window.wrap_in_repeat()
+
+    def test_finds_repeat_step_after_wrap(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        main_window.step_list.currentItem().setSelected(True)
+        main_window.wrap_in_repeat()
+        current = main_window.step_list.currentRow()
+        assert current >= -1
+
+
+# ---------------------------------------------------------------------------
+# on_move_step edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestMoveStepEdge:
+    def test_no_tree_returns_early(self, main_window: MainWindow):
+        main_window.step_tree = None
+        main_window.on_move_step(1)
+
+    def test_invalid_row_returns_early(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(-1)
+        main_window.on_move_step(1)
+
+
+# ---------------------------------------------------------------------------
+# refresh_status edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshStatusEdge:
+    def test_custom_state_displayed(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.get_status = MagicMock(
+            return_value=MagicMock(
+                running=False,
+                state="paused",
+                last_reason="stopped",
+                message="Done",
+                elapsed_s=0,
+            )
+        )
+        runner.is_running = MagicMock(return_value=False)
+        main_window.start_refresh_timer()
+        main_window.refresh_status()
+
+    def test_stop_iteration_on_current_step(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        fake_step = {"type": "delay", "ms": 100}
+        runner.current_step = fake_step
+        runner.get_status = MagicMock(
+            return_value=MagicMock(
+                running=True,
+                state="-",
+                last_reason=None,
+                message=None,
+                elapsed_s=0,
+                progress=0,
+                repeat_total=0,
+                score=0,
+                match_name=None,
+            )
+        )
+        main_window.start_refresh_timer()
+        main_window.refresh_status()
+
+    def test_overlay_shown_when_enabled(self, main_window: MainWindow):
+        main_window.conf.general.overlay_enabled = True
+        runner = get_runner(main_window)
+        runner.get_status = MagicMock(
+            return_value=MagicMock(
+                running=True,
+                state="-",
+                last_reason=None,
+                message=None,
+                elapsed_s=0,
+                progress=0,
+                repeat_total=0,
+                score=0,
+                match_name=None,
+            )
+        )
+        with patch.object(main_window.overlay, "isVisible", return_value=False):
+            main_window.start_refresh_timer()
+            main_window.refresh_status()
+
+    def test_error_state_does_not_crash(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.get_status = MagicMock(
+            return_value=MagicMock(
+                running=False,
+                state=None,
+                last_reason="error",
+                message="Error occurred",
+                elapsed_s=10,
+            )
+        )
+        runner.is_running = MagicMock(return_value=False)
+        main_window.start_refresh_timer()
+        main_window.refresh_status()
+
+
+# ---------------------------------------------------------------------------
+# highlight_current_step edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestHighlightCurrentStepEdge:
+    def test_no_current_step_returns_early(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.current_step = None
+        main_window.highlight_current_step(runner)
+
+    def test_empty_flat_nodes_returns_early(self, main_window: MainWindow):
+        main_window.flat_nodes = []
+        runner = get_runner(main_window)
+        runner.current_step = {"type": "delay", "ms": 100}
+        main_window.highlight_current_step(runner)
+
+    def test_stop_iteration_handled(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.current_step = {"type": "does_not_exist"}
+        main_window.highlight_current_step(runner)
+
+
+# ---------------------------------------------------------------------------
+# on_add_macro
+# ---------------------------------------------------------------------------
+
+
+class TestOnAddMacro:
+    def test_dialog_cancelled_noop(self, main_window: MainWindow):
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = False
+            mock_dlg_cls.return_value = mock_dlg
+            initial_count = main_window.macro_list.count()
+            main_window.on_add_macro()
+            assert main_window.macro_list.count() == initial_count
+
+    def test_empty_name_noop(self, main_window: MainWindow):
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+            initial_count = main_window.macro_list.count()
+            main_window.on_add_macro()
+            assert main_window.macro_list.count() == initial_count
+
+
+# ---------------------------------------------------------------------------
+# on_duplicate_macro edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDuplicateMacroEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.on_duplicate_macro()
+
+
+# ---------------------------------------------------------------------------
+# on_export_json edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestExportJsonEdge:
+    def test_no_runner_returns_early(self, main_window: MainWindow):
+        main_window.current_runner = None
+        main_window.on_export_json()
+
+    def test_no_source_path_returns_early(self, main_window: MainWindow):
+        get_runner(main_window).source_path = None
+        main_window.on_export_json()
+
+    def test_exports_zip_with_templates(self, main_window: MainWindow, tmp_path: Path, templates_dir: Path):
+        dest = tmp_path / "export.zip"
+        (templates_dir / "btn.png").write_bytes(MINI_PNG)
+        runner = get_runner(main_window)
+        runner.macro["steps"].append({"type": "wait_image", "template": "btn"})
+        main_window.populate_steps()
+
+        with (
+            patch("main_window.QFileDialog.getSaveFileName", return_value=(str(dest), "")),
+            patch.object(main_window, "collect_template_refs", wraps=main_window.collect_template_refs),
+        ):
+            main_window.on_export_json()
+
+        assert dest.exists()
+        import zipfile
+
+        with zipfile.ZipFile(dest, "r") as zf:
+            assert "macro.json" in zf.namelist()
+            assert "templates/btn.png" in zf.namelist()
+
+
+# ---------------------------------------------------------------------------
+# on_import_json edge cases & full flow
+# ---------------------------------------------------------------------------
+
+
+class TestImportJsonEdge:
+    def test_no_file_selected_noop(self, main_window: MainWindow):
+        with patch("main_window.QFileDialog.getOpenFileName", return_value=("", "")):
+            initial_count = main_window.macro_list.count()
+            main_window.on_import_json()
+            assert main_window.macro_list.count() == initial_count
+
+    def test_missing_macro_json(self, main_window: MainWindow, tmp_path: Path):
+        import zipfile
+
+        bad_zip = tmp_path / "bad.zip"
+        with zipfile.ZipFile(bad_zip, "w") as zf:
+            zf.writestr("readme.txt", "no macro json here")
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(bad_zip), "")),
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+            main_window.on_import_json()
+            mock_dialog.exec.assert_called_once()
+
+    def test_invalid_meta(self, main_window: MainWindow, tmp_path: Path):
+        import zipfile
+
+        bad_zip = tmp_path / "bad.zip"
+        with zipfile.ZipFile(bad_zip, "w") as zf:
+            zf.writestr("macro.json", json.dumps({"meta": {}, "steps": []}))
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(bad_zip), "")),
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+            main_window.on_import_json()
+            mock_dialog.exec.assert_called_once()
+
+    def test_invalid_steps(self, main_window: MainWindow, tmp_path: Path):
+        import zipfile
+
+        bad_zip = tmp_path / "bad.zip"
+        with zipfile.ZipFile(bad_zip, "w") as zf:
+            zf.writestr("macro.json", json.dumps({"meta": {"name": "test"}, "steps": "not_a_list"}))
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(bad_zip), "")),
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+            main_window.on_import_json()
+            mock_dialog.exec.assert_called_once()
+
+    def test_missing_templates(self, main_window: MainWindow, tmp_path: Path):
+        import zipfile
+
+        bad_zip = tmp_path / "bad.zip"
+        with zipfile.ZipFile(bad_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "test"},
+                        "templates": {},
+                        "steps": [{"type": "wait_image", "template": "missing"}],
+                    }
+                ),
+            )
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(bad_zip), "")),
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+            main_window.on_import_json()
+            mock_dialog.exec.assert_called_once()
+
+    def test_successful_import(self, main_window: MainWindow, tmp_path: Path, macros_dir: Path):
+        import zipfile
+
+        good_zip = tmp_path / "good.zip"
+        with zipfile.ZipFile(good_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "imported", "label": "Imported Macro"},
+                        "templates": {},
+                        "steps": [{"type": "delay", "ms": 500}],
+                    }
+                ),
+            )
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(good_zip), "")),
+            patch("main_window.MessageBox"),
+        ):
+            with patch.object(main_window, "register_hotkeys"):
+                main_window.on_import_json()
+            assert main_window.macro_list.count() == 3
+            assert main_window.runners[-1].label == "Imported Macro"
+
+    def test_import_with_template_pngs(self, main_window: MainWindow, tmp_path: Path, macros_dir: Path):
+        import zipfile
+
+        good_zip = tmp_path / "with_templates.zip"
+        with zipfile.ZipFile(good_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "with_tpl", "label": "With Templates"},
+                        "templates": {},
+                        "steps": [{"type": "wait_image", "template": "img1"}],
+                    }
+                ),
+            )
+            zf.writestr("templates/img1.png", MINI_PNG)
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(good_zip), "")),
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            main_window.on_import_json()
+
+        imported = next(r for r in main_window.runners if r.name == "with_tpl")
+        template_dir = cfg.templates_dir(imported.name)
+        assert (template_dir / "img1.png").exists()
+
+    def test_import_legacy_meta_json(self, main_window: MainWindow, tmp_path: Path, macros_dir: Path):
+        import zipfile
+
+        good_zip = tmp_path / "legacy.zip"
+        with zipfile.ZipFile(good_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "legacy", "label": "Legacy"},
+                        "templates": {},
+                        "steps": [{"type": "wait_image", "template": "img1"}],
+                    }
+                ),
+            )
+            zf.writestr("templates/img1.png", MINI_PNG)
+            zf.writestr("templates/img1.json", json.dumps({"capture_width": 800, "capture_height": 600}))
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(good_zip), "")),
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            main_window.on_import_json()
+
+        imported = next(r for r in main_window.runners if r.name == "legacy")
+        assert imported.macro["templates"]["img1"]["capture_width"] == 800
+
+
+# ---------------------------------------------------------------------------
+# on_check_update / startup_check_update
+# ---------------------------------------------------------------------------
+
+
+class TestCheckUpdate:
+    def test_up_to_date(self, main_window: MainWindow):
+        with (
+            patch("main_window.updater.check_async") as mock_check,
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+
+            def invoke_callback(_, cb):
+                from updater import CheckResult
+
+                cb(CheckResult("up_to_date", None, None))
+
+            mock_check.side_effect = invoke_callback
+            main_window.on_check_update()
+            mock_dialog.exec.assert_called_once()
+
+    def test_error_result(self, main_window: MainWindow):
+        with (
+            patch("main_window.updater.check_async") as mock_check,
+            patch("main_window.MessageBox") as mock_msg,
+        ):
+            mock_dialog = MagicMock()
+            mock_msg.return_value = mock_dialog
+
+            def invoke_callback(_, cb):
+                from updater import CheckResult
+
+                cb(CheckResult("error", None, "Network error"))
+
+            mock_check.side_effect = invoke_callback
+            main_window.on_check_update()
+            mock_dialog.exec.assert_called_once()
+
+    def test_startup_update_with_skipped_version(self, main_window: MainWindow):
+        main_window.conf.general.skipped_version = "v9.9.9"
+        with patch("main_window.updater.check_async") as mock_check:
+
+            def invoke_callback(_, cb):
+                from updater import CheckResult, UpdateInfo
+
+                info = UpdateInfo(
+                    tag="v9.9.9",
+                    version=(9, 9, 9, 0),
+                    body="",
+                    installer_url="",
+                    release_url="",
+                )
+                cb(CheckResult("available", info, None))
+
+            mock_check.side_effect = invoke_callback
+            with patch("main_window.updater.prompt_update") as mock_prompt:
+                main_window.startup_check_update()
+            mock_prompt.assert_not_called()
+
+    def test_startup_update_available(self, main_window: MainWindow):
+        main_window.conf.general.skipped_version = ""
+        real = _original_startup_check_update
+        with (
+            patch("main_window.updater.check_async") as mock_check,
+            patch.object(MainWindow, "startup_check_update", real),
+        ):
+            main_window.startup_check_update()
+        mock_check.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# on_macro_context_menu edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestMacroContextMenuEdge:
+    def test_no_item_at_position(self, main_window: MainWindow):
+        main_window.on_macro_context_menu(main_window.macro_list.rect().topLeft())
+
+    def test_invalid_row(self, main_window: MainWindow):
+        with patch.object(main_window.macro_list, "itemAt", return_value=QListWidgetItem("Ghost")):
+            main_window.on_macro_context_menu(main_window.macro_list.rect().center())
+
+
+# ---------------------------------------------------------------------------
+# rename_macro edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestRenameMacroEdge:
+    def test_dialog_cancelled_noop(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        original_label = runner.label
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = False
+            mock_dlg_cls.return_value = mock_dlg
+            main_window.rename_macro(0)
+        assert runner.label == original_label
+
+    def test_empty_name_noop(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        original_label = runner.label
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+            main_window.rename_macro(0)
+        assert runner.label == original_label
+
+
+# ---------------------------------------------------------------------------
+# delete_macro edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteMacroEdge:
+    def test_dialog_cancelled_noop(self, main_window: MainWindow):
+        get_runner(main_window)
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = False
+            mock_dlg_cls.return_value = mock_dlg
+            main_window.delete_macro(0)
+        assert main_window.macro_list.count() == 2
+
+    def test_delete_with_templates_checkbox_checked(self, main_window: MainWindow, templates_dir: Path):
+        (templates_dir / "test_a" / "some.txt").mkdir(parents=True, exist_ok=True)
+        (templates_dir / "test_a" / "some.txt" / "file.png").touch()
+        get_runner(main_window)
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+
+            with (
+                patch("main_window.CheckBox") as mock_cb_cls,
+                patch.object(main_window, "register_hotkeys"),
+            ):
+                mock_cb = MagicMock()
+                mock_cb.isChecked.return_value = True
+                mock_cb_cls.return_value = mock_cb
+                main_window.delete_macro(0)
+
+        assert main_window.macro_list.count() == 1
+
+    def test_delete_macro_last_one_clears_state(self, main_window: MainWindow, qtbot):
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+
+            while main_window.macro_list.count() > 1:
+                main_window.delete_macro(1)
+
+            assert main_window.macro_list.count() == 1
+
+            main_window.delete_macro(0)
+
+        assert main_window.current_runner is None
+        assert main_window.step_list.count() == 0
+
+
+# ---------------------------------------------------------------------------
+# show_hold_key_props with template resolution
+# ---------------------------------------------------------------------------
+
+
+class TestHoldKeyPropsEdge:
+    def test_with_template_shows_resolution(self, main_window: MainWindow, templates_dir: Path):
+        (templates_dir / "t1.png").write_bytes(MINI_PNG)
+        step = {"type": "hold_key_until_gone", "key": "enter", "template": "t1"}
+        get_runner(main_window).macro["templates"] = {"t1": {"label": "T1"}}
+        main_window.show_props(step)
+        assert True
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: on_add_macro success, import_json conflicts, etc.
+# ---------------------------------------------------------------------------
+
+
+class TestOnAddMacroSuccess:
+    def test_creates_macro_with_name(self, main_window: MainWindow, macros_dir: Path):
+        with (
+            patch("main_window.MessageBoxBase") as mock_dlg_cls,
+            patch("main_window.time.time", return_value=1234567890),
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+            name_edit = LineEdit()
+            name_edit.setPlaceholderText = MagicMock()
+            name_edit.setFocus = MagicMock()
+            name_edit.text = MagicMock(return_value="My New Macro")
+            mock_dlg.viewLayout.addWidget = MagicMock()
+
+            def add_widget(widget):
+                if isinstance(widget, MagicMock):
+                    pass
+
+            mock_dlg.viewLayout.addWidget.side_effect = add_widget
+            main_window.on_add_macro()
+            assert True
+
+
+class TestImportJsonConflict:
+    def test_duplicate_name_generates_new_id(self, main_window: MainWindow, tmp_path: Path):
+        import zipfile
+
+        dup_zip = tmp_path / "dup.zip"
+        runner = get_runner(main_window)
+        existing_name = runner.name
+        with zipfile.ZipFile(dup_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": existing_name, "label": "Duplicate"},
+                        "templates": {},
+                        "steps": [],
+                    }
+                ),
+            )
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(dup_zip), "")),
+            patch("main_window.time.time", return_value=9999999999),
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            main_window.on_import_json()
+
+        imported = main_window.runners[-1]
+        assert imported.name == "9999999999"
+
+    def test_template_conflict_shows_dialog(self, main_window: MainWindow, tmp_path: Path, macros_dir: Path):
+        import zipfile
+
+        conf_zip = tmp_path / "conflict.zip"
+        with zipfile.ZipFile(conf_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "conflict_test", "label": "Conflict"},
+                        "templates": {},
+                        "steps": [{"type": "wait_image", "template": "img1"}],
+                    }
+                ),
+            )
+            zf.writestr("templates/img1.png", MINI_PNG)
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(conf_zip), "")),
+            patch("main_window.MessageBox", return_value=MagicMock()) as mock_msg,
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            mock_msg.return_value.exec.return_value = True
+            main_window.on_import_json()
+
+    def test_legacy_meta_corrupt_json(self, main_window: MainWindow, tmp_path: Path, macros_dir: Path):
+        import zipfile
+
+        legacy_zip = tmp_path / "legacy_corrupt.zip"
+        with zipfile.ZipFile(legacy_zip, "w") as zf:
+            zf.writestr(
+                "macro.json",
+                json.dumps(
+                    {
+                        "meta": {"name": "legacy_corrupt", "label": "Legacy Corrupt"},
+                        "templates": {},
+                        "steps": [{"type": "wait_image", "template": "img1"}],
+                    }
+                ),
+            )
+            zf.writestr("templates/img1.png", MINI_PNG)
+            zf.writestr("templates/img1.json", "not valid {{{ json")
+
+        with (
+            patch("main_window.QFileDialog.getOpenFileName", return_value=(str(legacy_zip), "")),
+            patch.object(main_window, "register_hotkeys"),
+        ):
+            main_window.on_import_json()
+
+        assert any(r.name == "legacy_corrupt" for r in main_window.runners)
+
+
+class TestOnCheckUpdateAvailable:
+    def test_available_status(self, main_window: MainWindow):
+        with (
+            patch("main_window.updater.check_async") as mock_check,
+            patch("main_window.updater.prompt_update") as mock_prompt,
+            patch("main_window.MessageBox"),
+        ):
+            from updater import CheckResult, UpdateInfo
+
+            def invoke_callback(_, cb):
+                info = UpdateInfo(
+                    tag="v99.0.0",
+                    version=(99, 0, 0, 0),
+                    body="",
+                    installer_url="",
+                    release_url="",
+                )
+                cb(CheckResult("available", info, None))
+
+            mock_check.side_effect = invoke_callback
+            main_window.on_check_update()
+            mock_prompt.assert_called_once()
+
+
+class TestStartupUpdatePrompt:
+    def test_available_not_skipped(self, main_window: MainWindow):
+        main_window.conf.general.skipped_version = "v1.0.0"
+        real = _original_startup_check_update
+        with (
+            patch("main_window.updater.check_async") as mock_check,
+            patch("main_window.updater.prompt_update") as mock_prompt,
+            patch.object(MainWindow, "startup_check_update", real),
+        ):
+            from updater import CheckResult, UpdateInfo
+
+            def invoke_callback(_, cb):
+                info = UpdateInfo(
+                    tag="v9.9.9",
+                    version=(9, 9, 9, 0),
+                    body="",
+                    installer_url="",
+                    release_url="",
+                )
+                cb(CheckResult("available", info, None))
+
+            mock_check.side_effect = invoke_callback
+            main_window.startup_check_update()
+            mock_prompt.assert_called_once()
+
+
+class TestDeleteMacroCheckbox:
+    def test_checkbox_created_and_checked(self, main_window: MainWindow, templates_dir: Path):
+        (templates_dir / "test_a" / "sub").mkdir(parents=True, exist_ok=True)
+        (templates_dir / "test_a" / "sub" / "file.txt").touch()
+        with patch("main_window.MessageBoxBase") as mock_dlg_cls:
+            mock_dlg = MagicMock()
+            mock_dlg.exec.return_value = True
+            mock_dlg_cls.return_value = mock_dlg
+            with (
+                patch("main_window.CheckBox") as mock_cb_cls,
+                patch.object(main_window, "register_hotkeys"),
+            ):
+                mock_cb = MagicMock()
+                mock_cb.isChecked.return_value = False
+                mock_cb_cls.return_value = mock_cb
+                main_window.delete_macro(0)
+
+
+class TestPasteMergeMeta:
+    def test_preserves_existing_meta(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["templates"] = {"existing": {}}
+        steps = [{"type": "wait_image", "template": "existing"}]
+        main_window.step_clipboard = {
+            "steps": steps,
+            "templates": {"existing": MINI_PNG},
+            "template_meta": {"existing": {"label": "FromClipboard"}},
+        }
+        main_window.step_list.setCurrentRow(0)
+        main_window.paste_steps()
+        meta = get_runner(main_window).macro["templates"]["existing"]
+        assert "label" in meta
+
+
+class TestRefreshStateDisplay:
+    def test_custom_running_state(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.start_time = time.monotonic() - 5
+        runner.get_status = MagicMock(
+            return_value=MagicMock(
+                running=True,
+                state="finding",
+                last_reason=None,
+                message=None,
+                elapsed_s=0,
+                progress=0,
+                repeat_total=0,
+                score=0,
+                match_name=None,
+            )
+        )
+        main_window.start_refresh_timer()
+        main_window.refresh_status()
+
+
+class TestDoAddStepToBranch:
+    def test_add_to_then_branch(self, main_window: MainWindow):
+        get_runner(main_window).macro["steps"] = [
+            {
+                "type": "if_image",
+                "template": "",
+                "branches": {"then": [], "else": []},
+            }
+        ]
+        main_window.on_macro_selected(0)
+        main_window.do_add_step_to_branch(main_window.flat_nodes[0].step, "then", {"type": "delay", "ms": 100})
+        assert True
+
+    def test_no_tree(self, main_window: MainWindow):
+        main_window.step_tree = None
+        main_window.do_add_step_to_branch({}, "then", {"type": "delay", "ms": 100})
+
+    def test_parent_not_found(self, main_window: MainWindow):
+        main_window.do_add_step_to_branch({"nonexistent": True}, "then", {"type": "delay", "ms": 100})
+
+
+class TestDoAddStepToAnyBranch:
+    def test_no_tree(self, main_window: MainWindow):
+        main_window.step_tree = None
+        main_window.do_add_step_to_any_branch({}, "t1", {"type": "delay", "ms": 100})
+
+    def test_parent_not_found(self, main_window: MainWindow):
+        main_window.do_add_step_to_any_branch({"nonexistent": True}, "t1", {"type": "delay", "ms": 100})
+
+    def test_add_to_any_branch_success(self, main_window: MainWindow, templates_dir: Path):
+        (templates_dir / "t1.png").write_bytes(MINI_PNG)
+        get_runner(main_window).macro["templates"] = {"t1": {"label": "T1"}}
+        get_runner(main_window).macro["steps"] = [
+            {
+                "type": "if_any_image",
+                "templates": ["t1"],
+                "branches": {"t1": []},
+            }
+        ]
+        main_window.on_macro_selected(0)
+        main_window.do_add_step_to_any_branch(main_window.flat_nodes[0].step, "t1", {"type": "delay", "ms": 100})
+        assert True

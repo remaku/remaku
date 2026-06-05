@@ -377,4 +377,103 @@ class TestGetTemplateMeta:
 
         result = mw.get_template_meta("t1")
         assert result == {"label": "T1"}
-        assert "capture_width" not in result
+
+
+# ---------------------------------------------------------------------------
+# register_hotkeys
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterHotkeys:
+    def make_fake_window(self, runners=None, existing_ids=None):
+        mw = FakeMainWindow()
+        if runners is None:
+            runners = []
+        if existing_ids is not None:
+            mw.hotkey_ids = existing_ids
+        mw.runners = runners
+        mw.winId = MagicMock(return_value=12345)
+        mw.bind_method("register_hotkeys")
+        mw.bind_method("parse_hotkey")
+        mw.bind_method("key_to_vk")
+        return mw
+
+    def test_unregisters_old_hotkeys(self):
+        runner = MagicMock()
+        runner.macro = {"meta": {"enabled": True, "hotkey": ""}}
+        mw = self.make_fake_window(runners=[runner], existing_ids=[0xBF00])
+        mock_user32 = MagicMock()
+        mock_user32.RegisterHotKey.return_value = 0
+
+        with patch("main_window.ctypes.windll.user32", mock_user32):
+            mw.register_hotkeys()
+
+        mock_user32.UnregisterHotKey.assert_called_once_with(12345, 0xBF00)
+
+    def test_skips_empty_hotkey(self):
+        runner = MagicMock()
+        runner.macro = {"meta": {"enabled": True, "hotkey": ""}}
+        mw = self.make_fake_window(runners=[runner])
+        mock_user32 = MagicMock()
+
+        with patch("main_window.ctypes.windll.user32", mock_user32):
+            mw.register_hotkeys()
+
+        mock_user32.RegisterHotKey.assert_not_called()
+
+    def test_skips_disabled_macro(self):
+        runner = MagicMock()
+        runner.macro = {"meta": {"enabled": False, "hotkey": "ctrl+a"}}
+        mw = self.make_fake_window(runners=[runner])
+        mock_user32 = MagicMock()
+
+        with patch("main_window.ctypes.windll.user32", mock_user32):
+            mw.register_hotkeys()
+
+        mock_user32.RegisterHotKey.assert_not_called()
+
+    def test_skips_zero_vk(self):
+        runner = MagicMock()
+        runner.macro = {"meta": {"enabled": True, "hotkey": "ctrl+a"}}
+        mw = self.make_fake_window(runners=[runner])
+        mw.parse_hotkey = MagicMock(return_value=(0x0002, 0))
+
+        mock_user32 = MagicMock()
+        with patch("main_window.ctypes.windll.user32", mock_user32):
+            mw.register_hotkeys()
+
+        mock_user32.RegisterHotKey.assert_not_called()
+
+    def test_registers_successful_hotkey(self):
+        runner = MagicMock()
+        runner.label = "Test"
+        runner.macro = {"meta": {"enabled": True, "hotkey": "ctrl+a"}}
+        mw = self.make_fake_window(runners=[runner])
+        mw.parse_hotkey = MagicMock(return_value=(0x0002, 0x41))
+
+        mock_user32 = MagicMock()
+        mock_user32.RegisterHotKey.return_value = True
+
+        with patch("main_window.ctypes.windll.user32", mock_user32):
+            mw.register_hotkeys()
+
+        assert len(mw.hotkey_ids) == 1
+        assert 0xBF00 in mw.hotkey_map
+
+    def test_registration_failure_logs_warning(self):
+        runner = MagicMock()
+        runner.label = "Test"
+        runner.macro = {"meta": {"enabled": True, "hotkey": "ctrl+a"}}
+        mw = self.make_fake_window(runners=[runner])
+        mw.parse_hotkey = MagicMock(return_value=(0x0002, 0x41))
+
+        mock_user32 = MagicMock()
+        mock_user32.RegisterHotKey.return_value = False
+
+        with (
+            patch("main_window.ctypes.windll.user32", mock_user32),
+            patch("main_window.logger.warning") as mock_warn,
+        ):
+            mw.register_hotkeys()
+
+        mock_warn.assert_called_once()

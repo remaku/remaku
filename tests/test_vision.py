@@ -7,14 +7,14 @@ import vision
 
 class MockPath:
     def __init__(self, path: str, exists: bool = True):
-        self._path = path
-        self._exists = exists
+        self.file_path = path
+        self.file_exists = exists
 
     def exists(self) -> bool:
-        return self._exists
+        return self.file_exists
 
     def __str__(self) -> str:
-        return self._path
+        return self.file_path
 
 
 class TestLoadTemplates:
@@ -126,5 +126,5 @@ class TestMatchOne:
         template = np.zeros((100, 100), dtype=np.uint8)
 
         # Should not crash; template is auto-scaled down
-        score, _loc = vision.match_one(frame, template)
+        score, _ = vision.match_one(frame, template)
         assert isinstance(score, float)

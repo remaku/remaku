@@ -263,14 +263,14 @@ class StepTree:
         result: list[tuple[StepNode, int]] = []
         for node in self.root_nodes:
             result.append((node, 0))
-            self._collect_descendants_with_depth(node, 1, result)
+            self.collect_descendants_with_depth(node, 1, result)
         return result
 
-    def _collect_descendants_with_depth(self, node: StepNode, depth: int, out: list[tuple[StepNode, int]]) -> None:
+    def collect_descendants_with_depth(self, node: StepNode, depth: int, out: list[tuple[StepNode, int]]) -> None:
         for _, child_list in node.child_lists():
             for child in child_list:
                 out.append((child, depth))
-                self._collect_descendants_with_depth(child, depth + 1, out)
+                self.collect_descendants_with_depth(child, depth + 1, out)
 
     # ------------------------------------------------------------------
     # Delete node
@@ -301,7 +301,7 @@ class StepTree:
         All mutations go through raw step dicts to keep caches coherent.
         """
         if node.parent is None:
-            return self._move_root(node, direction)
+            return self.move_root(node, direction)
 
         key = node.sibling_key()
         raw = node.parent.step.get(key, [])
@@ -319,7 +319,7 @@ class StepTree:
         if 0 <= new_idx < len(raw):
             neighbor_step = raw[new_idx]
             neighbor_type = neighbor_step.get("type", "")
-            child_key = self._first_child_key(neighbor_type)
+            child_key = self.first_child_key(neighbor_type)
             if child_key is not None:
                 dest_raw = neighbor_step.setdefault(child_key, [] if child_key != "branches" else {})
                 if child_key == "branches":
@@ -346,7 +346,7 @@ class StepTree:
         # Case 2: Move to a sibling branch (then/else, row/col, branch).
         parent_step = node.parent.step
         parent_type = parent_step.get("type", "")
-        sibling_key = self._find_sibling_key_raw(parent_type, key, direction, parent_step)
+        sibling_key = self.find_sibling_key_raw(parent_type, key, direction, parent_step)
         if sibling_key is not None:
             dest_raw = parent_step.setdefault(sibling_key, [])
             raw.pop(idx)
@@ -392,7 +392,7 @@ class StepTree:
         node.parent = None
         return True
 
-    def _move_root(self, node: StepNode, direction: int) -> bool:
+    def move_root(self, node: StepNode, direction: int) -> bool:
         """Handle move for a root-level node."""
         try:
             idx = self.root_nodes.index(node)
@@ -404,7 +404,7 @@ class StepTree:
         if 0 <= new_idx < len(self.root_nodes):
             neighbor = self.root_nodes[new_idx]
             neighbor_type = neighbor.step_type
-            child_key = self._first_child_key(neighbor_type)
+            child_key = self.first_child_key(neighbor_type)
             if child_key is not None:
                 dest_raw = neighbor.step.setdefault(child_key, [] if child_key != "branches" else {})
                 if child_key == "branches":
@@ -435,7 +435,7 @@ class StepTree:
         return False
 
     @staticmethod
-    def _first_child_key(step_type: str) -> str | None:
+    def first_child_key(step_type: str) -> str | None:
         """Return the first child-list key for a container step type."""
         from step_node import CONTAINER_CHILD_KEYS
 
@@ -447,7 +447,7 @@ class StepTree:
         return None
 
     @staticmethod
-    def _find_sibling_key_raw(step_type: str, current_key: str, direction: int, step: dict | None = None) -> str | None:
+    def find_sibling_key_raw(step_type: str, current_key: str, direction: int, step: dict | None = None) -> str | None:
         """Find the key of the next/prev sibling branch from raw step type."""
         from step_node import CONTAINER_CHILD_KEYS
 
@@ -472,7 +472,7 @@ class StepTree:
             return keys[next_i]
         return None
 
-    def _sync_parent_raw(self, node: StepNode) -> None:
+    def sync_parent_raw(self, node: StepNode) -> None:
         """After moving, clear caches and sync raw from the cached state.
 
         This must be called BEFORE any ``get_child_list`` or ``child_lists``

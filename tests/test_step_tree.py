@@ -865,7 +865,7 @@ class TestMoveStepEdge:
         steps = [{"type": "key", "key": "a"}]
         tree = StepTree(steps)
         orphan = StepNode({"type": "key", "key": "z"})
-        assert tree._move_root(orphan, 1) is False
+        assert tree.move_root(orphan, 1) is False
 
     def test_move_root_up_into_block_appends(self):
         steps = [
@@ -970,38 +970,38 @@ class TestMoveStepEdge:
 
 
 # ---------------------------------------------------------------------------
-# _find_sibling_key_raw edge cases
+# find_sibling_key_raw edge cases
 # ---------------------------------------------------------------------------
 
 
 class TestFindSiblingKeyRawEdge:
     def test_if_any_image_current_key_not_found(self):
-        result = StepTree._find_sibling_key_raw("if_any_image", "missing", 1, {"branches": {"a": [], "b": []}})
+        result = StepTree.find_sibling_key_raw("if_any_image", "missing", 1, {"branches": {"a": [], "b": []}})
         assert result is None
 
     def test_unknown_step_type_current_key_not_found(self):
-        result = StepTree._find_sibling_key_raw("repeat", "missing", 1)
+        result = StepTree.find_sibling_key_raw("repeat", "missing", 1)
         assert result is None
 
     def test_if_any_image_next_index_out_of_bounds(self):
-        result = StepTree._find_sibling_key_raw("if_any_image", "a", 1, {"branches": {"a": []}})
+        result = StepTree.find_sibling_key_raw("if_any_image", "a", 1, {"branches": {"a": []}})
         assert result is None
 
     def test_if_any_image_prev_index_out_of_bounds(self):
-        result = StepTree._find_sibling_key_raw("if_any_image", "a", -1, {"branches": {"a": []}})
+        result = StepTree.find_sibling_key_raw("if_any_image", "a", -1, {"branches": {"a": []}})
         assert result is None
 
     def test_if_any_image_returns_next_key(self):
-        result = StepTree._find_sibling_key_raw("if_any_image", "a", 1, {"branches": {"a": [], "b": []}})
+        result = StepTree.find_sibling_key_raw("if_any_image", "a", 1, {"branches": {"a": [], "b": []}})
         assert result == "b"
 
     def test_if_any_image_returns_prev_key(self):
-        result = StepTree._find_sibling_key_raw("if_any_image", "b", -1, {"branches": {"a": [], "b": []}})
+        result = StepTree.find_sibling_key_raw("if_any_image", "b", -1, {"branches": {"a": [], "b": []}})
         assert result == "a"
 
 
 # ---------------------------------------------------------------------------
-# _sync_parent_raw
+# sync_parent_raw
 # ---------------------------------------------------------------------------
 
 
@@ -1017,7 +1017,7 @@ class TestSyncParentRaw:
         assert len(children) == 1
         # Manually append to cache to simulate structural change
         children.append(StepNode({"type": "key", "key": "b"}))
-        tree._sync_parent_raw(children[0])
+        tree.sync_parent_raw(children[0])
         assert len(repeat.step["steps"]) == 2
 
     def test_syncs_if_any_image_branches(self):
@@ -1031,14 +1031,14 @@ class TestSyncParentRaw:
         assert "btn" in children
         # Manually append to cache
         children["btn"].append(StepNode({"type": "key", "key": "b"}))
-        tree._sync_parent_raw(children["btn"][0])
+        tree.sync_parent_raw(children["btn"][0])
         assert len(if_node.step["branches"]["btn"]) == 2
 
     def test_sync_no_parent_returns_early(self):
         steps = [{"type": "key", "key": "a"}]
         tree = StepTree(steps)
         root = tree.root_nodes[0]
-        tree._sync_parent_raw(root)
+        tree.sync_parent_raw(root)
         assert tree.steps == [{"type": "key", "key": "a"}]
 
     def test_sync_no_cache_noop(self):
@@ -1049,7 +1049,7 @@ class TestSyncParentRaw:
         repeat = tree.root_nodes[0]
         child = repeat.get_child_list("steps")[0]
         repeat.clear_caches()
-        tree._sync_parent_raw(child)
+        tree.sync_parent_raw(child)
         # No crash and raw unchanged
         assert len(repeat.step["steps"]) == 1
 

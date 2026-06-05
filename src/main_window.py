@@ -652,7 +652,7 @@ class MainWindow(FluentWindow):
             edit.setText("")
             edit.blockSignals(False)
             step["key"] = ""
-            self._mutate_steps(select_step=step)
+            self.mutate_steps(select_step=step)
             return
 
         if key in (
@@ -680,13 +680,13 @@ class MainWindow(FluentWindow):
         edit.setText(key_name)
         edit.blockSignals(False)
         step["key"] = key_name
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_key_step_cleared(self, step: dict) -> None:
         step["key"] = ""
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
-    def _refresh_step_list(self, *, select_step=None, select_row=None) -> None:
+    def refresh_step_list(self, *, select_step=None, select_row=None) -> None:
         """Rebuild the step list and restore selection without triggering signals."""
         self.step_list.blockSignals(True)
         self.populate_steps()
@@ -712,7 +712,7 @@ class MainWindow(FluentWindow):
         else:
             self.show_macro_props()
 
-    def _mutate_steps(self, mutation_fn=None, *, select_step=None) -> None:
+    def mutate_steps(self, mutation_fn=None, *, select_step=None) -> None:
         """Apply a step mutation, save, push undo, and refresh the UI atomically."""
         if not self.current_runner:
             return
@@ -721,10 +721,10 @@ class MainWindow(FluentWindow):
             mutation_fn(self.current_runner)
 
         self.save_current_macro()
-        self._refresh_step_list(select_step=select_step)
+        self.refresh_step_list(select_step=select_step)
 
     def populate_steps_and_keep_row(self) -> None:
-        self._refresh_step_list(select_row=self.step_list.currentRow())
+        self.refresh_step_list(select_row=self.step_list.currentRow())
 
     def set_macro_hotkey(self, hotkey: str) -> None:
         if not self.current_runner:
@@ -1196,7 +1196,7 @@ class MainWindow(FluentWindow):
         self.sync_macro_templates()
         self.showNormal()
         self.any_image_expand_idx = idx
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
         self.step_list.setFocus()
 
     def on_pick_any_template(self, step: dict, idx: int) -> None:
@@ -1214,7 +1214,7 @@ class MainWindow(FluentWindow):
 
         self.sync_macro_templates()
         self.any_image_expand_idx = idx
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_rename_any_template(self, step: dict, idx: int, edit: LineEdit) -> None:
         """Rename the label of a specified template in if_any_image."""
@@ -1229,7 +1229,7 @@ class MainWindow(FluentWindow):
         macro_templates.setdefault(name, {})["label"] = new_label
 
         self.any_image_expand_idx = idx
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_delete_any_template(self, step: dict, idx: int) -> None:
         """Delete the specified template from if_any_image."""
@@ -1249,7 +1249,7 @@ class MainWindow(FluentWindow):
         branches.pop(name, None)
 
         self.sync_macro_templates()
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def add_step_to_any_branch(self, parent_step: dict, template_name: str) -> None:
         """Add a step to the specified template branch in if_any_image."""
@@ -1290,7 +1290,7 @@ class MainWindow(FluentWindow):
         idx = parent_step.get("templates", []).index(template_name)
 
         self.any_image_expand_idx = idx
-        self._mutate_steps(select_step=new_node.step)
+        self.mutate_steps(select_step=new_node.step)
 
     def on_add_any_template(self, step: dict) -> None:
         """Add an empty template to if_any_image."""
@@ -1299,11 +1299,11 @@ class MainWindow(FluentWindow):
 
         self.sync_macro_templates()
         self.any_image_expand_idx = len(step["templates"]) - 1
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def refresh_current_step(self) -> None:
         """Re-render the currently selected step's property panel."""
-        self._refresh_step_list(select_row=self.step_list.currentRow())
+        self.refresh_step_list(select_row=self.step_list.currentRow())
 
     def show_hold_key_props(self, step: dict) -> None:
         """hold_key_until_gone property panel."""
@@ -1392,7 +1392,7 @@ class MainWindow(FluentWindow):
         step["template"] = name
         self.sync_macro_templates()
         self.showNormal()
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
         self.step_list.setFocus()
 
     def on_pick_template(self, step: dict) -> None:
@@ -1411,7 +1411,7 @@ class MainWindow(FluentWindow):
         self.write_template_meta(template_name)
 
         self.sync_macro_templates()
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_rename_template(self, step: dict, edit: LineEdit) -> None:
         name = step.get("template", "")
@@ -1421,7 +1421,7 @@ class MainWindow(FluentWindow):
 
         templates = self.current_runner.macro.get("templates", {}) if self.current_runner else {}
         templates.setdefault(name, {})["label"] = new_label
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_delete_template(self, step: dict) -> None:
         name = step.get("template", "")
@@ -1436,7 +1436,7 @@ class MainWindow(FluentWindow):
         step["template"] = ""
 
         self.sync_macro_templates()
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def template_label(self, name: str) -> str:
         """Get the display name of a template."""
@@ -1670,7 +1670,7 @@ class MainWindow(FluentWindow):
                     value = float(value)
 
         step[key] = value
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def on_grid_nav_start_edit(self, step: dict, edit: LineEdit) -> None:
         try:
@@ -1679,7 +1679,7 @@ class MainWindow(FluentWindow):
             return
 
         step["start"] = max(0, val)
-        self._mutate_steps(select_step=step)
+        self.mutate_steps(select_step=step)
 
     def clear_props(self) -> None:
         while self.prop_fields_layout.count():
@@ -1831,7 +1831,7 @@ class MainWindow(FluentWindow):
         if not parent_node:
             return
         new_node = self.step_tree.add_step_to_branch(parent_node, branch, step)
-        self._mutate_steps(select_step=new_node.step)
+        self.mutate_steps(select_step=new_node.step)
 
     def do_add_step(self, step: dict) -> None:
         if not self.current_runner or not self.step_tree:
@@ -1842,7 +1842,7 @@ class MainWindow(FluentWindow):
         target_node = flat[row] if 0 <= row < len(flat) else None
 
         new_node = self.step_tree.add_step(target_node, step)
-        self._mutate_steps(select_step=new_node.step)
+        self.mutate_steps(select_step=new_node.step)
 
     def on_delete_step(self) -> None:
         if not self.current_runner or not self.step_tree:
@@ -1955,7 +1955,7 @@ class MainWindow(FluentWindow):
                         macro_templates[name][key] = meta[key]
 
         self.sync_macro_templates()
-        self._mutate_steps(select_step=nodes[0].step if nodes else None)
+        self.mutate_steps(select_step=nodes[0].step if nodes else None)
 
     def duplicate_steps(self) -> None:
         if not self.current_runner or not self.step_tree:

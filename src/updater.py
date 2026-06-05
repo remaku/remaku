@@ -127,7 +127,7 @@ def check() -> CheckResult:
     channel = conf.general.update_channel
 
     try:
-        result = _check_beta(current) if channel == "beta" else _check_stable(current)
+        result = check_beta(current) if channel == "beta" else check_stable(current)
     except (URLError, OSError) as e:
         logger.warning("updater: update check connection failed: {}", e)
         return CheckResult(status="error", error=f"Connection failed: {e}")
@@ -138,17 +138,17 @@ def check() -> CheckResult:
     return result
 
 
-def _check_stable(current: Version) -> CheckResult:
+def check_stable(current: Version) -> CheckResult:
     """Check for stable updates using /releases/latest."""
-    data = _fetch_json(API_URL_STABLE)
+    data = fetch_json(API_URL_STABLE)
     data = data[0] if isinstance(data, list) else data
 
-    return _compare_release(data, current)
+    return compare_release(data, current)
 
 
-def _check_beta(current: Version) -> CheckResult:
+def check_beta(current: Version) -> CheckResult:
     """Check for beta updates from recent releases, picking the highest version."""
-    releases = _fetch_json(API_URL_BETA)
+    releases = fetch_json(API_URL_BETA)
 
     if not isinstance(releases, list) or not releases:
         return CheckResult(status="error", error="No releases found")
@@ -173,10 +173,10 @@ def _check_beta(current: Version) -> CheckResult:
     if best_release is None or best_version is None:
         return CheckResult(status="error", error="No valid releases found")
 
-    return _compare_release(best_release, current)
+    return compare_release(best_release, current)
 
 
-def _fetch_json(url: str) -> dict | list:
+def fetch_json(url: str) -> dict | list:
     """Fetch JSON from a GitHub API URL."""
     req = Request(url, headers={"Accept": "application/vnd.github.v3+json"})
 
@@ -184,7 +184,7 @@ def _fetch_json(url: str) -> dict | list:
         return json.loads(resp.read())
 
 
-def _compare_release(data: dict, current: Version) -> CheckResult:
+def compare_release(data: dict, current: Version) -> CheckResult:
     """Compare a single release against the current version."""
     latest_tag = data.get("tag_name", "")
     latest = parse_version(latest_tag)

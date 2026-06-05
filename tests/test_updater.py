@@ -148,7 +148,7 @@ class TestInstallerTempPath:
 class TestCompareRelease:
     def test_newer_stable(self):
         data = make_release("v99.0.0", body="notes", assets=[make_installer_asset("v99.0.0")])
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.status == "available"
         assert result.info is not None
         assert result.info.tag == "v99.0.0"
@@ -157,95 +157,95 @@ class TestCompareRelease:
 
     def test_same_version(self):
         data = make_release("v0.3.0")
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.status == "up_to_date"
 
     def test_older_version(self):
         data = make_release("v0.1.0")
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.status == "up_to_date"
 
     def test_unparseable_tag(self):
         data = make_release("not-a-version")
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.status == "error"
         assert "Cannot parse" in result.error
 
     def test_uses_html_url(self):
         data = make_release("v99.0.0", html_url="https://github.com/releases/tag/v99.0.0")
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.info is not None
         assert result.info.release_url == "https://github.com/releases/tag/v99.0.0"
 
     def test_fallback_release_url(self):
         data = make_release("v99.0.0")
-        result = updater._compare_release(data, (0, 3, 0, 999999))
+        result = updater.compare_release(data, (0, 3, 0, 999999))
         assert result.info is not None
         assert "v99.0.0" in result.info.release_url
 
 
 class TestCheckStable:
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_new_version_available(self, mock_fetch):
         mock_fetch.return_value = make_release("v99.0.0", assets=[make_installer_asset("v99.0.0")])
-        result = updater._check_stable((0, 3, 0, 999999))
+        result = updater.check_stable((0, 3, 0, 999999))
         assert result.status == "available"
         mock_fetch.assert_called_once()
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_up_to_date(self, mock_fetch):
         mock_fetch.return_value = make_release("v0.3.0")
-        result = updater._check_stable((0, 3, 0, 999999))
+        result = updater.check_stable((0, 3, 0, 999999))
         assert result.status == "up_to_date"
 
 
 class TestCheckBeta:
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_picks_highest_version(self, mock_fetch):
         mock_fetch.return_value = [
             make_release("v0.3.0"),
             make_release("v0.4.0-beta.1"),
             make_release("v0.4.0-beta.2"),
         ]
-        result = updater._check_beta((0, 3, 0, 999999))
+        result = updater.check_beta((0, 3, 0, 999999))
         assert result.status == "available"
         assert result.info is not None
         assert result.info.tag == "v0.4.0-beta.2"
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_skips_drafts(self, mock_fetch):
         mock_fetch.return_value = [
             make_release("v99.0.0", draft=True),
             make_release("v0.4.0-beta.1"),
         ]
-        result = updater._check_beta((0, 3, 0, 999999))
+        result = updater.check_beta((0, 3, 0, 999999))
         assert result.status == "available"
         assert result.info is not None
         assert result.info.tag == "v0.4.0-beta.1"
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_empty_list(self, mock_fetch):
         mock_fetch.return_value = []
-        result = updater._check_beta((0, 3, 0, 999999))
+        result = updater.check_beta((0, 3, 0, 999999))
         assert result.status == "error"
         assert "No releases" in result.error
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_all_unparseable(self, mock_fetch):
         mock_fetch.return_value = [make_release("not-a-version")]
-        result = updater._check_beta((0, 3, 0, 999999))
+        result = updater.check_beta((0, 3, 0, 999999))
         assert result.status == "error"
         assert "No valid" in result.error
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     def test_up_to_date(self, mock_fetch):
         mock_fetch.return_value = [make_release("v0.3.0")]
-        result = updater._check_beta((0, 3, 0, 999999))
+        result = updater.check_beta((0, 3, 0, 999999))
         assert result.status == "up_to_date"
 
 
 class TestCheck:
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     @patch("updater.cfg")
     def test_stable_channel(self, mock_cfg, mock_fetch):
         mock_cfg.load.return_value.general.update_channel = "stable"
@@ -253,7 +253,7 @@ class TestCheck:
         result = updater.check()
         assert result.status == "available"
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     @patch("updater.cfg")
     def test_beta_channel(self, mock_cfg, mock_fetch):
         mock_cfg.load.return_value.general.update_channel = "beta"
@@ -261,7 +261,7 @@ class TestCheck:
         result = updater.check()
         assert result.status == "available"
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     @patch("updater.cfg")
     def test_network_error(self, mock_cfg, mock_fetch):
         mock_cfg.load.return_value.general.update_channel = "stable"
@@ -270,7 +270,7 @@ class TestCheck:
         assert result.status == "error"
         assert "Connection failed" in result.error
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     @patch("updater.cfg")
     def test_malformed_response(self, mock_cfg, mock_fetch):
         mock_cfg.load.return_value.general.update_channel = "stable"
@@ -279,7 +279,7 @@ class TestCheck:
         assert result.status == "error"
         assert "Response format error" in result.error
 
-    @patch("updater._fetch_json")
+    @patch("updater.fetch_json")
     @patch("updater.cfg")
     def test_ssl_error(self, mock_cfg, mock_fetch):
         mock_cfg.load.return_value.general.update_channel = "stable"
@@ -317,7 +317,7 @@ class TestSslContext:
 
 
 # ---------------------------------------------------------------------------
-# _fetch_json
+# fetch_json
 # ---------------------------------------------------------------------------
 
 
@@ -329,7 +329,7 @@ class TestFetchJson:
         mock_resp.__enter__.return_value = mock_resp
         mock_urlopen.return_value = mock_resp
 
-        result = updater._fetch_json("https://api.github.com/repos/test/releases/latest")
+        result = updater.fetch_json("https://api.github.com/repos/test/releases/latest")
 
         assert result == {"tag_name": "v1.0.0"}
         call_args = mock_urlopen.call_args
@@ -346,7 +346,7 @@ class TestFetchJson:
         with patch("updater.ssl_context") as mock_ssl:
             mock_ctx = MagicMock()
             mock_ssl.return_value = mock_ctx
-            updater._fetch_json("https://example.com")
+            updater.fetch_json("https://example.com")
 
         assert mock_urlopen.call_args.kwargs["timeout"] == updater.CHECK_TIMEOUT_S
         assert mock_urlopen.call_args.kwargs["context"] is mock_ctx

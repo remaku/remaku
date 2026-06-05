@@ -8,8 +8,8 @@ import locale
 import sys
 from pathlib import Path
 
-_strings: dict[str, str] = {}
-_fallback: dict[str, str] = {}
+strings: dict[str, str] = {}
+fallback: dict[str, str] = {}
 current_locale: str = "en"
 
 DIR = Path(getattr(sys, "_MEIPASS", "")) / "i18n" if getattr(sys, "frozen", False) else Path(__file__).parent
@@ -29,24 +29,24 @@ def detect_system_locale() -> str:
 
 def load(language: str = "auto") -> None:
     """Load translation strings for the given locale."""
-    global _strings, _fallback, current_locale
+    global strings, fallback, current_locale
 
     loc = detect_system_locale() if language == "auto" else language
     current_locale = loc
 
     fallback_path = DIR / "zh_tw.json"
-    _fallback = json.loads(fallback_path.read_text(encoding="utf-8")) if fallback_path.exists() else {}
+    fallback = json.loads(fallback_path.read_text(encoding="utf-8")) if fallback_path.exists() else {}
 
     if loc == "zh_tw":
-        _strings = _fallback
+        strings = fallback
     else:
         locale_path = DIR / f"{loc}.json"
-        _strings = json.loads(locale_path.read_text(encoding="utf-8")) if locale_path.exists() else {}
+        strings = json.loads(locale_path.read_text(encoding="utf-8")) if locale_path.exists() else {}
 
 
 def t(msg: str, **kwargs) -> str:
     """Translate a key, formatting with kwargs. Fallback: locale -> zh_tw -> key."""
-    text = _strings.get(msg) or _fallback.get(msg) or msg
+    text = strings.get(msg) or fallback.get(msg) or msg
     if kwargs:
         text = text.format(**kwargs)
     return text

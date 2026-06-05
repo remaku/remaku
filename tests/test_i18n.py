@@ -10,12 +10,12 @@ import i18n
 @pytest.fixture(autouse=True)
 def restore_i18n():
     """Save and restore i18n global state after each test."""
-    saved_strings = i18n._strings.copy()
-    saved_fallback = i18n._fallback.copy()
+    saved_strings = i18n.strings.copy()
+    saved_fallback = i18n.fallback.copy()
     saved_locale = i18n.current_locale
     yield
-    i18n._strings = saved_strings
-    i18n._fallback = saved_fallback
+    i18n.strings = saved_strings
+    i18n.fallback = saved_fallback
     i18n.current_locale = saved_locale
 
 

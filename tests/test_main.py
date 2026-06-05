@@ -14,7 +14,7 @@ import config as cfg
 import main as main_mod
 
 
-def _exit_raiser(code=0):
+def exit_raiser(code=0):
     """Replace sys.exit with a function that raises SystemExit."""
     raise SystemExit(code)
 
@@ -26,14 +26,14 @@ class TestMain:
         yield
         sys.argv = original
 
-    def _make_conf(self):
+    def make_conf(self):
         conf = cfg.get_defaults()
         conf.general.language = "en"
         conf.general.theme = "system"
         return conf
 
-    def _run_main_and_catch_exit(self):
-        """Call main_mod.main(), swallowing the SystemExit raised by _exit_raiser."""
+    def run_main_and_catch_exit(self):
+        """Call main_mod.main(), swallowing the SystemExit raised by exit_raiser."""
         with contextlib.suppress(SystemExit):
             main_mod.main()
 
@@ -42,13 +42,13 @@ class TestMain:
     # ------------------------------------------------------------------
 
     def test_main_flow(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         logs = tmp_path / "logs"
         logs.mkdir()
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with patch.object(main_mod, "QApplication") as mock_qapp, patch.object(main_mod, "MainWindow") as mock_mw:
@@ -68,7 +68,7 @@ class TestMain:
                     patch.object(main_mod.cfg, "logs_dir", return_value=logs),
                     patch.object(main_mod.os.environ, "setdefault") as mock_env,
                 ):
-                    self._run_main_and_catch_exit()
+                    self.run_main_and_catch_exit()
 
         mock_qapp.assert_called_once_with(sys.argv)
         mock_app.exec.assert_called_once()
@@ -78,7 +78,7 @@ class TestMain:
         mock_logger.remove.assert_called_once()
 
     def test_preview_update_flag(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         logs = tmp_path / "logs"
         logs.mkdir()
 
@@ -86,7 +86,7 @@ class TestMain:
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with (
@@ -110,7 +110,7 @@ class TestMain:
                 with patch("updater.UpdateDialog") as mock_dlg_cls:
                     mock_dlg = MagicMock()
                     mock_dlg_cls.return_value = mock_dlg
-                    self._run_main_and_catch_exit()
+                    self.run_main_and_catch_exit()
 
                 mock_dlg_cls.assert_called_once()
                 mock_dlg.show.assert_called_once()
@@ -121,13 +121,13 @@ class TestMain:
                 mock_dlg.status_lbl.setText.assert_called_once_with("6.7 MB / 20.0 MB")
 
     def test_logging_setup(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         logs = tmp_path / "logs"
         logs.mkdir()
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with (
@@ -145,7 +145,7 @@ class TestMain:
             ):
                 mock_app = MagicMock()
                 mock_qapp.return_value = mock_app
-                self._run_main_and_catch_exit()
+                self.run_main_and_catch_exit()
 
         mock_logger.remove.assert_called_once()
         assert mock_logger.add.call_count >= 1
@@ -154,13 +154,13 @@ class TestMain:
         assert "Remaku" in args[0]
 
     def test_excepthook_calls_logger(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         logs = tmp_path / "logs"
         logs.mkdir()
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with (
@@ -178,7 +178,7 @@ class TestMain:
             ):
                 mock_app = MagicMock()
                 mock_qapp.return_value = mock_app
-                self._run_main_and_catch_exit()
+                self.run_main_and_catch_exit()
 
                 hook = mock_sys.excepthook
                 assert callable(hook)
@@ -190,14 +190,14 @@ class TestMain:
         opt_logger.critical.assert_called_once_with("Uncaught exception")
 
     def test_theme_light(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         fake_conf.general.theme = "light"
         logs = tmp_path / "logs"
         logs.mkdir()
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with (
@@ -215,19 +215,19 @@ class TestMain:
             ):
                 mock_app = MagicMock()
                 mock_qapp.return_value = mock_app
-                self._run_main_and_catch_exit()
+                self.run_main_and_catch_exit()
 
         mock_set_theme.assert_called_once_with(mock_theme.LIGHT)
 
     def test_theme_dark(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         fake_conf.general.theme = "dark"
         logs = tmp_path / "logs"
         logs.mkdir()
 
         with patch.object(main_mod, "sys") as mock_sys:
             mock_sys.argv = sys.argv
-            mock_sys.exit = _exit_raiser
+            mock_sys.exit = exit_raiser
             mock_sys.stderr = sys.stderr
 
             with (
@@ -245,12 +245,12 @@ class TestMain:
             ):
                 mock_app = MagicMock()
                 mock_qapp.return_value = mock_app
-                self._run_main_and_catch_exit()
+                self.run_main_and_catch_exit()
 
         mock_set_theme.assert_called_once_with(mock_theme.DARK)
 
     def test_name_main_guard(self, tmp_path: Path):
-        fake_conf = self._make_conf()
+        fake_conf = self.make_conf()
         logs = tmp_path / "logs"
         logs.mkdir()
 
@@ -308,7 +308,7 @@ class TestMain:
             sys.modules[name] = mocks[name]
 
         try:
-            with patch.object(sys, "exit", _exit_raiser), contextlib.suppress(SystemExit):
+            with patch.object(sys, "exit", exit_raiser), contextlib.suppress(SystemExit):
                 runpy.run_path(str(Path(main_mod.__file__).resolve()), run_name="__main__")
 
             mock_qtwidgets.QApplication.assert_called_once()

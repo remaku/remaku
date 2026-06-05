@@ -105,7 +105,7 @@ def get_runner(mw: MainWindow) -> MacroRunner:
     return mw.current_runner
 
 
-_original_startup_check_update = MainWindow.startup_check_update
+original_startup_check_update = MainWindow.startup_check_update
 
 
 @pytest.fixture
@@ -925,7 +925,7 @@ class TestGridNav:
         step = {"type": "grid_nav", "start": 0}
         edit = LineEdit()
         edit.setText("5")
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_grid_nav_start_edit(step, edit)
         assert step["start"] == 4
         mock_mutate.assert_called_once()
@@ -958,7 +958,7 @@ class TestKeyCaptures:
         edit = LineEdit()
         step = {"type": "key", "key": ""}
         event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier)
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_key_step_capture(event, edit, step)
         assert step["key"] == "a"
         assert edit.text() == "a"
@@ -968,7 +968,7 @@ class TestKeyCaptures:
         edit = LineEdit()
         step = {"type": "key", "key": "a"}
         event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_key_step_capture(event, edit, step)
         assert step["key"] == ""
         assert edit.text() == ""
@@ -976,7 +976,7 @@ class TestKeyCaptures:
 
     def test_on_key_step_cleared(self, main_window: MainWindow):
         step = {"type": "key", "key": "a"}
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_key_step_cleared(step)
         assert step["key"] == ""
         mock_mutate.assert_called_once()
@@ -996,7 +996,7 @@ class TestRegionCapture:
         runner.macro["templates"]["old"] = {"label": "Old"}
         with (
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps"),
+            patch.object(main_window, "mutate_steps"),
             patch.object(main_window, "showNormal"),
         ):
             main_window.on_region_captured(step, "new")
@@ -1011,7 +1011,7 @@ class TestRegionCapture:
         runner.macro["templates"]["old"] = {"label": "Old"}
         with (
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps"),
+            patch.object(main_window, "mutate_steps"),
             patch.object(main_window, "showNormal"),
         ):
             main_window.on_any_region_captured(step, 0, "new")
@@ -1024,7 +1024,7 @@ class TestRegionCapture:
         runner.macro["templates"] = {"btn": {"label": "Button"}}
         edit = LineEdit()
         edit.setText("Submit")
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_rename_template(step, edit)
         assert runner.macro["templates"]["btn"]["label"] == "Submit"
         mock_mutate.assert_called_once()
@@ -1035,7 +1035,7 @@ class TestRegionCapture:
         step = {"type": "wait_image", "template": "btn"}
         with (
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps") as mock_mutate,
+            patch.object(main_window, "mutate_steps") as mock_mutate,
         ):
             main_window.on_delete_template(step)
         assert step["template"] == ""
@@ -1048,7 +1048,7 @@ class TestRegionCapture:
         runner.macro["templates"] = {"btn": {"label": "Button"}}
         edit = LineEdit()
         edit.setText("Submit")
-        with patch.object(main_window, "_mutate_steps") as mock_mutate:
+        with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_rename_any_template(step, 0, edit)
         assert runner.macro["templates"]["btn"]["label"] == "Submit"
         mock_mutate.assert_called_once()
@@ -1061,7 +1061,7 @@ class TestRegionCapture:
         runner.macro["templates"]["old"] = {"label": "Old"}
         with (
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps") as mock_mutate,
+            patch.object(main_window, "mutate_steps") as mock_mutate,
         ):
             main_window.on_delete_any_template(step, 0)
         assert len(step["templates"]) == 0
@@ -1073,7 +1073,7 @@ class TestRegionCapture:
         step = {"type": "if_any_image", "templates": [], "branches": {}}
         runner.macro["steps"] = [step]
         main_window.on_macro_selected(0)
-        with patch.object(main_window, "sync_macro_templates"), patch.object(main_window, "_mutate_steps"):
+        with patch.object(main_window, "sync_macro_templates"), patch.object(main_window, "mutate_steps"):
             main_window.on_add_any_template(step)
         assert len(step["templates"]) == 1
 
@@ -1598,21 +1598,21 @@ class TestKeyStepCaptureEdge:
 
 
 # ---------------------------------------------------------------------------
-# _refresh_step_list edge cases
+# refresh_step_list edge cases
 # ---------------------------------------------------------------------------
 
 
 class TestRefreshStepListEdge:
     def test_stop_iteration_when_select_step_not_found(self, main_window: MainWindow):
         main_window.populate_steps()
-        main_window._refresh_step_list(select_step={"a": 1})
+        main_window.refresh_step_list(select_step={"a": 1})
 
     def test_both_selects_none(self, main_window: MainWindow):
-        main_window._refresh_step_list()
+        main_window.refresh_step_list()
 
 
 # ---------------------------------------------------------------------------
-# _mutate_steps edge cases
+# mutate_steps edge cases
 # ---------------------------------------------------------------------------
 
 
@@ -1621,12 +1621,12 @@ class TestMutateStepsEdge:
         main_window.current_runner = None
         mock_fn = MagicMock()
         with patch.object(main_window, "save_current_macro"):
-            main_window._mutate_steps(mock_fn)
+            main_window.mutate_steps(mock_fn)
         mock_fn.assert_not_called()
 
     def test_calls_mutation_fn(self, main_window: MainWindow):
         mock_fn = MagicMock()
-        main_window._mutate_steps(mock_fn)
+        main_window.mutate_steps(mock_fn)
         mock_fn.assert_called_once_with(get_runner(main_window))
 
 
@@ -1748,7 +1748,7 @@ class TestPickTemplate:
             patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
             patch.object(main_window, "write_template_meta"),
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps"),
+            patch.object(main_window, "mutate_steps"),
             patch("main_window.time.time", return_value=1234567890),
         ):
             main_window.on_pick_template(step)
@@ -1764,7 +1764,7 @@ class TestPickTemplate:
             patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
             patch.object(main_window, "write_template_meta"),
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps"),
+            patch.object(main_window, "mutate_steps"),
             patch("main_window.time.time", return_value=9999999999),
         ):
             main_window.on_pick_template(step)
@@ -1778,7 +1778,7 @@ class TestPickTemplate:
             patch("main_window.QFileDialog.getOpenFileName", return_value=(str(src), "")),
             patch.object(main_window, "write_template_meta"),
             patch.object(main_window, "sync_macro_templates"),
-            patch.object(main_window, "_mutate_steps"),
+            patch.object(main_window, "mutate_steps"),
             patch("main_window.time.time", return_value=1234567890),
         ):
             main_window.on_pick_any_template(step, 0)
@@ -2482,7 +2482,7 @@ class TestCheckUpdate:
 
     def test_startup_update_available(self, main_window: MainWindow):
         main_window.conf.general.skipped_version = ""
-        real = _original_startup_check_update
+        real = original_startup_check_update
         with (
             patch("main_window.updater.check_async") as mock_check,
             patch.object(MainWindow, "startup_check_update", real),
@@ -2736,7 +2736,7 @@ class TestOnCheckUpdateAvailable:
 class TestStartupUpdatePrompt:
     def test_available_not_skipped(self, main_window: MainWindow):
         main_window.conf.general.skipped_version = "v1.0.0"
-        real = _original_startup_check_update
+        real = original_startup_check_update
         with (
             patch("main_window.updater.check_async") as mock_check,
             patch("main_window.updater.prompt_update") as mock_prompt,

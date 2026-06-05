@@ -3,6 +3,7 @@
 Requires pytest-qt and a display server (or virtual framebuffer on CI).
 """
 
+import copy
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -332,3 +333,281 @@ class TestPropertyPanel:
         main_window.step_list.clearSelection()
         main_window.show_macro_props()
         assert main_window.prop_title.text() != ""
+
+
+# ---------------------------------------------------------------------------
+# Property editing tests
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyEditing:
+    def test_edit_numeric_field(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        step["ms"] = 100
+        edit = MagicMock()
+        edit.text.return_value = "250"
+        main_window.on_prop_edit(step, "ms", edit)
+        assert step["ms"] == 250
+
+    def test_edit_invalid_numeric_ignored(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        step["ms"] = 100
+        edit = MagicMock()
+        edit.text.return_value = "not_a_number"
+        main_window.on_prop_edit(step, "ms", edit)
+        assert step["ms"] == 100
+
+    def test_edit_hold_ms_field(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        edit = MagicMock()
+        edit.text.return_value = "150"
+        main_window.on_prop_edit(step, "hold_ms", edit)
+        assert step["hold_ms"] == 150
+
+    def test_edit_key_field(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        edit = MagicMock()
+        edit.text.return_value = "space"
+        main_window.on_prop_edit(step, "key", edit)
+        assert step["key"] == "space"
+
+    def test_prop_bool_sets_value(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        step["skip"] = False
+        main_window.on_prop_bool(step, "skip", True)
+        assert step["skip"] is True
+
+    def test_prop_bool_skip_repeat_propagates(self, main_window: MainWindow):
+        main_window.macro_list.setCurrentRow(1)
+        main_window.step_list.setCurrentRow(1)
+        step = get_runner(main_window).macro["steps"][1]
+        assert step["type"] == "repeat"
+        step["steps"] = [{"type": "key", "key": "a"}, {"type": "delay", "ms": 100}]
+        main_window.on_prop_bool(step, "skip", True)
+        assert step["skip"] is True
+        for child in step["steps"]:
+            assert child["skip"] is True
+
+    def test_combo_edit(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        main_window.on_combo_edit(step, "key", "escape")
+        assert step["key"] == "escape"
+
+    def test_threshold_changed(self, main_window: MainWindow):
+        main_window.step_list.setCurrentRow(0)
+        step = get_runner(main_window).macro["steps"][0]
+        label = MagicMock()
+        main_window.on_threshold_changed(step, 90, label)
+        assert step["threshold"] == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Template management tests
+# ---------------------------------------------------------------------------
+
+
+class TestTemplateManagement:
+    def test_delete_template_clears_name(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
+        runner.macro["templates"] = {"btn": {"label": "Button"}}
+        main_window.on_macro_selected(0)
+        main_window.step_list.setCurrentRow(0)
+        step = runner.macro["steps"][0]
+        main_window.on_delete_template(step)
+        assert step["template"] == ""
+
+    def test_rename_template_updates_label(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
+        runner.macro["templates"] = {"btn": {"label": "Button"}}
+        main_window.on_macro_selected(0)
+        main_window.step_list.setCurrentRow(0)
+        step = runner.macro["steps"][0]
+        edit = MagicMock()
+        edit.text.return_value = "Submit"
+        main_window.on_rename_template(step, edit)
+        assert runner.macro["templates"]["btn"]["label"] == "Submit"
+
+    def test_sync_macro_templates_prunes_unused(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "key", "key": "a"}]
+        runner.macro["templates"] = {"old": {"label": "Old"}, "unused": {"label": "Unused"}}
+        main_window.on_macro_selected(0)
+        main_window.sync_macro_templates()
+        assert "old" not in runner.macro.get("templates", {})
+        assert "unused" not in runner.macro.get("templates", {})
+
+    def test_sync_macro_templates_keeps_used(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "wait_image", "template": "btn"}]
+        runner.macro["templates"] = {"btn": {"label": "Button"}}
+        main_window.on_macro_selected(0)
+        main_window.sync_macro_templates()
+        assert runner.macro["templates"]["btn"]["label"] == "Button"
+
+
+# ---------------------------------------------------------------------------
+# Macro CRUD tests (without dialogs)
+# ---------------------------------------------------------------------------
+
+
+class TestMacroCrud:
+    def test_save_runner_writes_file(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"] = [{"type": "key", "key": "z"}]
+        main_window.save_runner(runner)
+        assert runner.source_path is not None
+        data = json.loads(runner.source_path.read_text(encoding="utf-8"))
+        assert data["steps"][0]["key"] == "z"
+
+    def test_save_current_macro_pushes_undo(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        original_steps = runner.macro["steps"].copy()
+        runner.macro["steps"].append({"type": "delay", "ms": 100})
+        main_window.save_current_macro()
+        assert len(runner.undo_stack) == 1
+        assert runner.undo_stack[0]["steps"] == original_steps
+
+    def test_delete_macro_removes_from_list(self, main_window: MainWindow):
+        initial_count = main_window.macro_list.count()
+        with patch("main_window.MessageBoxBase") as mock_dialog:
+            instance = MagicMock()
+            instance.exec.return_value = True
+            mock_dialog.return_value = instance
+            main_window.delete_macro(0)
+        assert main_window.macro_list.count() == initial_count - 1
+
+    def test_delete_macro_unlinks_file(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        path = runner.source_path
+        assert path is not None
+        with patch("main_window.MessageBoxBase") as mock_dialog:
+            instance = MagicMock()
+            instance.exec.return_value = True
+            mock_dialog.return_value = instance
+            main_window.delete_macro(0)
+        assert not path.exists()
+
+    def test_rename_macro_updates_label(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        original_label = runner.label
+        with patch("main_window.MessageBoxBase") as mock_dialog:
+            instance = MagicMock()
+            instance.exec.return_value = True
+            mock_dialog.return_value = instance
+            # Patch LineEdit so the dialog uses our mock with the desired text
+            with patch("main_window.LineEdit") as mock_line_edit:
+                edit_instance = MagicMock()
+                edit_instance.text.return_value = "Renamed Macro"
+                mock_line_edit.return_value = edit_instance
+                main_window.rename_macro(0)
+        assert runner.label == "Renamed Macro"
+        assert runner.label != original_label
+
+    def test_duplicate_macro_creates_new(self, main_window: MainWindow):
+        initial_count = main_window.macro_list.count()
+        main_window.on_duplicate_macro()
+        assert main_window.macro_list.count() == initial_count + 1
+
+
+# ---------------------------------------------------------------------------
+# Execution control tests
+# ---------------------------------------------------------------------------
+
+
+class TestExecutionControl:
+    def test_on_run_starts_runner(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.is_running = lambda: False
+        with patch.object(runner, "start") as mock_start:
+            main_window.on_run()
+        mock_start.assert_called_once()
+
+    def test_on_run_stops_running_runner(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.is_running = lambda: True
+        with patch.object(runner, "stop") as mock_stop:
+            main_window.on_run()
+        mock_stop.assert_called_once()
+
+    def test_on_run_disabled_macro_does_nothing(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["meta"]["enabled"] = False
+        runner.is_running = lambda: False
+        with patch.object(runner, "start") as mock_start:
+            main_window.on_run()
+        mock_start.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Undo / redo deeper tests
+# ---------------------------------------------------------------------------
+
+
+class TestUndoRedoDeep:
+    def test_multiple_undo_levels(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        original = copy.deepcopy(runner.macro)
+        # Make 3 changes
+        for i in range(3):
+            runner.macro["steps"].append({"type": "delay", "ms": i + 1})
+            main_window.save_current_macro()
+        assert len(runner.undo_stack) == 3
+        # Undo all
+        for _ in range(3):
+            main_window.undo()
+        assert runner.macro["steps"] == original["steps"]
+
+    def test_redo_after_multiple_undo(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        runner.macro["steps"].append({"type": "delay", "ms": 100})
+        main_window.save_current_macro()
+        main_window.undo()
+        assert len(runner.redo_stack) == 1
+        main_window.redo()
+        assert len(runner.redo_stack) == 0
+        assert runner.macro["steps"][-1]["ms"] == 100
+
+    def test_undo_redo_buttons_state(self, main_window: MainWindow):
+        runner = get_runner(main_window)
+        assert not main_window.btn_undo.isEnabled()
+        assert not main_window.btn_redo.isEnabled()
+        runner.macro["steps"].append({"type": "delay", "ms": 100})
+        main_window.save_current_macro()
+        assert main_window.btn_undo.isEnabled()
+        main_window.undo()
+        assert main_window.btn_redo.isEnabled()
+
+
+# ---------------------------------------------------------------------------
+# Macro list reorder tests
+# ---------------------------------------------------------------------------
+
+
+class TestMacroListReorder:
+    def test_reorder_updates_runners(self, main_window: MainWindow):
+        if main_window.macro_list.count() < 2:
+            pytest.skip("Need at least 2 macros")
+        original_order = [r.name for r in main_window.runners]
+        # Swap rows 0 and 1
+        item0 = main_window.macro_list.takeItem(0)
+        main_window.macro_list.insertItem(1, item0)
+        main_window.on_macros_reordered()
+        new_order = [r.name for r in main_window.runners]
+        assert new_order == [original_order[1], original_order[0]]
+
+    def test_reorder_saves_config(self, main_window: MainWindow):
+        if main_window.macro_list.count() < 2:
+            pytest.skip("Need at least 2 macros")
+        with patch.object(cfg, "save") as mock_save:
+            item0 = main_window.macro_list.takeItem(0)
+            main_window.macro_list.insertItem(1, item0)
+            main_window.on_macros_reordered()
+        mock_save.assert_called_once()

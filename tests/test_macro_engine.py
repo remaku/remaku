@@ -848,3 +848,233 @@ class TestHoldKeyUntilGone:
 
             with pytest.raises(Stopped):
                 runner.do_hold_key_until_gone(step)
+
+
+# ---------------------------------------------------------------------------
+# Repeat depth tracking
+# ---------------------------------------------------------------------------
+
+
+class TestRepeatDepthTracking:
+    def make_runner(self, steps):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": steps}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {}
+        return runner
+
+    def test_nested_repeat_increments_depth(self):
+        steps = [
+            {
+                "type": "repeat",
+                "count": 1,
+                "steps": [
+                    {"type": "delay", "ms": 1},
+                    {
+                        "type": "repeat",
+                        "count": 1,
+                        "steps": [{"type": "delay", "ms": 1}],
+                    },
+                ],
+            }
+        ]
+        runner = self.make_runner(steps)
+        depths = []
+
+        def record_depth(*args, **kwargs):
+            depths.append(runner.repeat_depth)
+
+        with patch.object(runner, "sleep", side_effect=record_depth):
+            runner.exec_steps(runner.macro["steps"])
+        assert depths == [1, 2]
+        assert runner.repeat_depth == 0
+
+    def test_repeat_depth_resets_after_loop(self):
+        steps = [
+            {"type": "repeat", "count": 2, "steps": [{"type": "delay", "ms": 1}]},
+            {"type": "delay", "ms": 1},
+        ]
+        runner = self.make_runner(steps)
+        depths = []
+
+        def record_depth(*args, **kwargs):
+            depths.append(runner.repeat_depth)
+
+        with patch.object(runner, "sleep", side_effect=record_depth):
+            runner.exec_steps(runner.macro["steps"])
+        assert depths == [1, 1, 0]
+
+    def test_repeat_depth_zero_for_sibling(self):
+        steps = [
+            {"type": "repeat", "count": 1, "steps": [{"type": "delay", "ms": 1}]},
+            {"type": "repeat", "count": 1, "steps": [{"type": "delay", "ms": 1}]},
+        ]
+        runner = self.make_runner(steps)
+        depths = []
+
+        def record_depth(*args, **kwargs):
+            depths.append(runner.repeat_depth)
+
+        with patch.object(runner, "sleep", side_effect=record_depth):
+            runner.exec_steps(runner.macro["steps"])
+        assert depths == [1, 1]
+
+
+# ---------------------------------------------------------------------------
+# Grid nav multiple rounds
+# ---------------------------------------------------------------------------
+
+
+class TestGridNavMultipleRounds:
+    def make_runner(self, steps):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": steps}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {}
+        return runner
+
+    def test_wraparound_second_round(self):
+        step = {
+            "type": "grid_nav",
+            "rows": 2,
+            "on_next_row": [{"type": "delay", "ms": 1}],
+            "on_next_col": [{"type": "delay", "ms": 2}],
+        }
+        runner = self.make_runner([step])
+        # Counter starts at 0. First call: pos=0, (0+1)%2=1 -> on_next_row
+        # Second call: counter=1, pos=1, (1+1)%2=0 -> on_next_col
+        with patch.object(runner, "sleep") as mock_sleep:
+            runner.exec_steps(runner.macro["steps"])
+            runner.exec_steps(runner.macro["steps"])
+        assert mock_sleep.call_count == 2
+        calls = [c.args[0] for c in mock_sleep.call_args_list]
+        assert calls == [1, 2]
+
+    def test_start_offset_with_multiple_calls(self):
+        step = {
+            "type": "grid_nav",
+            "rows": 3,
+            "start": 1,
+            "on_next_row": [{"type": "delay", "ms": 1}],
+            "on_next_col": [{"type": "delay", "ms": 2}],
+        }
+        runner = self.make_runner([step])
+        # Call 1: pos = 0 + 1 = 1, (1+1)%3=2 -> on_next_row
+        # Call 2: counter=1, pos=1+1=2, (2+1)%3=0 -> on_next_col
+        # Call 3: counter=2, pos=2+1=3, (3+1)%3=1 -> on_next_row
+        with patch.object(runner, "sleep") as mock_sleep:
+            for _ in range(3):
+                runner.exec_steps(runner.macro["steps"])
+        calls = [c.args[0] for c in mock_sleep.call_args_list]
+        assert calls == [1, 2, 1]
+
+
+# ---------------------------------------------------------------------------
+# Skip + current_step
+# ---------------------------------------------------------------------------
+
+
+class TestSkipCurrentStep:
+    def make_runner(self, steps):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": steps}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {}
+        return runner
+
+    def test_skip_does_not_set_current_step(self):
+        steps = [
+            {"type": "key", "key": "a", "skip": True},
+            {"type": "delay", "ms": 1},
+        ]
+        runner = self.make_runner(steps)
+        runner.current_step = None
+        with patch.object(runner, "sleep"):
+            runner.exec_steps(runner.macro["steps"])
+        assert runner.current_step is not None
+        assert runner.current_step["type"] == "delay"
+
+    def test_non_skip_sets_current_step(self):
+        steps = [
+            {"type": "key", "key": "a"},
+            {"type": "delay", "ms": 1},
+        ]
+        runner = self.make_runner(steps)
+        with patch.object(runner, "tap"), patch.object(runner, "sleep"):
+            runner.exec_steps(runner.macro["steps"])
+        assert runner.current_step is not None
+        assert runner.current_step["type"] == "delay"
+
+    def test_container_does_not_set_current_step(self):
+        steps = [
+            {"type": "repeat", "count": 1, "steps": [{"type": "delay", "ms": 1}]},
+            {"type": "delay", "ms": 1},
+        ]
+        runner = self.make_runner(steps)
+        with patch.object(runner, "sleep"):
+            runner.exec_steps(runner.macro["steps"])
+        assert runner.current_step is not None
+        assert runner.current_step["type"] == "delay"
+
+
+# ---------------------------------------------------------------------------
+# Hold key until gone — gone grace edge case
+# ---------------------------------------------------------------------------
+
+
+class TestHoldKeyUntilGoneGoneGrace:
+    def make_runner(self, step):
+        macro = {"meta": {"name": "t"}, "templates": {}, "steps": [step]}
+        runner = MacroRunner(config.get_defaults(), macro)
+        runner.status.running = True
+        runner.templates = {"btn": np.zeros((10, 10), dtype=np.uint8)}
+        runner.template_capture_sizes = {}
+        runner.win = MagicMock()
+        runner.grabber = MagicMock()
+        runner.rect = (0, 0, 100, 100)
+        return runner
+
+    def test_gone_grace_requires_continuous_absence(self):
+        """Template disappears briefly then reappears; should not release."""
+        step = {
+            "type": "hold_key_until_gone",
+            "key": "w",
+            "template": "btn",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 1000,
+            "gone_grace_ms": 200,
+            "hard_timeout_ms": 5000,
+        }
+        runner = self.make_runner(step)
+        frame = np.zeros((100, 100), dtype=np.uint8)
+        runner.grabber.grab.return_value = frame
+
+        t = 0.0
+
+        def tick():
+            nonlocal t
+            t += 0.12
+            return t
+
+        with (
+            patch("macro_engine.vision") as mock_vision,
+            patch("macro_engine.window") as mock_window,
+            patch("macro_engine.keys") as mock_keys,
+            patch("macro_engine.time") as mock_time,
+            patch.object(runner, "sleep"),
+        ):
+            mock_vision.to_gray.return_value = frame
+            # Appears -> gone (too short) -> appears -> gone (long enough)
+            mock_vision.match_one.side_effect = [
+                (0.95, (5, 5)),
+                (0.1, (5, 5)),
+                (0.95, (5, 5)),
+                (0.1, (5, 5)),
+                (0.1, (5, 5)),
+            ]
+            mock_window.is_foreground.return_value = True
+            mock_time.monotonic.side_effect = tick
+
+            runner.do_hold_key_until_gone(step)
+
+        mock_keys.held.assert_called_once_with("w")

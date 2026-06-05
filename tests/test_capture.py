@@ -1,5 +1,6 @@
 """Tests for the screen capture module."""
 
+import gc
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -95,6 +96,7 @@ class TestGrabber:
 
         grabber.close()
 
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
     def test_close_suppresses_exception(self):
         class BadCam:
             width = 1920
@@ -107,6 +109,7 @@ class TestGrabber:
             grabber = Grabber()
 
         grabber.close()
+        gc.collect()
 
 
 class TestMakeGrabber:

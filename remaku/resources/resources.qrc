@@ -1,0 +1,19 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="remaku">
+    <file>icons/arrow-down-black.svg</file>
+    <file>icons/arrow-down-white.svg</file>
+    <file>icons/arrow-up-black.svg</file>
+    <file>icons/arrow-up-white.svg</file>
+    <file>icons/play-black.svg</file>
+    <file>icons/play-white.svg</file>
+    <file>icons/plus-black.svg</file>
+    <file>icons/plus-white.svg</file>
+    <file>icons/redo-2-black.svg</file>
+    <file>icons/redo-2-white.svg</file>
+    <file>icons/trash-2-black.svg</file>
+    <file>icons/trash-2-white.svg</file>
+    <file>icons/undo-2-black.svg</file>
+    <file>icons/undo-2-white.svg</file>
+  </qresource>
+</RCC>

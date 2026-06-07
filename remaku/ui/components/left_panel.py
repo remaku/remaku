@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 from qfluentwidgets import CardWidget, ListWidget, PushButton, SubtitleLabel
+from remaku.resources.icon import RemakuIcon
 
 
 class LeftPanel(CardWidget):
@@ -18,11 +19,11 @@ class LeftPanel(CardWidget):
 
         header = QHBoxLayout()
 
-        title = SubtitleLabel("Macro", self)
+        title = SubtitleLabel("Macros", self)
         header.addWidget(title)
         header.addStretch()
 
-        new_macro_button = PushButton("Add", self)
+        new_macro_button = PushButton(RemakuIcon.PLUS, "Add", self)
         header.addWidget(new_macro_button)
 
         layout.addLayout(header)

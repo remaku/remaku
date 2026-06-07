@@ -1,13 +1,14 @@
 import webbrowser
 
 from remaku.views.components.about_dialog import AboutDialog
-from remaku.views.pages.home import HomePage
+from remaku.views.home_view import HomeView
 
 
 class HomeController:
-    def __init__(self, view: HomePage):
+    def __init__(self, view: HomeView):
         self.view = view
-        self.view.toolbar.actionTriggered.connect(self.handle_toolbar_action)
+
+        self.view.toolbar.action_triggered.connect(self.handle_toolbar_action)
 
     def handle_toolbar_action(self, action_id: str):
         print(f"Toolbar action triggered: {action_id}")

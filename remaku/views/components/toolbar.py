@@ -7,7 +7,7 @@ from remaku.resources.icon import RemakuIcon
 
 
 class Toolbar(QWidget):
-    actionTriggered = Signal(str)
+    action_triggered = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,7 +54,7 @@ class Toolbar(QWidget):
             if "shortcut" in item:
                 action.setShortcut(QKeySequence(item["shortcut"]))
 
-            action.triggered.connect(lambda checked, item_id=item["id"]: self.actionTriggered.emit(item_id))
+            action.triggered.connect(lambda checked, item_id=item["id"]: self.action_triggered.emit(item_id))
 
             self.addAction(action)
             menu.addAction(action)

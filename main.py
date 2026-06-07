@@ -11,13 +11,13 @@ from remaku.views.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
+
     config_manager = ConfigManager()
     config = config_manager.load()
-
     apply_theme(config.general.theme)
 
-    window = MainWindow(config)
-    _controller = MainController(window)
+    window = MainWindow()
+    _controller = MainController(window, config)
     window.show()
 
     sys.exit(app.exec())

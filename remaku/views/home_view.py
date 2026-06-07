@@ -8,14 +8,14 @@ from remaku.views.components.right_panel import RightPanel
 from remaku.views.components.toolbar import Toolbar
 
 
-class HomePage(QWidget):
+class HomeView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.init_ui()
 
     def init_ui(self):
-        self.setObjectName("HomePage")
+        self.setObjectName("home")
 
         layout = QVBoxLayout(self)
         layout.setSpacing(10)

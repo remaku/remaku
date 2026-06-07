@@ -1,5 +1,3 @@
-"""Configuration loading and persistence for the Remaku application."""
-
 import json
 from pathlib import Path
 
@@ -9,11 +7,11 @@ from remaku.config.models import AppConfig
 
 
 class ConfigManager:
-    def __init__(self, app_name: str = "remaku"):
+    def __init__(self, app_name="remaku"):
         self.data_dir = Path(user_documents_dir()) / app_name
         self.config_path = self.data_dir / "config.json"
 
-    def load(self) -> AppConfig:
+    def load(self):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         default_config = AppConfig()
 
@@ -40,15 +38,15 @@ class ConfigManager:
 
         return config
 
-    def save(self, config: AppConfig) -> None:
+    def save(self, config):
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         with self.config_path.open("w", encoding="utf-8") as file:
             json.dump(config.to_dict(), file, indent=2, ensure_ascii=False)
             file.write("\n")
 
-    def merge_defaults(self, defaults: dict, data: dict) -> dict:
-        merged: dict = {}
+    def merge_defaults(self, defaults, data):
+        merged = {}
 
         for key, default_value in defaults.items():
             value = data.get(key, default_value)

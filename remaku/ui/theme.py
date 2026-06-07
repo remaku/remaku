@@ -1,5 +1,3 @@
-"""Theme helpers for configuring the Remaku application UI."""
-
 from qfluentwidgets import Theme, setTheme
 
 THEME_MAP = {
@@ -9,5 +7,5 @@ THEME_MAP = {
 }
 
 
-def apply_theme(theme_name: str) -> None:
+def apply_theme(theme_name):
     setTheme(THEME_MAP.get(theme_name, Theme.AUTO))

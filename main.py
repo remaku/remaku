@@ -1,5 +1,3 @@
-"""Application entry point for the Remaku desktop app."""
-
 import sys
 
 from PySide6.QtWidgets import QApplication
@@ -11,7 +9,7 @@ from remaku.ui.main_window import MainWindow
 from remaku.ui.theme import apply_theme
 
 
-def main() -> None:
+def main():
     app = QApplication(sys.argv)
     config_manager = ConfigManager()
     config = config_manager.load()

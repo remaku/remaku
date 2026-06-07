@@ -31,5 +31,3 @@ class LeftPanel(CardWidget):
 
         macro_list = ListWidget(self)
         layout.addWidget(macro_list)
-
-        layout.addWidget(macro_list)

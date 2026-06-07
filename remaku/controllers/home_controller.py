@@ -1,3 +1,5 @@
+import webbrowser
+
 from remaku.ui.components.about_dialog import AboutDialog
 from remaku.ui.pages.home import HomePage
 
@@ -13,3 +15,6 @@ class HomeController:
         if action_id == "about":
             about_dialog = AboutDialog(self.view)
             about_dialog.exec()
+
+        if action_id == "support_author":
+            webbrowser.open("https://github.com/sponsors/nelsonlaidev")

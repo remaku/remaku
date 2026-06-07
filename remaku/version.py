@@ -1,6 +1,6 @@
 import tomllib
 
-from remaku.paths import get_root_dir
+from remaku.paths import root_dir
 
-with open(get_root_dir() / "pyproject.toml", "rb") as f:
+with open(root_dir() / "pyproject.toml", "rb") as f:
     __version__ = tomllib.load(f)["project"]["version"]

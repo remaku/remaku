@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 
-def get_root_dir():
+def root_dir():
     if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS)  # type: ignore
     else:

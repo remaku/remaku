@@ -1,7 +1,8 @@
 import sys
 
-import remaku.resources.resources_rc  # noqa: F401
 from PySide6.QtWidgets import QApplication
+
+import remaku.resources.resources_rc  # noqa: F401
 from remaku.controllers.main_controller import MainController
 from remaku.ui.main_window import MainWindow
 

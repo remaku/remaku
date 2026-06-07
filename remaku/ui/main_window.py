@@ -1,5 +1,6 @@
 from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentWindow
+
 from remaku.ui.pages.home import HomePage
 
 

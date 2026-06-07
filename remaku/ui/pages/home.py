@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 from qfluentwidgets import CaptionLabel
+
 from remaku.ui.components.center_panel import CenterPanel
 from remaku.ui.components.left_panel import LeftPanel
 from remaku.ui.components.right_panel import RightPanel

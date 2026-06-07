@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 from qfluentwidgets import CardWidget, ListWidget, PushButton, SubtitleLabel
+
 from remaku.resources.icon import RemakuIcon
 
 

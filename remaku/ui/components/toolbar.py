@@ -2,6 +2,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 from qfluentwidgets import Action, RoundMenu, TransparentPushButton, TransparentToolButton
+
 from remaku.resources.icon import RemakuIcon
 
 

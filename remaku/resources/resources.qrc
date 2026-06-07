@@ -15,5 +15,7 @@
     <file>icons/trash-2-white.svg</file>
     <file>icons/undo-2-black.svg</file>
     <file>icons/undo-2-white.svg</file>
+
+    <file>images/logo.png</file>
   </qresource>
 </RCC>

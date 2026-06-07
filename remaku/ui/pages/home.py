@@ -11,13 +11,18 @@ class HomePage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.init_ui()
+
+    def init_ui(self):
         self.setObjectName("HomePage")
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+        layout.setContentsMargins(11, 0, 11, 11)
 
-        toolbar = Toolbar(self)
+        self.toolbar = Toolbar(self)
 
-        layout.addWidget(toolbar)
+        layout.addWidget(self.toolbar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
         splitter.setHandleWidth(1)
@@ -30,6 +35,11 @@ class HomePage(QWidget):
         splitter.addWidget(left_panel)
         splitter.addWidget(center_panel)
         splitter.addWidget(right_panel)
+
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+        splitter.setCollapsible(2, False)
+        splitter.setSizes([220, 550, 250])
 
         layout.addWidget(splitter, 1)
 

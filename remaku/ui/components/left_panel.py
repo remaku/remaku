@@ -6,6 +6,9 @@ class LeftPanel(CardWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.init_ui()
+
+    def init_ui(self):
         self.setMinimumWidth(200)
         self.setMaximumWidth(300)
 
@@ -15,16 +18,16 @@ class LeftPanel(CardWidget):
 
         header = QHBoxLayout()
 
-        title = SubtitleLabel("Macro")
+        title = SubtitleLabel("Macro", self)
         header.addWidget(title)
         header.addStretch()
 
-        new_macro_button = PushButton("Add")
+        new_macro_button = PushButton("Add", self)
         header.addWidget(new_macro_button)
 
         layout.addLayout(header)
 
-        macro_list = ListWidget()
+        macro_list = ListWidget(self)
         layout.addWidget(macro_list)
 
         layout.addWidget(macro_list)

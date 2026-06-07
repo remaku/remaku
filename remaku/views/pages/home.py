@@ -2,10 +2,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 from qfluentwidgets import CaptionLabel
 
-from remaku.ui.components.center_panel import CenterPanel
-from remaku.ui.components.left_panel import LeftPanel
-from remaku.ui.components.right_panel import RightPanel
-from remaku.ui.components.toolbar import Toolbar
+from remaku.views.components.center_panel import CenterPanel
+from remaku.views.components.left_panel import LeftPanel
+from remaku.views.components.right_panel import RightPanel
+from remaku.views.components.toolbar import Toolbar
 
 
 class HomePage(QWidget):

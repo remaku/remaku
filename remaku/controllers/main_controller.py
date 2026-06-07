@@ -1,5 +1,5 @@
 from remaku.controllers.home_controller import HomeController
-from remaku.ui.main_window import MainWindow
+from remaku.views.main_window import MainWindow
 
 
 class MainController:

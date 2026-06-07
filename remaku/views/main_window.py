@@ -3,7 +3,7 @@ from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentWindow
 
 from remaku.config.models import AppConfig
-from remaku.ui.pages.home import HomePage
+from remaku.views.pages.home import HomePage
 
 
 class MainWindow(FluentWindow):

@@ -1,7 +1,7 @@
 import webbrowser
 
-from remaku.ui.components.about_dialog import AboutDialog
-from remaku.ui.pages.home import HomePage
+from remaku.views.components.about_dialog import AboutDialog
+from remaku.views.pages.home import HomePage
 
 
 class HomeController:

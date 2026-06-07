@@ -1,5 +1,3 @@
-"""Configuration data models and defaults for the Remaku application."""
-
 from dataclasses import asdict, dataclass, field
 from typing import Any
 

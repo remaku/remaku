@@ -996,14 +996,14 @@ class TestKeyCaptures:
         assert edit.text() == "ctrl+f1"
         mock_set.assert_called_once_with("ctrl+f1")
 
-    def test_on_hotkey_capture_escape_clears(self, main_window: MainWindow):
+    def test_on_hotkey_capture_escape_sets_esc(self, main_window: MainWindow):
         edit = LineEdit()
         edit.setText("ctrl+f1")
         with patch.object(main_window, "set_macro_hotkey") as mock_set:
             event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
             main_window.on_hotkey_capture(event, edit)
-        assert edit.text() == ""
-        mock_set.assert_called_once_with("")
+        assert edit.text() == "esc"
+        mock_set.assert_called_once_with("esc")
 
     def test_on_key_step_capture(self, main_window: MainWindow):
         edit = LineEdit()
@@ -1021,8 +1021,8 @@ class TestKeyCaptures:
         event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
         with patch.object(main_window, "mutate_steps") as mock_mutate:
             main_window.on_key_step_capture(event, edit, step)
-        assert step["key"] == ""
-        assert edit.text() == ""
+        assert step["key"] == "esc"
+        assert edit.text() == "esc"
         mock_mutate.assert_called_once()
 
     def test_on_key_step_cleared(self, main_window: MainWindow):

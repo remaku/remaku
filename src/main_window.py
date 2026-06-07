@@ -622,11 +622,6 @@ class MainWindow(FluentWindow):
     def on_hotkey_capture(self, event: QKeyEvent, edit: LineEdit) -> None:
         key = event.key()
 
-        if key in (Qt.Key.Key_Escape,):
-            edit.setText("")
-            self.set_macro_hotkey("")
-            return
-
         if key in (
             Qt.Key.Key_Shift,
             Qt.Key.Key_Control,
@@ -654,14 +649,6 @@ class MainWindow(FluentWindow):
 
     def on_key_step_capture(self, event: QKeyEvent, edit: LineEdit, step: dict) -> None:
         key = event.key()
-
-        if key in (Qt.Key.Key_Escape,):
-            edit.blockSignals(True)
-            edit.setText("")
-            edit.blockSignals(False)
-            step["key"] = ""
-            self.mutate_steps(select_step=step)
-            return
 
         if key in (
             Qt.Key.Key_Shift,

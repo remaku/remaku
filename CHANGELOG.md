@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.5.1
+
+<!-- lang:en -->
+
+### Fixed
+
+- Macro hotkey and key-step inputs can now save Esc as the selected key instead of clearing the field
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 巨集快捷鍵與按鍵步驟輸入現在可以將 Esc 儲存為指定按鍵，不會再把欄位直接清空
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 宏快捷键与按键步骤输入现在可以将 Esc 保存为指定按键，不会再把字段直接清空
+
 ## v0.5.0
 
 <!-- lang:en -->

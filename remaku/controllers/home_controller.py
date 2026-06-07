@@ -1,6 +1,6 @@
 import webbrowser
 
-from remaku.views.components.about_dialog import AboutDialog
+from remaku.version import __version__
 from remaku.views.home_view import HomeView
 
 
@@ -14,8 +14,7 @@ class HomeController:
         print(f"Toolbar action triggered: {action_id}")
 
         if action_id == "about":
-            about_dialog = AboutDialog(self.view)
-            about_dialog.exec()
+            self.view.show_about_dialog(__version__)
 
         if action_id == "support_author":
             webbrowser.open("https://github.com/sponsors/nelsonlaidev")

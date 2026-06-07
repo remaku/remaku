@@ -1,19 +1,18 @@
 from qfluentwidgets import BodyLabel, MessageBoxBase, SubtitleLabel
 
-from remaku.version import __version__
-
 
 class AboutDialog(MessageBoxBase):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, version=""):
         super().__init__(parent)
 
+        self.version = version
         self.init_ui()
 
     def init_ui(self):
         self.yesButton.setText(self.tr("Close"))
         self.cancelButton.hide()
 
-        self.viewLayout.addWidget(SubtitleLabel(f"Remaku v{__version__}"))
+        self.viewLayout.addWidget(SubtitleLabel(f"Remaku v{self.version}"))
         self.viewLayout.addSpacing(4)
         self.viewLayout.addWidget(
             BodyLabel(self.tr("Open-source, visual, image-recognition-driven desktop macro tool."))

@@ -10,6 +10,7 @@ dependencies = [
   "loguru>=0.7",
   "numpy>=2.0",
   "opencv-python-headless>=4.10",
+  "platformdirs>=4.0",
   "pydirectinput-rgx>=2.1",
   "pygetwindow>=0.0.9",
   "pyside6>=6.7",

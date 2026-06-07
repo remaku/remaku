@@ -1,16 +1,20 @@
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentWindow
 
+from remaku.config.models import AppConfig
 from remaku.ui.pages.home import HomePage
 
 
 class MainWindow(FluentWindow):
-    def __init__(self, parent=None):
+    def __init__(self, config: AppConfig, parent=None):
         super().__init__(parent)
+        self.config = config
         self.setWindowTitle("Remaku")
         self.setWindowIcon(QIcon(":/remaku/images/logo.png"))
         self.setMinimumSize(900, 600)
         self.resize(900, 600)
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, self.config.general.always_on_top)
         self.resetNavigationInterface()
 
         self.home_page = HomePage(self)

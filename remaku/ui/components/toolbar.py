@@ -19,20 +19,20 @@ class Toolbar(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(6)
 
-        self.file_menu_button = TransparentPushButton("File", self)
+        self.file_menu_button = TransparentPushButton(self.tr("File"), self)
         self.file_menu_button.clicked.connect(self.show_file_menu)
         main_layout.addWidget(self.file_menu_button)
 
-        self.edit_menu_button = TransparentPushButton("Edit", self)
+        self.edit_menu_button = TransparentPushButton(self.tr("Edit"), self)
         self.edit_menu_button.clicked.connect(self.show_edit_menu)
         main_layout.addWidget(self.edit_menu_button)
 
-        self.help_menu_button = TransparentPushButton("Help", self)
+        self.help_menu_button = TransparentPushButton(self.tr("Help"), self)
         self.help_menu_button.clicked.connect(self.show_help_menu)
         main_layout.addWidget(self.help_menu_button)
 
-        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLAY, "Run", self))
-        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLUS, "Add", self))
+        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLAY, self.tr("Run"), self))
+        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLUS, self.tr("Add"), self))
         main_layout.addWidget(TransparentToolButton(RemakuIcon.TRASH, self))
         main_layout.addWidget(TransparentToolButton(RemakuIcon.ARROW_UP, self))
         main_layout.addWidget(TransparentToolButton(RemakuIcon.ARROW_DOWN, self))
@@ -49,7 +49,7 @@ class Toolbar(QWidget):
                 menu.addSeparator()
                 continue
 
-            action = Action(item["label"], self)
+            action = Action(self.tr(item["label"]), self)
 
             if "shortcut" in item:
                 action.setShortcut(QKeySequence(item["shortcut"]))

@@ -20,11 +20,11 @@ class LeftPanel(CardWidget):
 
         header = QHBoxLayout()
 
-        title = SubtitleLabel("Macros", self)
+        title = SubtitleLabel(self.tr("Macros"), self)
         header.addWidget(title)
         header.addStretch()
 
-        new_macro_button = PushButton(RemakuIcon.PLUS, "Add", self)
+        new_macro_button = PushButton(RemakuIcon.PLUS, self.tr("Add"), self)
         header.addWidget(new_macro_button)
 
         layout.addLayout(header)

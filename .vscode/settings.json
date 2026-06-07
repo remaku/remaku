@@ -11,5 +11,9 @@
     "editor.defaultFormatter": "charliermarsh.ruff"
   },
 
-  "ruff.interpreter": ["${workspaceFolder}/.venv/Scripts/python.exe"]
+  "ruff.interpreter": ["${workspaceFolder}/.venv/Scripts/python.exe"],
+
+  "files.associations": {
+    "**/locales/*.ts": "xml"
+  }
 }

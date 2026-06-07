@@ -44,5 +44,5 @@ class HomePage(QWidget):
 
         layout.addWidget(splitter, 1)
 
-        status_label = CaptionLabel("Ready", self)
+        status_label = CaptionLabel(self.tr("Ready"), self)
         layout.addWidget(status_label)

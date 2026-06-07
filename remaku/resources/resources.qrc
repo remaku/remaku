@@ -17,5 +17,7 @@
     <file>icons/undo-2-white.svg</file>
 
     <file>images/logo.png</file>
+
+    <file>locales/zh_TW.qm</file>
   </qresource>
 </RCC>

@@ -1,8 +1,10 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
-from qfluentwidgets import FluentWindow
+from qfluentwidgets import FluentWindow, TransparentToolButton, qrouter
 
+from remaku.resources.icon import RemakuIcon
 from remaku.views.home_view import HomeView
+from remaku.views.settings_view import SettingsView
 
 
 class MainWindow(FluentWindow):
@@ -12,16 +14,28 @@ class MainWindow(FluentWindow):
         self.setWindowIcon(QIcon(":/remaku/images/logo.png"))
         self.setMinimumSize(900, 600)
         self.resize(900, 600)
-        self.reset_navigation_interface()
+        self.customize_navigation_interface()
 
         self.home_view = HomeView(self)
+        self.settings_view = SettingsView(self)
 
         self.addSubInterface(self.home_view, "", "", isTransparent=True)
+        self.addSubInterface(self.settings_view, "", "", isTransparent=True)
 
-    def reset_navigation_interface(self):
+    def customize_navigation_interface(self):
         self.navigationInterface.setVisible(False)
         self.titleBar.hBoxLayout.setContentsMargins(11, 0, 0, 0)
         self.widgetLayout.setContentsMargins(0, 48, 0, 0)
+
+        return_button = TransparentToolButton(RemakuIcon.ARROW_LEFT, self)
+        return_button.setToolTip(self.tr("Back"))
+        return_button.setFixedSize(24, 24)
+        return_button.clicked.connect(qrouter.pop)
+        return_button.setVisible(False)
+        self.titleBar.hBoxLayout.insertWidget(0, return_button)
+        self.titleBar.hBoxLayout.insertSpacing(1, 8)
+        self.stackedWidget.currentChanged.connect(lambda index: return_button.setVisible(index != 0))
+        self.stackedWidget.setAnimationEnabled(False)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)

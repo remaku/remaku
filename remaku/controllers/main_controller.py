@@ -1,5 +1,5 @@
-from remaku.config.models import AppConfig
 from remaku.controllers.home_controller import HomeController
+from remaku.models.config_model import AppConfig
 from remaku.views.main_window import MainWindow
 
 

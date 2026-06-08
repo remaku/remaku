@@ -1,5 +1,9 @@
+import json
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
+
+from platformdirs import user_documents_dir
 
 DEFAULT_OVERLAY_POSITION = (100, 100)
 
@@ -34,9 +38,7 @@ class AppConfig:
     input: InputConfig = field(default_factory=InputConfig)
 
     def to_dict(self) -> dict[str, Any]:
-        config_dict = asdict(self)
-        config_dict["general"]["overlay_position"] = list(self.general.overlay_position)
-        return config_dict
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AppConfig":
@@ -54,7 +56,7 @@ class AppConfig:
             default_general.overlay_position,
         )
 
-        if not isinstance(overlay_position, list | tuple) or len(overlay_position) != 2:
+        if not isinstance(overlay_position, (list, tuple)) or len(overlay_position) != 2:
             overlay_position = default_general.overlay_position
 
         general = GeneralConfig(
@@ -87,3 +89,57 @@ class AppConfig:
         )
 
         return cls(general=general, capture=capture, input=input_config)
+
+
+class ConfigModel:
+    def __init__(self):
+        self.data_dir = Path(user_documents_dir()) / "remaku"
+        self.config_path = self.data_dir / "config.json"
+
+    def load(self) -> AppConfig:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        default_config = AppConfig()
+
+        if not self.config_path.exists():
+            self.save(default_config)
+            return default_config
+
+        try:
+            with self.config_path.open("r", encoding="utf-8") as file:
+                raw_data = json.load(file)
+        except (OSError, json.JSONDecodeError):
+            self.save(default_config)
+            return default_config
+
+        if not isinstance(raw_data, dict):
+            self.save(default_config)
+            return default_config
+
+        merged_data = self.merge_defaults(default_config.to_dict(), raw_data)
+        config = AppConfig.from_dict(merged_data)
+
+        if merged_data != raw_data:
+            self.save(config)
+
+        return config
+
+    def save(self, config):
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+
+        with self.config_path.open("w", encoding="utf-8") as file:
+            json.dump(config.to_dict(), file, indent=2, ensure_ascii=False)
+            file.write("\n")
+
+    def merge_defaults(self, defaults, data):
+        merged = {}
+
+        for key, default_value in defaults.items():
+            value = data.get(key, default_value)
+
+            if isinstance(default_value, dict) and isinstance(value, dict):
+                merged[key] = self.merge_defaults(default_value, value)
+                continue
+
+            merged[key] = value
+
+        return merged

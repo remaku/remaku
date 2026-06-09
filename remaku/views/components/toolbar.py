@@ -1,45 +1,64 @@
-from PySide6.QtCore import Signal
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 from qfluentwidgets import Action, RoundMenu, TransparentPushButton, TransparentToolButton
 
+from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
+from remaku.views.components.step_menu import show_step_menu
 
 
 class Toolbar(QWidget):
-    action_triggered = Signal(str)
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.init_ui()
 
     def init_ui(self):
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(6)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
 
         self.file_menu_button = TransparentPushButton(self.tr("File"), self)
         self.file_menu_button.clicked.connect(self.show_file_menu)
-        main_layout.addWidget(self.file_menu_button)
+        layout.addWidget(self.file_menu_button)
 
         self.edit_menu_button = TransparentPushButton(self.tr("Edit"), self)
         self.edit_menu_button.clicked.connect(self.show_edit_menu)
-        main_layout.addWidget(self.edit_menu_button)
+        layout.addWidget(self.edit_menu_button)
 
         self.help_menu_button = TransparentPushButton(self.tr("Help"), self)
         self.help_menu_button.clicked.connect(self.show_help_menu)
-        main_layout.addWidget(self.help_menu_button)
+        layout.addWidget(self.help_menu_button)
 
-        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLAY, self.tr("Run"), self))
-        main_layout.addWidget(TransparentPushButton(RemakuIcon.PLUS, self.tr("Add"), self))
-        main_layout.addWidget(TransparentToolButton(RemakuIcon.TRASH, self))
-        main_layout.addWidget(TransparentToolButton(RemakuIcon.ARROW_UP, self))
-        main_layout.addWidget(TransparentToolButton(RemakuIcon.ARROW_DOWN, self))
-        main_layout.addWidget(TransparentToolButton(RemakuIcon.UNDO, self))
-        main_layout.addWidget(TransparentToolButton(RemakuIcon.REDO, self))
+        self.run_button = TransparentPushButton(RemakuIcon.PLAY, self.tr("Run"), self)
+        self.run_button.clicked.connect(lambda: event_bus.action_triggered.emit("run"))
+        layout.addWidget(self.run_button)
 
-        main_layout.addStretch()
+        self.add_button = TransparentPushButton(RemakuIcon.PLUS, self.tr("Add"), self)
+        self.add_button.clicked.connect(self.show_add_menu)
+        layout.addWidget(self.add_button)
+
+        self.delete_button = TransparentToolButton(RemakuIcon.TRASH, self)
+        self.delete_button.clicked.connect(lambda: event_bus.action_triggered.emit("delete_step"))
+        layout.addWidget(self.delete_button)
+
+        self.move_up_button = TransparentToolButton(RemakuIcon.ARROW_UP, self)
+        self.move_up_button.clicked.connect(lambda: event_bus.action_triggered.emit("move_up"))
+        layout.addWidget(self.move_up_button)
+
+        self.move_down_button = TransparentToolButton(RemakuIcon.ARROW_DOWN, self)
+        self.move_down_button.clicked.connect(lambda: event_bus.action_triggered.emit("move_down"))
+        layout.addWidget(self.move_down_button)
+
+        self.undo_button = TransparentToolButton(RemakuIcon.UNDO, self)
+        self.undo_button.clicked.connect(lambda: event_bus.action_triggered.emit("undo"))
+        layout.addWidget(self.undo_button)
+
+        self.redo_button = TransparentToolButton(RemakuIcon.REDO, self)
+        self.redo_button.clicked.connect(lambda: event_bus.action_triggered.emit("redo"))
+        layout.addWidget(self.redo_button)
+
+        layout.addStretch()
 
     def popup_menu(self, button, items):
         menu = RoundMenu(parent=self)
@@ -54,12 +73,15 @@ class Toolbar(QWidget):
             if "shortcut" in item:
                 action.setShortcut(QKeySequence(item["shortcut"]))
 
-            action.triggered.connect(lambda checked, item_id=item["id"]: self.action_triggered.emit(item_id))
+            action.triggered.connect(lambda checked, item_id=item["id"]: event_bus.action_triggered.emit(item_id))
 
             self.addAction(action)
             menu.addAction(action)
 
         menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
+
+    def show_add_menu(self) -> None:
+        show_step_menu(self, self.add_button, lambda step_type: event_bus.step_add_requested.emit(step_type))
 
     def show_file_menu(self):
         self.popup_menu(
@@ -70,6 +92,7 @@ class Toolbar(QWidget):
                 {"separator": True},
                 {"id": "import_macro", "label": "Import Macro"},
                 {"id": "export_macro", "label": "Export Macro"},
+                {"id": "open_macro_folder", "label": "Open Macro Folder"},
                 {"separator": True},
                 {"id": "settings", "label": "Settings", "shortcut": "Ctrl+,"},
                 {"separator": True},

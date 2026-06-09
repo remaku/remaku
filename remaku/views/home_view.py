@@ -30,13 +30,13 @@ class HomeView(QWidget):
         splitter.setHandleWidth(1)
         splitter.setStyleSheet("QSplitter::handle { background: transparent; }")
 
-        left_panel = LeftPanel()
-        center_panel = CenterPanel()
-        right_panel = RightPanel()
+        self.left_panel = LeftPanel()
+        self.center_panel = CenterPanel()
+        self.right_panel = RightPanel()
 
-        splitter.addWidget(left_panel)
-        splitter.addWidget(center_panel)
-        splitter.addWidget(right_panel)
+        splitter.addWidget(self.left_panel)
+        splitter.addWidget(self.center_panel)
+        splitter.addWidget(self.right_panel)
 
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
@@ -45,8 +45,11 @@ class HomeView(QWidget):
 
         layout.addWidget(splitter, 1)
 
-        status_label = CaptionLabel(self.tr("Ready"), self)
-        layout.addWidget(status_label)
+        self.status_label = CaptionLabel(self.tr("Ready"), self)
+        layout.addWidget(self.status_label)
+
+    def set_status_text(self, text: str) -> None:
+        self.status_label.setText(text)
 
     def show_about_dialog(self, version):
         dialog = AboutDialog(self, version)

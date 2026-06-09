@@ -3,8 +3,16 @@
   <qresource prefix="remaku">
     <file>icons/arrow-down-black.svg</file>
     <file>icons/arrow-down-white.svg</file>
+    <file>icons/arrow-left-black.svg</file>
+    <file>icons/arrow-left-white.svg</file>
     <file>icons/arrow-up-black.svg</file>
     <file>icons/arrow-up-white.svg</file>
+    <file>icons/chevron-down-black.svg</file>
+    <file>icons/chevron-down-white.svg</file>
+    <file>icons/chevron-right-black.svg</file>
+    <file>icons/chevron-right-white.svg</file>
+    <file>icons/pause-black.svg</file>
+    <file>icons/pause-white.svg</file>
     <file>icons/play-black.svg</file>
     <file>icons/play-white.svg</file>
     <file>icons/plus-black.svg</file>

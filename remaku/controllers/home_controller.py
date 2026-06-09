@@ -9,12 +9,587 @@ class HomeController:
         self.view = view
 
         self.view.toolbar.action_triggered.connect(self.handle_toolbar_action)
+        self.view.left_panel.macro_selected.connect(self.handle_macro_selected)
+        self.view.center_panel.step_selected.connect(self.handle_step_selected)
+        self.toolbar_actions: dict[str, Callable[[], object]] = {
+            "about": lambda: self.view.show_about_dialog(__version__),
+            "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
+            "open_macro_folder": self.open_macro_folder,
+            "open_logs": self.open_logs_folder,
+            "settings": self.open_settings,
+            "quit": self.quit_application,
 
-    def handle_toolbar_action(self, action_id: str):
-        print(f"Toolbar action triggered: {action_id}")
+    def register_shortcuts(self) -> None:
+        shortcut_map = {
+            "Ctrl+Z": self.undo,
+            "Ctrl+Y": self.redo,
+            "Ctrl+C": self.copy_selected_steps,
+            "Ctrl+X": self.cut_selected_steps,
+            "Ctrl+V": self.paste_steps,
+            "Ctrl+,": self.open_settings,
+            "Ctrl+D": self.duplicate_selected_step,
+            "Ctrl+Shift+N": lambda: self.view.toolbar.show_add_menu(),
+            "Del": self.delete_selected_step,
+            "Alt+Up": lambda: self.move_selected_step(-1),
+            "Alt+Down": lambda: self.move_selected_step(1),
+            "Ctrl+N": self.create_new_macro,
+        }
 
-        if action_id == "about":
-            self.view.show_about_dialog(__version__)
+        self.shortcuts: list[QShortcut] = []
 
-        if action_id == "support_author":
-            webbrowser.open("https://github.com/sponsors/nelsonlaidev")
+        for key, handler in shortcut_map.items():
+            shortcut = QShortcut(QKeySequence(key), self.view)
+            shortcut.activated.connect(handler)
+            self.shortcuts.append(shortcut)
+
+    def update_step_action_state(self) -> None:
+        node = self.selected_step_node()
+
+        if node is None:
+            self.view.toolbar.delete_button.setEnabled(False)
+            self.view.toolbar.move_up_button.setEnabled(False)
+            self.view.toolbar.move_down_button.setEnabled(False)
+            return
+
+        self.view.toolbar.delete_button.setEnabled(True)
+        assert self.step_tree is not None
+        self.view.toolbar.move_up_button.setEnabled(self.step_tree.can_move(node, -1))
+        self.view.toolbar.move_down_button.setEnabled(self.step_tree.can_move(node, 1))
+
+    def refresh_macro_list(self) -> None:
+        macro_items = self.macro_model.list_macros()
+        ordered_macro_items = self.sort_macro_items(macro_items)
+        list_items = [(item.name, item.label) for item in ordered_macro_items]
+
+        if self.selected_macro_name not in {item.name for item in ordered_macro_items}:
+            self.selected_macro_name = ""
+
+        if not self.selected_macro_name and ordered_macro_items:
+            self.selected_macro_name = ordered_macro_items[0].name
+
+        self.view.left_panel.set_macro_list(list_items, self.selected_macro_name)
+
+        if self.selected_macro_name:
+            self.load_selected_macro(self.selected_macro_name)
+            return
+
+        self.show_empty_macro_state()
+
+    def sort_macro_items(self, macro_items: list[MacroSummary]) -> list[MacroSummary]:
+        order_index = {name: index for index, name in enumerate(config_model.config.general.macro_order)}
+
+        return sorted(
+            macro_items,
+            key=lambda item: (
+                order_index.get(item.name, len(order_index)),
+                item.label.lower(),
+                item.name.lower(),
+            ),
+        )
+
+    def handle_macro_selected(self, macro_name: str) -> None:
+        self.selected_macro_name = macro_name
+        self.load_selected_macro(macro_name)
+
+    def handle_step_selected(self, step: dict | None) -> None:
+        self.selected_branch_parent = None
+        self.selected_branch_key = ""
+        self.selected_step = step
+        self.show_step_selection(step)
+        self.update_step_action_state()
+
+    def handle_branch_selected(self, parent_step: dict | None, branch_key: str) -> None:
+        self.selected_step = None
+        self.selected_branch_parent = parent_step
+        self.selected_branch_key = branch_key
+        self.show_step_selection(None)
+        self.update_step_action_state()
+
+    def selected_step_node(self) -> StepNode | None:
+        if self.step_tree is None or self.selected_step is None:
+            return None
+
+        return self.step_tree.find_node(self.selected_step)
+
+    def load_selected_macro(self, macro_name: str) -> None:
+        macro = self.macro_model.load(macro_name)
+
+        if macro is None:
+            self.show_macro_load_error(macro_name)
+            return
+
+        runner = self.macro_model.create_runner(macro, macro_path(macro_name))
+        step_tree = StepTree([step_to_dict(step) for step in macro.steps])
+        self.show_loaded_macro(macro_name, macro, runner, step_tree)
+
+    def show_empty_macro_state(self) -> None:
+        self.set_current_macro(None)
+        self.current_runner = None
+        self.step_tree = None
+        self.selected_step = None
+        self.selected_branch_parent = None
+        self.selected_branch_key = ""
+        self.show_macro_properties(None)
+        self.refresh_step_tree()
+
+    def show_macro_load_error(self, macro_name: str) -> None:
+        self.set_current_macro(None)
+        self.current_runner = None
+        self.step_tree = None
+        self.selected_step = None
+        self.selected_branch_parent = None
+        self.selected_branch_key = ""
+        self.show_macro_properties(None)
+        self.refresh_step_tree()
+        self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_name))
+
+    def show_loaded_macro(
+        self,
+        macro_name: str,
+        macro: Macro,
+        runner: MacroRunner,
+        step_tree: StepTree,
+    ) -> None:
+        self.set_current_macro(macro)
+        self.current_runner = runner
+        self.step_tree = step_tree
+        self.selected_step = None
+        self.selected_branch_parent = None
+        self.selected_branch_key = ""
+        self.show_macro_properties(macro)
+        self.refresh_step_tree()
+
+    def show_step_selection(self, step: dict | None) -> None:
+        if self.current_macro is None:
+            return
+
+        if self.selected_branch_parent is not None and self.selected_branch_key:
+            parent_description = self.describe_step(self.selected_branch_parent)
+            self.view.right_panel.show_branch_properties(
+                self.current_macro,
+                parent_description,
+                self.branch_label(self.selected_branch_key),
+                self.branch_steps(self.selected_branch_parent, self.selected_branch_key),
+            )
+            return
+
+        if step is None:
+            self.show_macro_properties(self.current_macro)
+            return
+
+        parsed_step = parse_step(step)
+
+        self.view.right_panel.show_step_properties(self.current_macro, self.describe_step(step), parsed_step)
+
+    def set_selected_step(self, step: dict | None) -> None:
+        self.selected_branch_parent = None
+        self.selected_branch_key = ""
+        self.selected_step = step
+        self.sync_macro_steps_from_tree()
+        self.refresh_step_tree()
+        self.show_step_selection(step)
+
+    def refresh_selected_step(self) -> None:
+        self.show_step_selection(self.selected_step)
+
+    def sync_macro_steps_from_tree(self) -> None:
+        if self.step_tree is None or self.current_macro is None:
+            return
+
+        self.step_tree.sync_from_tree()
+        self.current_macro.steps = [parse_step(step) for step in self.step_tree.steps]
+
+    def build_step_items(self) -> list[dict]:
+        if self.step_tree is None:
+            return []
+
+        return [self.build_step_item(node) for node in self.step_tree.root_nodes]
+
+    def refresh_step_tree(self) -> None:
+        selected_branch = None
+        if self.selected_branch_parent is not None and self.selected_branch_key:
+            selected_branch = (self.selected_branch_parent, self.selected_branch_key)
+
+        self.view.center_panel.set_step_tree(self.build_step_items(), self.selected_step, selected_branch)
+
+    def show_macro_properties(self, macro: Macro | None) -> None:
+        self.view.right_panel.show_macro_properties(macro)
+
+    def build_step_item(self, node: StepNode) -> dict:
+        children: list[dict[str, Any]] = []
+
+        if node.step_type == "repeat":
+            child_list = node.get_child_list("steps")
+            children = [self.build_step_item(child) for child in child_list]
+        else:
+            for branch_key, child_list in node.child_lists():
+                branch_children = [self.build_step_item(child) for child in child_list]
+                children.append(
+                    {
+                        "label": self.branch_label(branch_key),
+                        "branch": (node.step, branch_key),
+                        "children": branch_children,
+                    }
+                )
+        return {
+            "label": self.describe_step(node.step),
+            "step": node.step,
+            "children": children,
+        }
+
+    def branch_label(self, branch_key: str) -> str:
+        labels = {
+            "steps": self.view.tr("Steps"),
+            "then": self.view.tr("Then"),
+            "else": self.view.tr("Else"),
+            "on_next_row": self.view.tr("On Next Row"),
+            "on_next_col": self.view.tr("On Next Column"),
+        }
+
+        return labels.get(branch_key, branch_key.replace("_", " ").title())
+
+    def branch_steps(self, parent_step: dict, branch_key: str) -> list[Step]:
+        parent_node = self.step_tree.find_node(parent_step) if self.step_tree is not None else None
+        if parent_node is None:
+            return []
+
+        return [parse_step(child.step) for child in parent_node.get_child_list(branch_key)]
+
+    def describe_step(self, step: dict) -> str:
+        step_type = step.get("type", "unknown")
+
+        match step_type:
+            case "key":
+                return self.view.tr("Press {key}").format(key=step.get("key", ""))
+            case "delay":
+                return self.view.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
+            case "wait_image":
+                return self.view.tr("Wait for {template}").format(
+                    template=self.get_template_label(step.get("template", ""))
+                )
+            case "hold_key_until_gone":
+                return self.view.tr("Hold {key} until {template} gone").format(
+                    key=step.get("key", ""),
+                    template=self.get_template_label(step.get("template", "")),
+                )
+            case "repeat":
+                return self.view.tr("Repeat {count} times").format(count=step.get("count", 1))
+            case "if_image":
+                return self.view.tr("If image {template}").format(
+                    template=self.get_template_label(step.get("template", ""))
+                )
+            case "if_any_image":
+                templates = ", ".join([self.get_template_label(t) for t in step.get("templates", [])])
+                return self.view.tr("If any image {templates}").format(templates=templates)
+            case "grid_nav":
+                return self.view.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
+            case _:
+                return step_type
+
+    def get_template_label(self, template_id: str) -> str:
+        if self.current_macro is None:
+            return template_id
+
+        template_meta = self.current_macro.templates.get(template_id)
+
+        if template_meta and template_meta.label:
+            return template_meta.label
+
+        return template_id
+
+    def handle_toolbar_action(self, action_id: str) -> None:
+        action = self.toolbar_actions.get(action_id)
+
+        if action is None:
+            return
+
+        action()
+
+
+    def quit_application(self) -> None:
+        self.view.window().close()
+
+    def add_step_factory(self, step_type: str) -> Step | None:
+        factories: dict[str, Callable[[], Step]] = {
+            "key": KeyStep,
+            "delay": DelayStep,
+            "wait_image": WaitImageStep,
+            "hold_key_until_gone": HoldKeyUntilGoneStep,
+            "repeat": RepeatStep,
+            "if_image": IfImageStep,
+            "if_any_image": IfAnyImageStep,
+            "grid_nav": GridNavStep,
+        }
+
+        factory = factories.get(step_type)
+
+        if factory is None:
+            return None
+
+        return factory()
+
+    def add_step(self, step_type: str) -> None:
+        if self.step_tree is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        new_step = self.add_step_factory(step_type)
+
+        if new_step is None:
+            self.view.set_status_text(self.view.tr("Unknown step type"))
+            return
+
+        self.push_undo()
+
+        if self.selected_branch_parent is not None and self.selected_branch_key:
+            parent_node = self.step_tree.find_node(self.selected_branch_parent)
+
+            if parent_node is None:
+                self.view.set_status_text(self.view.tr("Select a valid branch first"))
+                return
+
+            new_node = self.step_tree.add_step_to_branch(parent_node, self.selected_branch_key, step_to_dict(new_step))
+            self.set_selected_step(new_node.step)
+            self.save_current_macro()
+            return
+
+        target_node = self.selected_step_node()
+
+        if target_node is not None and target_node.step_type == "repeat":
+            new_node = self.step_tree.add_step_to_branch(target_node, "steps", step_to_dict(new_step))
+            self.set_selected_step(new_node.step)
+            self.save_current_macro()
+            return
+
+        new_node = self.step_tree.add_step(target_node, step_to_dict(new_step))
+        self.set_selected_step(new_node.step)
+        self.save_current_macro()
+
+    def duplicate_selected_step(self) -> None:
+        if self.step_tree is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        target_node = self.selected_step_node()
+        if target_node is None:
+            self.view.set_status_text(self.view.tr("Select a step first"))
+            return
+
+        self.push_undo()
+
+        duplicated = self.step_tree.duplicate_nodes([target_node])
+        if not duplicated:
+            return
+
+        self.set_selected_step(duplicated[0].step)
+        self.save_current_macro()
+        self.view.set_status_text(self.view.tr("Duplicated step"))
+
+    def delete_selected_step(self) -> None:
+        if self.step_tree is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        target_node = self.selected_step_node()
+        if target_node is None:
+            self.view.set_status_text(self.view.tr("Select a step first"))
+            return
+
+        self.push_undo()
+
+        if target_node.parent is not None:
+            next_selection = target_node.next_sibling() or target_node.prev_sibling() or target_node.parent
+        else:
+            root_nodes = self.step_tree.root_nodes
+            idx = next((i for i, n in enumerate(root_nodes) if n is target_node), -1)
+            if idx >= 0:
+                next_selection = (
+                    root_nodes[idx + 1] if idx + 1 < len(root_nodes) else (root_nodes[idx - 1] if idx > 0 else None)
+                )
+            else:
+                next_selection = None
+
+        self.step_tree.delete_node(target_node)
+        self.set_selected_step(next_selection.step if next_selection is not None else None)
+        self.save_current_macro()
+        self.view.set_status_text(self.view.tr("Deleted step"))
+
+    def move_selected_step(self, direction: int) -> None:
+        if self.step_tree is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        target_node = self.selected_step_node()
+        if target_node is None:
+            self.view.set_status_text(self.view.tr("Select a step first"))
+            return
+
+        self.push_undo()
+        if not self.step_tree.move_step(target_node, direction):
+            if self.current_runner is not None and self.current_runner.undo_stack:
+                self.current_runner.undo_stack.pop()
+            self.update_undo_redo_state()
+            self.view.set_status_text(self.view.tr("Cannot move selected step"))
+            return
+
+        self.set_selected_step(target_node.step)
+        self.save_current_macro()
+        self.view.set_status_text(self.view.tr("Moved step"))
+
+
+    def open_logs_folder(self) -> None:
+        target = log_dir()
+        target.mkdir(parents=True, exist_ok=True)
+        os.startfile(target)
+
+    def open_macro_folder(self) -> None:
+        target = macros_dir()
+        target.mkdir(parents=True, exist_ok=True)
+        os.startfile(target)
+
+    def launch_region_selector(self, template_id: str) -> None:
+        if self.current_macro is None:
+            return
+
+        selector = RegionSelector(self.current_macro.meta.name, parent=self.view)
+        selector.region_selected.connect(
+            lambda new_template_id, width, height: self.handle_region_captured(
+                template_id, new_template_id, width, height
+            )
+        )
+        selector.cancelled.connect(self.view.window().showNormal)
+        selector.start()
+
+    def handle_region_captured(self, old_template_id: str, new_template_id: str, width: int, height: int) -> None:
+        self.view.window().showNormal()
+
+        if self.selected_step is None or self.current_macro is None:
+            return
+
+        old_png = template_path(self.current_macro.meta.name, old_template_id)
+        if old_png.exists():
+            old_png.unlink()
+
+        old_meta = self.current_macro.templates.pop(old_template_id, None)
+
+        new_meta = self.current_macro.templates.get(new_template_id)
+        if new_meta is None:
+            new_meta = TemplateInfo()
+            self.current_macro.templates[new_template_id] = new_meta
+
+        new_meta.capture_width = width
+        new_meta.capture_height = height
+
+        if old_meta is not None and old_meta.label and not new_meta.label:
+            new_meta.label = old_meta.label
+        else:
+            new_meta.label = self.view.tr("Template {id}").format(id=new_template_id)
+
+        step_type = self.selected_step.get("type", "")
+
+        if step_type == "if_any_image":
+            self.selected_step["templates"] = [
+                new_template_id if t == old_template_id else t for t in self.selected_step.get("templates", [])
+            ]
+        else:
+            if self.selected_step.get("template") == old_template_id:
+                self.selected_step["template"] = new_template_id
+
+        self.mutate_current_macro()
+
+    def handle_template_capture(self, template_id: str) -> None:
+        if self.current_macro is None:
+            return
+
+        self.view.window().showMinimized()
+
+        QTimer.singleShot(200, lambda: self.launch_region_selector(template_id))
+
+    def handle_template_pick(self, template_id: str) -> None:
+        if self.selected_step is None or self.current_macro is None:
+            return
+
+        new_template_id = str(int(time.time()))
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.view, self.view.tr("Select Template Image"), "", self.view.tr("PNG Images (*.png)")
+        )
+
+        if not file_path:
+            return
+
+        destination = template_path(self.current_macro.meta.name, new_template_id)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(file_path, destination)
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            raise RuntimeError("No primary screen is available")
+
+        pixmap = screen.grabWindow(0)
+        capture_width = pixmap.width()
+        capture_height = pixmap.height()
+
+        old_png = template_path(self.current_macro.meta.name, template_id)
+        if old_png.exists():
+            old_png.unlink()
+
+        old_meta = self.current_macro.templates.pop(template_id, None)
+
+        new_meta = self.current_macro.templates.get(new_template_id)
+        if new_meta is None:
+            new_meta = TemplateInfo()
+            self.current_macro.templates[new_template_id] = new_meta
+
+        new_meta.capture_width = capture_width
+        new_meta.capture_height = capture_height
+
+        if old_meta is not None and old_meta.label and not new_meta.label:
+            new_meta.label = old_meta.label
+        else:
+            new_meta.label = self.view.tr("Template {id}").format(id=new_template_id)
+
+        step_type = self.selected_step.get("type", "")
+
+        if step_type == "if_any_image":
+            self.selected_step["templates"] = [
+                new_template_id if t == template_id else t for t in self.selected_step.get("templates", [])
+            ]
+        else:
+            if self.selected_step.get("template") == template_id:
+                self.selected_step["template"] = new_template_id
+
+        self.mutate_current_macro()
+
+    def handle_template_delete(self, template_id: str) -> None:
+        if self.current_macro is None or self.step_tree is None:
+            return
+
+        png_path = template_path(self.current_macro.meta.name, template_id)
+        if png_path.exists():
+            png_path.unlink()
+
+        self.current_macro.templates.pop(template_id, None)
+
+        for node in self.step_tree.flatten():
+            step = node.step
+
+            if step.get("template") == template_id:
+                step["template"] = ""
+
+            if "templates" in step:
+                step["templates"] = [t for t in step["templates"] if t != template_id]
+
+        self.mutate_current_macro()
+
+    def handle_template_add(self) -> None:
+        if self.current_macro is None or self.selected_step is None:
+            return
+
+        if self.selected_step.get("type") != "if_any_image":
+            return
+
+        new_template_id = str(int(time.time()))
+        self.current_macro.templates[new_template_id] = TemplateInfo()
+        self.selected_step.setdefault("templates", []).append(new_template_id)
+        self.mutate_current_macro()

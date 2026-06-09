@@ -1,9 +1,8 @@
 import json
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any
 
-from platformdirs import user_documents_dir
+from remaku.paths import data_dir
 
 DEFAULT_OVERLAY_POSITION = (100, 100)
 
@@ -15,7 +14,7 @@ class GeneralConfig:
     update_channel: str = "stable"
     skipped_version: str = ""
     theme: str = "system"
-    language: str = "auto"
+    language: str = "system"
     macro_order: list[str] = field(default_factory=list)
     overlay_enabled: bool = True
     overlay_position: tuple[int, int] = DEFAULT_OVERLAY_POSITION
@@ -93,44 +92,47 @@ class AppConfig:
 
 class ConfigModel:
     def __init__(self):
-        self.data_dir = Path(user_documents_dir()) / "remaku"
+        self.data_dir = data_dir()
         self.config_path = self.data_dir / "config.json"
+        self.config = AppConfig()
+        self.load()
 
-    def load(self) -> AppConfig:
+    def load(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         default_config = AppConfig()
 
         if not self.config_path.exists():
-            self.save(default_config)
-            return default_config
+            self.config = default_config
+            self.save()
+            return
 
         try:
             with self.config_path.open("r", encoding="utf-8") as file:
                 raw_data = json.load(file)
         except (OSError, json.JSONDecodeError):
-            self.save(default_config)
-            return default_config
+            self.config = default_config
+            self.save()
+            return
 
         if not isinstance(raw_data, dict):
-            self.save(default_config)
-            return default_config
+            self.config = default_config
+            self.save()
+            return
 
         merged_data = self.merge_defaults(default_config.to_dict(), raw_data)
-        config = AppConfig.from_dict(merged_data)
+        self.config = AppConfig.from_dict(merged_data)
 
         if merged_data != raw_data:
-            self.save(config)
+            self.save()
 
-        return config
-
-    def save(self, config):
+    def save(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         with self.config_path.open("w", encoding="utf-8") as file:
-            json.dump(config.to_dict(), file, indent=2, ensure_ascii=False)
+            json.dump(self.config.to_dict(), file, indent=2, ensure_ascii=False)
             file.write("\n")
 
-    def merge_defaults(self, defaults, data):
+    def merge_defaults(self, defaults: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
         merged = {}
 
         for key, default_value in defaults.items():
@@ -143,3 +145,6 @@ class ConfigModel:
             merged[key] = value
 
         return merged
+
+
+config_model = ConfigModel()

@@ -97,3 +97,7 @@ def check_elevation_mismatch(window: Any) -> bool:
         return True
 
     return False
+
+
+def screen_resolution() -> tuple[int, int]:
+    return win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)

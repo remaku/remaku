@@ -4,8 +4,6 @@ from loguru import logger
 
 from remaku.paths import template_path
 
-DEFAULT_THRESHOLD = 0.85
-
 
 def load_templates(names: list[str], macro_name: str = "") -> dict[str, np.ndarray]:
     out: dict[str, np.ndarray] = {}

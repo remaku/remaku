@@ -49,3 +49,7 @@ def held(key: str) -> Generator[None, None, None]:
             logger.debug("keys: held('{}') end", key)
         except Exception as error:
             logger.error("keys: held('{}') keyUp failed: {}", key, error)
+
+
+def is_valid_key(key: str) -> bool:
+    return pdi.isValidKey(key)

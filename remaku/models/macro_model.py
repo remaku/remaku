@@ -1,10 +1,21 @@
 import json
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any
 
 from remaku.paths import macro_path, macros_dir
-from remaku.services.macro_service import MacroRunner
+
+DEFAULT_THRESHOLD = 0.85
+DEFAULT_IMAGE_TIMEOUT = 5000
+DEFAULT_KEY_HOLD_MS = 90
+DEFAULT_LOAD_DELAY_MS = 2000
+DEFAULT_FIND_TIMEOUT_MS = 15000
+DEFAULT_GONE_GRACE_MS = 1500
+DEFAULT_HARD_TIMEOUT_MS = 180000
+DEFAULT_REPEAT_COUNT = 1
+DEFAULT_GRID_ROWS = 1
+DEFAULT_GRID_START = 0
+DEFAULT_ON_TIMEOUT = "stop"
+DEFAULT_KEY = "enter"
 
 
 @dataclass(slots=True)
@@ -26,8 +37,8 @@ class TemplateInfo:
 @dataclass(slots=True)
 class KeyStep:
     type: str = "key"
-    key: str = "enter"
-    hold_ms: int = 90
+    key: str = DEFAULT_KEY
+    hold_ms: int = DEFAULT_KEY_HOLD_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "KeyStep":
@@ -61,9 +72,9 @@ class DelayStep:
 class WaitImageStep:
     type: str = "wait_image"
     template: str = ""
-    timeout_ms: int = 5000
-    on_timeout: str = "stop"
-    threshold: float = 0.85
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    on_timeout: str = DEFAULT_ON_TIMEOUT
+    threshold: float = DEFAULT_THRESHOLD
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WaitImageStep":
@@ -85,11 +96,11 @@ class HoldKeyUntilGoneStep:
     type: str = "hold_key_until_gone"
     key: str = ""
     template: str = ""
-    load_delay_ms: int = 2000
-    find_timeout_ms: int = 15000
-    gone_grace_ms: int = 1500
-    hard_timeout_ms: int = 180000
-    threshold: float = 0.85
+    load_delay_ms: int = DEFAULT_LOAD_DELAY_MS
+    find_timeout_ms: int = DEFAULT_FIND_TIMEOUT_MS
+    gone_grace_ms: int = DEFAULT_GONE_GRACE_MS
+    hard_timeout_ms: int = DEFAULT_HARD_TIMEOUT_MS
+    threshold: float = DEFAULT_THRESHOLD
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "HoldKeyUntilGoneStep":
@@ -121,7 +132,7 @@ def step_to_dict(step: Step) -> dict[str, Any]:
 @dataclass(slots=True)
 class RepeatStep:
     type: str = "repeat"
-    count: int = 1
+    count: int = DEFAULT_REPEAT_COUNT
     steps: list[Step] = field(default_factory=list)
 
     @classmethod
@@ -141,8 +152,8 @@ class RepeatStep:
 class IfImageStep:
     type: str = "if_image"
     template: str = ""
-    timeout_ms: int = 5000
-    threshold: float = 0.85
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    threshold: float = DEFAULT_THRESHOLD
     then: list[Step] = field(default_factory=list)
     else_: list[Step] = field(default_factory=list)
 
@@ -166,9 +177,9 @@ class IfImageStep:
 class IfAnyImageStep:
     type: str = "if_any_image"
     templates: list[str] = field(default_factory=list)
-    timeout_ms: int = 5000
-    on_timeout: str = "stop"
-    threshold: float = 0.85
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    on_timeout: str = DEFAULT_ON_TIMEOUT
+    threshold: float = DEFAULT_THRESHOLD
     branches: dict[str, list[Step]] = field(default_factory=dict)
 
     @classmethod
@@ -194,8 +205,8 @@ class IfAnyImageStep:
 @dataclass(slots=True)
 class GridNavStep:
     type: str = "grid_nav"
-    rows: int = 1
-    start: int = 0
+    rows: int = DEFAULT_GRID_ROWS
+    start: int = DEFAULT_GRID_START
     on_next_row: list[Step] = field(default_factory=list)
     on_next_col: list[Step] = field(default_factory=list)
 
@@ -313,9 +324,6 @@ class MacroSummary:
 
 
 class MacroModel:
-    def create_runner(self, macro: Macro, macro_path: Path | None = None) -> "MacroRunner":
-        return MacroRunner(macro, macro_path=macro_path)
-
     def list_macros(self) -> list[MacroSummary]:
         macros_dir().mkdir(parents=True, exist_ok=True)
 
@@ -369,3 +377,59 @@ class MacroModel:
 
         path.unlink()
         return True
+
+
+def get_step_threshold(step: dict) -> float:
+    return step.get("threshold", DEFAULT_THRESHOLD)
+
+
+def get_step_timeout(step: dict) -> int:
+    return step.get("timeout_ms", DEFAULT_IMAGE_TIMEOUT)
+
+
+def get_step_key(step: dict) -> str:
+    return step.get("key", DEFAULT_KEY)
+
+
+def get_step_hold_ms(step: dict) -> int:
+    return step.get("hold_ms", DEFAULT_KEY_HOLD_MS)
+
+
+def get_step_load_delay(step: dict) -> int:
+    return step.get("load_delay_ms", DEFAULT_LOAD_DELAY_MS)
+
+
+def get_step_find_timeout(step: dict) -> int:
+    return step.get("find_timeout_ms", DEFAULT_FIND_TIMEOUT_MS)
+
+
+def get_step_gone_grace(step: dict) -> int:
+    return step.get("gone_grace_ms", DEFAULT_GONE_GRACE_MS)
+
+
+def get_step_hard_timeout(step: dict) -> int:
+    return step.get("hard_timeout_ms", DEFAULT_HARD_TIMEOUT_MS)
+
+
+def get_step_count(step: dict) -> int:
+    return step.get("count", DEFAULT_REPEAT_COUNT)
+
+
+def get_step_rows(step: dict) -> int:
+    return step.get("rows", DEFAULT_GRID_ROWS)
+
+
+def get_step_start(step: dict) -> int:
+    return step.get("start", DEFAULT_GRID_START)
+
+
+def get_step_on_timeout(step: dict) -> str:
+    return step.get("on_timeout", DEFAULT_ON_TIMEOUT)
+
+
+def get_step_template(step: dict) -> str:
+    return step.get("template", "")
+
+
+def get_step_templates(step: dict) -> list[str]:
+    return step.get("templates", [])

@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QListWidgetItem, QVBoxLayout
-from qfluentwidgets import CardWidget, ListWidget, PushButton, SubtitleLabel
+from qfluentwidgets import CardWidget, ListWidget, PushButton, RoundMenu, SubtitleLabel
 
 from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
@@ -27,11 +28,14 @@ class LeftPanel(CardWidget):
         header.addStretch()
 
         self.new_macro_button = PushButton(RemakuIcon.PLUS, self.tr("Add"), self)
+        self.new_macro_button.clicked.connect(lambda: event_bus.new_macro_requested.emit())
         header.addWidget(self.new_macro_button)
 
         layout.addLayout(header)
 
         self.macro_list = ListWidget(self)
+        self.macro_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.macro_list.customContextMenuRequested.connect(self.handle_context_menu)
         self.macro_list.itemSelectionChanged.connect(self.handle_selection_changed)
         layout.addWidget(self.macro_list)
 
@@ -63,3 +67,60 @@ class LeftPanel(CardWidget):
 
         if isinstance(name, str):
             event_bus.macro_selected.emit(name)
+
+    def handle_context_menu(self, pos) -> None:
+        item = self.macro_list.itemAt(pos)
+
+        if item is None:
+            return
+
+        self.macro_list.setCurrentItem(item)
+
+        menu = RoundMenu(parent=self.macro_list)
+
+        rename_action = QAction(self.tr("Rename"), self.macro_list)
+        rename_action.triggered.connect(self.handle_macro_rename)
+        menu.addAction(rename_action)
+
+        duplicate_action = QAction(self.tr("Duplicate"), self.macro_list)
+        duplicate_action.triggered.connect(self.handle_macro_duplicate)
+        menu.addAction(duplicate_action)
+
+        delete_action = QAction(self.tr("Delete"), self.macro_list)
+        delete_action.triggered.connect(self.handle_macro_delete)
+        menu.addAction(delete_action)
+
+        menu.exec(self.macro_list.mapToGlobal(pos))
+
+    def handle_macro_rename(self) -> None:
+        item = self.macro_list.currentItem()
+
+        if item is None:
+            return
+
+        name = item.data(Qt.ItemDataRole.UserRole)
+
+        if isinstance(name, str):
+            event_bus.macro_rename_requested.emit(name)
+
+    def handle_macro_duplicate(self) -> None:
+        item = self.macro_list.currentItem()
+
+        if item is None:
+            return
+
+        name = item.data(Qt.ItemDataRole.UserRole)
+
+        if isinstance(name, str):
+            event_bus.macro_duplicate_requested.emit(name)
+
+    def handle_macro_delete(self) -> None:
+        item = self.macro_list.currentItem()
+
+        if item is None:
+            return
+
+        name = item.data(Qt.ItemDataRole.UserRole)
+
+        if isinstance(name, str):
+            event_bus.macro_delete_requested.emit(name)

@@ -7,15 +7,15 @@ from remaku.views.home_view import HomeView
 class HomeController:
     def __init__(self, view: HomeView):
         self.view = view
-
-        self.view.toolbar.action_triggered.connect(self.handle_toolbar_action)
-        self.view.left_panel.macro_selected.connect(self.handle_macro_selected)
-        self.view.center_panel.step_selected.connect(self.handle_step_selected)
+        event_bus.macro_rename_requested.connect(self.handle_macro_rename_requested)
+        event_bus.macro_delete_requested.connect(self.handle_macro_delete_requested)
+        event_bus.macro_duplicate_requested.connect(self.handle_macro_duplicate_requested)
         self.toolbar_actions: dict[str, Callable[[], object]] = {
             "about": lambda: self.view.show_about_dialog(__version__),
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
             "open_macro_folder": self.open_macro_folder,
             "open_logs": self.open_logs_folder,
+            "new_macro": self.create_new_macro,
             "settings": self.open_settings,
             "quit": self.quit_application,
 
@@ -61,16 +61,16 @@ class HomeController:
         ordered_macro_items = self.sort_macro_items(macro_items)
         list_items = [(item.name, item.label) for item in ordered_macro_items]
 
-        if self.selected_macro_name not in {item.name for item in ordered_macro_items}:
-            self.selected_macro_name = ""
+        if self.selected_macro_id not in {item.name for item in ordered_macro_items}:
+            self.selected_macro_id = ""
 
-        if not self.selected_macro_name and ordered_macro_items:
-            self.selected_macro_name = ordered_macro_items[0].name
+        if not self.selected_macro_id and ordered_macro_items:
+            self.selected_macro_id = ordered_macro_items[0].name
 
-        self.view.left_panel.set_macro_list(list_items, self.selected_macro_name)
+        self.view.left_panel.set_macro_list(list_items, self.selected_macro_id)
 
-        if self.selected_macro_name:
-            self.load_selected_macro(self.selected_macro_name)
+        if self.selected_macro_id:
+            self.load_selected_macro(self.selected_macro_id)
             return
 
         self.show_empty_macro_state()
@@ -87,9 +87,106 @@ class HomeController:
             ),
         )
 
-    def handle_macro_selected(self, macro_name: str) -> None:
-        self.selected_macro_name = macro_name
-        self.load_selected_macro(macro_name)
+    def handle_new_macro(self) -> None:
+        while True:
+            dialog = NewMacroDialog(self.view)
+            accepted = bool(dialog.exec())
+
+            if not accepted:
+                return
+
+            new_macro_label = dialog.value()
+
+            if not new_macro_label:
+                self.show_message_dialog(self.view.tr("New Macro"), self.view.tr("Macro name cannot be empty."))
+                continue
+
+            new_macro_id = str(int(time.time()))
+
+            macro = Macro(meta=MacroMeta(name=new_macro_id, label=new_macro_label))
+            self.macro_model.save(macro)
+
+            self.selected_macro_id = new_macro_id
+            self.refresh_macro_list()
+            self.view.set_status_text(self.view.tr("Created macro: {name}").format(name=new_macro_label))
+
+            return
+
+    def handle_macro_selected(self, macro_id: str) -> None:
+        self.selected_macro_id = macro_id
+        self.load_selected_macro(macro_id)
+
+    def handle_macro_rename_requested(self, macro_id: str) -> None:
+        macro = self.macro_model.load(macro_id)
+
+        if macro is None:
+            self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_id))
+            return
+
+        current_label = macro.meta.label or macro_id
+
+        while True:
+            dialog = RenameMacroDialog(self.view, current_label)
+            accepted = bool(dialog.exec())
+
+            if not accepted:
+                return
+
+            new_label = dialog.value()
+
+            if not new_label:
+                self.show_message_dialog(self.view.tr("Rename Macro"), self.view.tr("Macro name cannot be empty."))
+                continue
+
+            if new_label == current_label:
+                return
+
+            macro.meta.label = new_label
+            self.macro_model.save(macro)
+
+            self.refresh_macro_list()
+            self.view.set_status_text(self.view.tr("Renamed macro: {name}").format(name=new_label))
+
+            return
+
+    def handle_macro_delete_requested(self, macro_id: str) -> None:
+        macro = self.macro_model.load(macro_id)
+        macro_label = macro.meta.label if macro is not None and macro.meta.label else macro_id
+
+        confirmed = self.show_confirm_dialog(
+            self.view.tr("Delete Macro"),
+            self.view.tr('Are you sure you want to delete "{name}"?').format(name=macro_label),
+            self.view.tr("Delete"),
+        )
+
+        if not confirmed:
+            return
+
+        if not self.macro_model.delete(macro_id):
+            self.show_message_dialog(self.view.tr("Delete Macro"), self.view.tr("Unable to delete the macro."))
+            return
+
+        template_dir = templates_dir(macro_id)
+        if template_dir.exists():
+            shutil.rmtree(template_dir)
+
+        config_model.config.general.macro_order = [
+            name for name in config_model.config.general.macro_order if name != macro_id
+        ]
+        config_model.save()
+
+        if self.selected_macro_id == macro_id:
+            self.selected_macro_id = ""
+
+        self.refresh_macro_list()
+        self.view.set_status_text(self.view.tr("Deleted macro: {name}").format(name=macro_label))
+
+    def handle_macro_duplicate_requested(self, macro_id: str) -> None:
+        if self.selected_macro_id != macro_id:
+            self.selected_macro_id = macro_id
+            self.load_selected_macro(macro_id)
+
+        self.duplicate_current_macro()
 
     def handle_step_selected(self, step: dict | None) -> None:
         self.selected_branch_parent = None
@@ -111,16 +208,16 @@ class HomeController:
 
         return self.step_tree.find_node(self.selected_step)
 
-    def load_selected_macro(self, macro_name: str) -> None:
-        macro = self.macro_model.load(macro_name)
+    def load_selected_macro(self, macro_id: str) -> None:
+        macro = self.macro_model.load(macro_id)
 
         if macro is None:
-            self.show_macro_load_error(macro_name)
+            self.show_macro_load_error(macro_id)
             return
 
-        runner = self.macro_model.create_runner(macro, macro_path(macro_name))
+        runner = self.macro_model.create_runner(macro, macro_path(macro_id))
         step_tree = StepTree([step_to_dict(step) for step in macro.steps])
-        self.show_loaded_macro(macro_name, macro, runner, step_tree)
+        self.show_loaded_macro(macro, runner, step_tree)
 
     def show_empty_macro_state(self) -> None:
         self.set_current_macro(None)
@@ -132,7 +229,7 @@ class HomeController:
         self.show_macro_properties(None)
         self.refresh_step_tree()
 
-    def show_macro_load_error(self, macro_name: str) -> None:
+    def show_macro_load_error(self, macro_id: str) -> None:
         self.set_current_macro(None)
         self.current_runner = None
         self.step_tree = None
@@ -141,11 +238,10 @@ class HomeController:
         self.selected_branch_key = ""
         self.show_macro_properties(None)
         self.refresh_step_tree()
-        self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_name))
+        self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_id))
 
     def show_loaded_macro(
         self,
-        macro_name: str,
         macro: Macro,
         runner: MacroRunner,
         step_tree: StepTree,
@@ -168,7 +264,7 @@ class HomeController:
             self.view.right_panel.show_branch_properties(
                 self.current_macro,
                 parent_description,
-                self.branch_label(self.selected_branch_key),
+                self.branch_label(self.selected_branch_key, self.selected_branch_parent),
                 self.branch_steps(self.selected_branch_parent, self.selected_branch_key),
             )
             return
@@ -226,7 +322,7 @@ class HomeController:
                 branch_children = [self.build_step_item(child) for child in child_list]
                 children.append(
                     {
-                        "label": self.branch_label(branch_key),
+                        "label": self.branch_label(branch_key, node.step),
                         "branch": (node.step, branch_key),
                         "children": branch_children,
                     }
@@ -237,7 +333,10 @@ class HomeController:
             "children": children,
         }
 
-    def branch_label(self, branch_key: str) -> str:
+    def branch_label(self, branch_key: str, step: dict | None = None) -> str:
+        if step is not None and step.get("type") == "if_any_image":
+            return self.get_template_label(branch_key)
+
         labels = {
             "steps": self.view.tr("Steps"),
             "then": self.view.tr("Then"),
@@ -304,6 +403,47 @@ class HomeController:
             return
 
         action()
+
+    def duplicate_current_macro(self) -> None:
+        if self.current_macro is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        new_macro_id = str(int(time.time()))
+        new_marco_label = (
+            f"{self.current_macro.meta.label} Copy" if self.current_macro.meta.label else f"{new_macro_id} Copy"
+        )
+
+        path = macro_path(new_macro_id)
+
+        if path.exists():
+            self.view.set_status_text(self.view.tr("Unable to duplicate macro. Please try again."))
+            return
+
+        new_macro = copy.deepcopy(self.current_macro)
+        new_macro.meta.name = new_macro_id
+        new_macro.meta.label = new_marco_label
+        self.macro_model.save(new_macro)
+
+        source_templates = templates_dir(self.current_macro.meta.name)
+        destination_templates = templates_dir(new_macro_id)
+
+        if source_templates.exists():
+            shutil.copytree(source_templates, destination_templates, dirs_exist_ok=True)
+
+        self.selected_macro_id = new_macro_id
+        self.refresh_macro_list()
+        self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_marco_label))
+
+
+    def show_message_dialog(self, title: str, content: str) -> None:
+        dialog = MessageDialog(title, content, self.view)
+        dialog.exec()
+
+    def show_confirm_dialog(self, title: str, content: str, yes_text: str = "OK") -> bool:
+        dialog = ConfirmDialog(title, content, self.view)
+        dialog.yesButton.setText(yes_text)
+        return bool(dialog.exec())
 
 
     def quit_application(self) -> None:
@@ -488,6 +628,9 @@ class HomeController:
         step_type = self.selected_step.get("type", "")
 
         if step_type == "if_any_image":
+            branches = self.selected_step.setdefault("branches", {})
+            if old_template_id in branches:
+                branches[new_template_id] = branches.pop(old_template_id)
             self.selected_step["templates"] = [
                 new_template_id if t == old_template_id else t for t in self.selected_step.get("templates", [])
             ]
@@ -552,6 +695,9 @@ class HomeController:
         step_type = self.selected_step.get("type", "")
 
         if step_type == "if_any_image":
+            branches = self.selected_step.setdefault("branches", {})
+            if template_id in branches:
+                branches[new_template_id] = branches.pop(template_id)
             self.selected_step["templates"] = [
                 new_template_id if t == template_id else t for t in self.selected_step.get("templates", [])
             ]
@@ -579,6 +725,7 @@ class HomeController:
 
             if "templates" in step:
                 step["templates"] = [t for t in step["templates"] if t != template_id]
+                step.setdefault("branches", {}).pop(template_id, None)
 
         self.mutate_current_macro()
 

@@ -33,7 +33,7 @@ class HomeController:
             "Del": self.delete_selected_step,
             "Alt+Up": lambda: self.move_selected_step(-1),
             "Alt+Down": lambda: self.move_selected_step(1),
-            "Ctrl+N": self.create_new_macro,
+            "Ctrl+N": self.handle_new_macro,
         }
 
         self.shortcuts: list[QShortcut] = []
@@ -56,6 +56,22 @@ class HomeController:
         assert self.step_tree is not None
         self.view.toolbar.move_up_button.setEnabled(self.step_tree.can_move(node, -1))
         self.view.toolbar.move_down_button.setEnabled(self.step_tree.can_move(node, 1))
+
+    def save_current_macro(self) -> None:
+        if self.current_macro is None or self.current_runner is None:
+            return
+
+        self.sync_runner_macro_from_current()
+        self.current_runner.last_snapshot = copy.deepcopy(self.current_runner.macro)
+        self.macro_model.save(self.current_macro)
+        self.update_undo_redo_state()
+
+    def mutate_current_macro(self) -> None:
+        self.sync_macro_steps_from_tree()
+        self.sync_runner_macro_from_current()
+        self.refresh_step_tree()
+        self.refresh_selected_step()
+        self.save_current_macro()
 
     def refresh_macro_list(self) -> None:
         macro_items = self.macro_model.list_macros()
@@ -114,6 +130,15 @@ class HomeController:
             return
 
     def handle_macro_selected(self, macro_id: str) -> None:
+        if self.selected_macro_id == macro_id and self.current_macro is not None:
+            self.selected_step = None
+            self.selected_branch_parent = None
+            self.selected_branch_key = ""
+            self.refresh_step_tree()
+            self.show_macro_properties(self.current_macro)
+            self.update_step_action_state()
+            return
+
         self.selected_macro_id = macro_id
         self.load_selected_macro(macro_id)
 

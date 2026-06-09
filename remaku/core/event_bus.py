@@ -3,6 +3,7 @@ from PySide6.QtCore import QObject, Signal
 
 class EventBus(QObject):
     action_triggered = Signal(str)
+    new_macro_requested = Signal()
     macro_selected = Signal(str)
     macro_rename_requested = Signal(str)
     macro_delete_requested = Signal(str)

@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QListWidgetItem, QVBoxLayout
-from qfluentwidgets import CardWidget, ListWidget, PushButton, RoundMenu, SubtitleLabel
+from qfluentwidgets import BodyLabel, CardWidget, ListWidget, PushButton, RoundMenu, SubtitleLabel
 
 from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
@@ -37,7 +37,12 @@ class LeftPanel(CardWidget):
         self.macro_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.macro_list.customContextMenuRequested.connect(self.handle_context_menu)
         self.macro_list.itemSelectionChanged.connect(self.handle_selection_changed)
-        layout.addWidget(self.macro_list)
+        layout.addWidget(self.macro_list, 1)
+
+        self.empty_label = BodyLabel(self.tr("No macros yet"), self)
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setWordWrap(True)
+        layout.addWidget(self.empty_label, 1)
 
     def set_macro_list(self, items: list[tuple[str, str]], selected_name: str = "") -> None:
         self.macro_list.clear()
@@ -56,6 +61,13 @@ class LeftPanel(CardWidget):
             self.macro_list.setCurrentItem(selected_item)
         elif self.macro_list.count() > 0:
             self.macro_list.setCurrentRow(0)
+
+        self.update_empty_state()
+
+    def update_empty_state(self) -> None:
+        has_macros = self.macro_list.count() > 0
+        self.macro_list.setVisible(has_macros)
+        self.empty_label.setVisible(not has_macros)
 
     def handle_selection_changed(self) -> None:
         item = self.macro_list.currentItem()

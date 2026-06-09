@@ -8,6 +8,7 @@ class EventBus(QObject):
     macro_rename_requested = Signal(str)
     macro_delete_requested = Signal(str)
     macro_duplicate_requested = Signal(str)
+    macro_running_changed = Signal(bool)
     step_selected = Signal(object)
     branch_selected = Signal(object, str)
     template_capture_requested = Signal(str)

@@ -7,6 +7,7 @@ from remaku.views.home_view import HomeView
 class HomeController:
     def __init__(self, view: HomeView):
         self.view = view
+        self.current_runner: MacroRunner | None = None
         event_bus.new_macro_requested.connect(self.handle_new_macro)
         event_bus.macro_rename_requested.connect(self.handle_macro_rename)
         event_bus.macro_delete_requested.connect(self.handle_macro_delete)
@@ -14,9 +15,10 @@ class HomeController:
         self.toolbar_actions: dict[str, Callable[[], object]] = {
             "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
+            "run": self.run_current_macro,
             "open_macro_folder": self.open_macro_folder,
             "open_logs": self.open_logs_folder,
-            "new_macro": self.create_new_macro,
+            "new_macro": self.handle_new_macro,
             "settings": self.open_settings,
             "quit": self.quit_application,
 
@@ -601,6 +603,20 @@ class HomeController:
         self.save_current_macro()
         self.view.set_status_text(self.view.tr("Moved step"))
 
+    def run_current_macro(self) -> None:
+        if self.current_runner is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        if self.current_runner.is_running():
+            self.current_runner.stop()
+            event_bus.macro_running_changed.emit(False)
+            self.view.set_status_text(self.view.tr("Stopping macro: {name}").format(name=self.current_runner.label))
+            return
+
+        self.current_runner.start()
+        event_bus.macro_running_changed.emit(True)
+        self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
 
     def open_logs_folder(self) -> None:
         target = log_dir()

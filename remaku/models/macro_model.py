@@ -313,8 +313,8 @@ class MacroSummary:
 
 
 class MacroModel:
-    def create_runner(self, macro: Macro, source_path: Path | None = None) -> "MacroRunner":
-        return MacroRunner(macro, source_path=source_path)
+    def create_runner(self, macro: Macro, macro_path: Path | None = None) -> "MacroRunner":
+        return MacroRunner(macro, macro_path=macro_path)
 
     def list_macros(self) -> list[MacroSummary]:
         macros_dir().mkdir(parents=True, exist_ok=True)

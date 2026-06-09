@@ -11,6 +11,8 @@ class Toolbar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        event_bus.macro_running_changed.connect(self.handle_macro_running_changed)
+
         self.init_ui()
 
     def init_ui(self):
@@ -131,3 +133,7 @@ class Toolbar(QWidget):
                 {"id": "open_logs", "label": "Open Logs"},
             ],
         )
+
+    def handle_macro_running_changed(self, is_running: bool) -> None:
+        self.run_button.setText(self.tr("Stop") if is_running else self.tr("Run"))
+        self.run_button.setIcon(RemakuIcon.PAUSE if is_running else RemakuIcon.PLAY)

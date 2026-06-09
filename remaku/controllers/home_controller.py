@@ -7,11 +7,12 @@ from remaku.views.home_view import HomeView
 class HomeController:
     def __init__(self, view: HomeView):
         self.view = view
-        event_bus.macro_rename_requested.connect(self.handle_macro_rename_requested)
-        event_bus.macro_delete_requested.connect(self.handle_macro_delete_requested)
-        event_bus.macro_duplicate_requested.connect(self.handle_macro_duplicate_requested)
+        event_bus.new_macro_requested.connect(self.handle_new_macro)
+        event_bus.macro_rename_requested.connect(self.handle_macro_rename)
+        event_bus.macro_delete_requested.connect(self.handle_macro_delete)
+        event_bus.macro_duplicate_requested.connect(self.handle_macro_duplicate)
         self.toolbar_actions: dict[str, Callable[[], object]] = {
-            "about": lambda: self.view.show_about_dialog(__version__),
+            "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
             "open_macro_folder": self.open_macro_folder,
             "open_logs": self.open_logs_folder,
@@ -89,7 +90,7 @@ class HomeController:
 
     def handle_new_macro(self) -> None:
         while True:
-            dialog = NewMacroDialog(self.view)
+            dialog = NewMacroDialog(self.view.window())
             accepted = bool(dialog.exec())
 
             if not accepted:
@@ -116,7 +117,7 @@ class HomeController:
         self.selected_macro_id = macro_id
         self.load_selected_macro(macro_id)
 
-    def handle_macro_rename_requested(self, macro_id: str) -> None:
+    def handle_macro_rename(self, macro_id: str) -> None:
         macro = self.macro_model.load(macro_id)
 
         if macro is None:
@@ -126,7 +127,7 @@ class HomeController:
         current_label = macro.meta.label or macro_id
 
         while True:
-            dialog = RenameMacroDialog(self.view, current_label)
+            dialog = RenameMacroDialog(self.view.window(), current_label)
             accepted = bool(dialog.exec())
 
             if not accepted:
@@ -149,7 +150,7 @@ class HomeController:
 
             return
 
-    def handle_macro_delete_requested(self, macro_id: str) -> None:
+    def handle_macro_delete(self, macro_id: str) -> None:
         macro = self.macro_model.load(macro_id)
         macro_label = macro.meta.label if macro is not None and macro.meta.label else macro_id
 
@@ -181,7 +182,7 @@ class HomeController:
         self.refresh_macro_list()
         self.view.set_status_text(self.view.tr("Deleted macro: {name}").format(name=macro_label))
 
-    def handle_macro_duplicate_requested(self, macro_id: str) -> None:
+    def handle_macro_duplicate(self, macro_id: str) -> None:
         if self.selected_macro_id != macro_id:
             self.selected_macro_id = macro_id
             self.load_selected_macro(macro_id)
@@ -435,13 +436,12 @@ class HomeController:
         self.refresh_macro_list()
         self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_marco_label))
 
-
     def show_message_dialog(self, title: str, content: str) -> None:
-        dialog = MessageDialog(title, content, self.view)
+        dialog = MessageDialog(title, content, self.view.window())
         dialog.exec()
 
     def show_confirm_dialog(self, title: str, content: str, yes_text: str = "OK") -> bool:
-        dialog = ConfirmDialog(title, content, self.view)
+        dialog = ConfirmDialog(title, content, self.view.window())
         dialog.yesButton.setText(yes_text)
         return bool(dialog.exec())
 
@@ -740,3 +740,7 @@ class HomeController:
         self.current_macro.templates[new_template_id] = TemplateInfo()
         self.selected_step.setdefault("templates", []).append(new_template_id)
         self.mutate_current_macro()
+
+    def show_about_dialog(self) -> None:
+        dialog = AboutDialog(self.view.window(), __version__)
+        dialog.exec()

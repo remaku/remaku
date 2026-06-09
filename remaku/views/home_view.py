@@ -2,7 +2,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 from qfluentwidgets import CaptionLabel
 
-from remaku.views.components.about_dialog import AboutDialog
 from remaku.views.components.center_panel import CenterPanel
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
@@ -50,7 +49,3 @@ class HomeView(QWidget):
 
     def set_status_text(self, text: str) -> None:
         self.status_label.setText(text)
-
-    def show_about_dialog(self, version):
-        dialog = AboutDialog(self, version)
-        dialog.exec()

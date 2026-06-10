@@ -142,7 +142,11 @@ class RightPanel(ScrollArea):
         self.content_layout.addWidget(parent_label)
 
         add_step_button = PushButton(RemakuIcon.PLUS, self.tr("Add Step"), self.content_widget)
-        add_step_button.clicked.connect(lambda: show_step_menu(self, add_step_button, self.handle_add_step_requested))
+        add_step_button.clicked.connect(
+            lambda: show_step_menu(
+                self, add_step_button, lambda step_type: event_bus.step_add_requested.emit(step_type)
+            )
+        )
         self.content_layout.addWidget(add_step_button)
 
     def handle_add_step_requested(self, step_type: str) -> None:

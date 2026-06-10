@@ -12,6 +12,7 @@ class Toolbar(QWidget):
         super().__init__(parent)
 
         event_bus.macro_running_changed.connect(self.handle_macro_running_changed)
+        event_bus.show_toolbar_step_menu_requested.connect(self.show_add_menu)
 
         self.init_ui()
 

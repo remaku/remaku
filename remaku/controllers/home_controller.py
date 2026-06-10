@@ -30,6 +30,27 @@ class HomeController(QObject):
         self.step_tree: StepTree | None = None
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
+        self.step_clipboard: dict | None = None
+        self.toolbar_actions: dict[str, Callable[[], object]] = {
+            "about": self.show_about_dialog,
+            "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
+            "run": self.run_current_macro,
+            "open_macro_folder": self.open_macro_folder,
+            "open_logs": self.open_logs_folder,
+            "new_macro": self.handle_new_macro,
+            "settings": self.open_settings,
+            "quit": self.quit_application,
+            "add_step": lambda: event_bus.show_toolbar_step_menu_requested.emit(),
+            "duplicate_step": self.duplicate_selected_step,
+            "delete_step": self.delete_selected_step,
+            "move_up": lambda: self.move_selected_step(-1),
+            "move_down": lambda: self.move_selected_step(1),
+            "undo": self.undo,
+            "redo": self.redo,
+            "cut": self.cut_selected_steps,
+            "copy": self.copy_selected_steps,
+            "paste": self.paste_steps,
+            "duplicate_macro": self.duplicate_current_macro,
 
         event_bus.action_triggered.connect(self.handle_toolbar_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
@@ -70,7 +91,7 @@ class HomeController(QObject):
             "Ctrl+V": self.paste_steps,
             "Ctrl+,": self.open_settings,
             "Ctrl+D": self.duplicate_selected_step,
-            "Ctrl+Shift+N": lambda: self.view.toolbar.show_add_menu(),
+            "Ctrl+Shift+N": lambda: event_bus.show_toolbar_step_menu_requested.emit(),
             "Del": self.delete_selected_step,
             "Alt+Up": lambda: self.move_selected_step(-1),
             "Alt+Down": lambda: self.move_selected_step(1),

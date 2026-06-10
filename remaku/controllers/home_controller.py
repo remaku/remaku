@@ -67,20 +67,9 @@ class HomeController(QObject):
         event_bus.template_add_requested.connect(self.handle_template_add)
         event_bus.step_add_requested.connect(self.add_step)
 
-        self.toolbar_actions: dict[str, Callable[[], object]] = {
-            "about": self.show_about_dialog,
-            "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
-            "run": self.run_current_macro,
-            "open_macro_folder": self.open_macro_folder,
-            "open_logs": self.open_logs_folder,
-            "new_macro": self.handle_new_macro,
-            "settings": self.open_settings,
-            "quit": self.quit_application,
-            "move_up": lambda: self.move_selected_step(-1),
-            "move_down": lambda: self.move_selected_step(1),
-            "undo": self.undo,
-            "redo": self.redo,
-            "duplicate_macro": self.duplicate_current_macro,
+        self.register_shortcuts()
+        self.update_undo_redo_state()
+        self.refresh_macro_list()
 
     def register_shortcuts(self) -> None:
         shortcut_map = {

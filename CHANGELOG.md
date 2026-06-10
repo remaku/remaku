@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Added
+
+- Numeric input fields now show a red error border when empty or invalid, and only save valid numbers instead of silently falling back to zero
+
+### Fixed
+
+- Clicking on empty space in the step tree now deselects the current step and resets the toolbar buttons
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 數字輸入欄位現在在空白或無效時會顯示紅色錯誤邊框，僅儲存有效數字，不再默默回退為零
+
+### 修正
+
+- 點擊步驟樹的空白區域現在會取消選取目前步驟，並重置工具列按鈕狀態
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 数字输入字段现在在空白或无效时会显示红色错误边框，仅保存有效数字，不再静默回退为零
+
+### 修复
+
+- 点击步骤树的空白区域现在会取消选中当前步骤，并重置工具栏按钮状态
+
 ## v0.5.0
 
 <!-- lang:en -->

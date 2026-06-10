@@ -112,6 +112,19 @@ class CenterPanel(CardWidget):
         self.step_list.currentItemChanged.connect(self.handle_step_selected)
         self.step_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.step_list.customContextMenuRequested.connect(self.handle_context_menu)
+
+        original_mouse_press = self.step_list.mousePressEvent
+
+        def custom_mouse_press(event):
+            item = self.step_list.itemAt(event.pos())
+            if item is None:
+                self.step_list.clearSelection()
+                self.handle_step_selected(None)
+                return
+            original_mouse_press(event)
+
+        self.step_list.mousePressEvent = custom_mouse_press
+
         self.content_layout.addWidget(self.step_list, 1)
 
     def add_empty_label(self) -> None:

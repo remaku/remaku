@@ -69,6 +69,7 @@ class HomeController(QObject):
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
         self.step_clipboard: dict | None = None
+        self.editing_locked = False
         self.hotkey_ids: list[int] = []
         self.hotkey_map: dict[int, str] = {}
         self.hotkey_runners: dict[str, MacroRunner] = {}
@@ -188,12 +189,20 @@ class HomeController(QObject):
         self.update_undo_redo_state()
 
     def update_undo_redo_state(self) -> None:
+        if self.editing_locked:
+            self.view.toolbar.undo_button.setEnabled(False)
+            self.view.toolbar.redo_button.setEnabled(False)
+            return
+
         has_undo = bool(self.current_runner and self.undo_stack)
         has_redo = bool(self.current_runner and self.redo_stack)
         self.view.toolbar.undo_button.setEnabled(has_undo)
         self.view.toolbar.redo_button.setEnabled(has_redo)
 
     def update_step_action_state(self) -> None:
+        if self.editing_locked:
+            return
+
         node = self.selected_step_node()
 
         if node is None:
@@ -1168,6 +1177,8 @@ class HomeController(QObject):
         self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
 
     def handle_macro_running_changed(self, is_running: bool) -> None:
+        self.set_editing_locked(is_running)
+
         if is_running:
             if self.current_runner is not None:
                 self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
@@ -1472,6 +1483,23 @@ class HomeController(QObject):
         self.current_runner = MacroRunner(macro, macro_path=macro_path(macro_id))
         self.current_runner.start()
         event_bus.macro_running_changed.emit(True)
+
+    def set_editing_locked(self, locked: bool) -> None:
+        self.editing_locked = locked
+
+        toolbar = self.view.toolbar
+        toolbar.add_button.setDisabled(locked)
+        toolbar.delete_button.setDisabled(locked)
+        toolbar.move_up_button.setDisabled(locked)
+        toolbar.move_down_button.setDisabled(locked)
+        toolbar.undo_button.setDisabled(locked)
+        toolbar.redo_button.setDisabled(locked)
+
+        left_panel = self.view.left_panel
+        left_panel.macro_list.setDisabled(locked)
+        left_panel.new_macro_button.setDisabled(locked)
+
+        self.view.center_panel.step_list.setDisabled(locked)
 
     def show_about_dialog(self) -> None:
         dialog = AboutDialog(self.view.window(), __version__)

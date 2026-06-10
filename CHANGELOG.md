@@ -21,6 +21,8 @@
 
 - Right-clicking a macro now selects it before opening the context menu, so rename, duplicate, and delete actions always target the clicked macro
 - Clicking on empty space in the step tree now deselects the current step and resets the toolbar buttons
+- Selecting multiple steps now disables the move up and move down buttons, since they only apply to a single step
+- Selecting the first or last step now correctly disables the move up or move down button when no further movement is possible
 - Update dialog now displays correctly when using light theme
 
 <!-- lang:zh_tw -->
@@ -42,6 +44,8 @@
 
 - 右鍵點擊巨集時現在會先選取該巨集再開啟選單，確保重新命名、複製、刪除操作永遠作用在點擊的巨集上
 - 點擊步驟樹的空白區域現在會取消選取目前步驟，並重置工具列按鈕狀態
+- 選取多個步驟時現在會停用上移和下移按鈕，因為它們僅適用於單一步驟
+- 選取第一個或最後一個步驟時現在會正確停用無法再移動方向的上移或下移按鈕
 - 更新對話框在淺色主題下現在能正確顯示
 
 <!-- lang:zh_cn -->
@@ -63,6 +67,8 @@
 
 - 右键点击宏时现在会先选中该宏再打开菜单，确保重命名、复制、删除操作始终作用在点击的宏上
 - 点击步骤树的空白区域现在会取消选中当前步骤，并重置工具栏按钮状态
+- 选中多个步骤时现在会禁用上移和下移按钮，因为它们仅适用于单一步骤
+- 选中第一个或最后一个步骤时现在会正确禁用无法再移动方向的上移或下移按钮
 - 更新对话框在浅色主题下现在能正确显示
 
 ## v0.5.0

@@ -209,18 +209,19 @@ class HomeController(QObject):
         if self.editing_locked:
             return
 
-        node = self.selected_step_node()
+        selected = self.selected_step_nodes()
+        has_selection = bool(selected)
+        is_single = len(selected) == 1
 
-        if node is None:
-            self.view.toolbar.delete_button.setEnabled(False)
+        self.view.toolbar.delete_button.setEnabled(has_selection)
+
+        if is_single and self.step_tree is not None:
+            node = selected[0]
+            self.view.toolbar.move_up_button.setEnabled(self.step_tree.can_move(node, -1))
+            self.view.toolbar.move_down_button.setEnabled(self.step_tree.can_move(node, 1))
+        else:
             self.view.toolbar.move_up_button.setEnabled(False)
             self.view.toolbar.move_down_button.setEnabled(False)
-            return
-
-        self.view.toolbar.delete_button.setEnabled(True)
-        assert self.step_tree is not None
-        self.view.toolbar.move_up_button.setEnabled(self.step_tree.can_move(node, -1))
-        self.view.toolbar.move_down_button.setEnabled(self.step_tree.can_move(node, 1))
 
     def save_current_macro(self) -> None:
         if self.current_macro is None or self.current_runner is None:
@@ -322,16 +323,16 @@ class HomeController(QObject):
         return StepTree(copy.deepcopy(steps)).collect_template_refs()
 
     def copy_selected_steps(self) -> None:
-        if self.step_tree is None:
+        if self.step_tree is None or self.current_macro is None:
             return
 
-        target_node = self.selected_step_node()
-        if target_node is None:
+        selected = self.selected_step_nodes()
+        if not selected:
             return
 
-        top_level = self.step_tree.get_top_level([target_node])
+        top_level = self.step_tree.get_top_level(selected)
         steps = [copy.deepcopy(node.step) for node in top_level]
-        if not steps or self.current_macro is None:
+        if not steps:
             return
 
         refs = self.collect_template_refs_from_steps(steps)
@@ -551,7 +552,7 @@ class HomeController(QObject):
         self.selected_branch_key = ""
         self.selected_step = step
         self.show_step_selection(step)
-        self.update_step_action_state()
+        QTimer.singleShot(0, self.update_step_action_state)
 
     def handle_branch_selected(self, parent_step: dict | None, branch_key: str) -> None:
         self.selected_step = None
@@ -612,6 +613,22 @@ class HomeController(QObject):
             return None
 
         return self.step_tree.find_node(self.selected_step)
+
+    def selected_step_nodes(self) -> list[StepNode]:
+        if self.step_tree is None:
+            return []
+
+        center = self.view.center_panel
+        nodes: list[StepNode] = []
+
+        for item in center.step_list.selectedItems():
+            step_dict = center.item_to_step.get(item)
+            if isinstance(step_dict, dict):
+                node = self.step_tree.find_node(step_dict)
+                if node is not None:
+                    nodes.append(node)
+
+        return nodes
 
     def load_selected_macro(self, macro_id: str) -> None:
         macro = self.macro_model.load(macro_id)
@@ -1100,19 +1117,19 @@ class HomeController(QObject):
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
 
-        target_node = self.selected_step_node()
-        if target_node is None:
+        selected = self.selected_step_nodes()
+        if not selected:
             self.view.set_status_text(self.view.tr("Select a step first"))
             return
 
         self.push_undo()
 
-        duplicated = self.step_tree.duplicate_nodes([target_node])
+        duplicated = self.step_tree.duplicate_nodes(selected)
         if not duplicated:
             return
 
-        self.set_selected_step(duplicated[0].step)
-        self.save_current_macro()
+        self.mutate_current_macro()
+        self.set_selected_step(duplicated[-1].step)
         self.view.set_status_text(self.view.tr("Duplicated step"))
 
     def delete_selected_step(self) -> None:
@@ -1120,28 +1137,26 @@ class HomeController(QObject):
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
 
-        target_node = self.selected_step_node()
-        if target_node is None:
+        selected = self.selected_step_nodes()
+        if not selected:
             self.view.set_status_text(self.view.tr("Select a step first"))
             return
 
         self.push_undo()
 
-        if target_node.parent is not None:
-            next_selection = target_node.next_sibling() or target_node.prev_sibling() or target_node.parent
-        else:
-            root_nodes = self.step_tree.root_nodes
-            idx = next((i for i, n in enumerate(root_nodes) if n is target_node), -1)
-            if idx >= 0:
-                next_selection = (
-                    root_nodes[idx + 1] if idx + 1 < len(root_nodes) else (root_nodes[idx - 1] if idx > 0 else None)
-                )
-            else:
-                next_selection = None
+        for node in reversed(selected):
+            self.step_tree.delete_node(node)
 
-        self.step_tree.delete_node(target_node)
-        self.set_selected_step(next_selection.step if next_selection is not None else None)
+        self.sync_macro_steps_from_tree()
+        self.refresh_step_tree()
         self.save_current_macro()
+
+        if self.step_tree.root_nodes:
+            top_level = self.step_tree.root_nodes[0]
+            self.set_selected_step(top_level.step)
+        else:
+            self.set_selected_step(None)
+
         self.view.set_status_text(self.view.tr("Deleted step"))
 
     def wrap_selected_step_in_repeat(self) -> None:
@@ -1149,13 +1164,17 @@ class HomeController(QObject):
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
 
-        target_node = self.selected_step_node()
-        if target_node is None:
+        selected = self.selected_step_nodes()
+        if not selected:
             self.view.set_status_text(self.view.tr("Select a step first"))
             return
 
+        top_level = self.step_tree.get_top_level(selected)
+        if not top_level:
+            return
+
         self.push_undo()
-        wrapped_node = self.step_tree.wrap_in_repeat([target_node])
+        wrapped_node = self.step_tree.wrap_in_repeat(top_level)
         self.set_selected_step(wrapped_node.step)
         self.save_current_macro()
         self.view.set_status_text(self.view.tr("Wrapped step in repeat"))

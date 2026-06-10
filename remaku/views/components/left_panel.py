@@ -143,6 +143,8 @@ class LeftPanel(CardWidget):
     def handle_order_changed(self) -> None:
         event_bus.macro_order_changed.emit()
         current = self.macro_list.currentItem()
+        self.macro_list.blockSignals(True)
         self.macro_list.clearSelection()
         if current is not None:
             self.macro_list.setCurrentItem(current)
+        self.macro_list.blockSignals(False)

@@ -102,6 +102,15 @@ class HomeController(QObject):
 
         return self.current_runner.macro
 
+    def sync_runner_macro_from_current(self) -> None:
+        if self.current_runner is None or self.current_macro is None:
+            return
+
+        self.current_runner = MacroRunner(
+            self.current_macro,
+            macro_path=self.current_runner.macro_path,
+        )
+
     def push_undo(self) -> None:
         macro_dict = self.current_macro_dict()
         if self.current_runner is None or macro_dict is None:
@@ -146,7 +155,6 @@ class HomeController(QObject):
 
     def mutate_current_macro(self) -> None:
         self.sync_macro_steps_from_tree()
-        self.sync_runner_macro_from_current()
         self.refresh_step_tree()
         self.refresh_selected_step()
         self.save_current_macro()
@@ -201,6 +209,84 @@ class HomeController(QObject):
         restored_state = self.redo_stack.pop()
         self.restore_macro_state(restored_state)
         self.update_undo_redo_state()
+
+    def collect_template_refs_from_steps(self, steps: list[dict]) -> set[str]:
+        return StepTree(copy.deepcopy(steps)).collect_template_refs()
+
+    def copy_selected_steps(self) -> None:
+        if self.step_tree is None:
+            return
+
+        target_node = self.selected_step_node()
+        if target_node is None:
+            return
+
+        top_level = self.step_tree.get_top_level([target_node])
+        steps = [copy.deepcopy(node.step) for node in top_level]
+        if not steps or self.current_macro is None:
+            return
+
+        refs = self.collect_template_refs_from_steps(steps)
+
+        template_data = {
+            name: template_path(self.current_macro.meta.name, name).read_bytes()
+            for name in refs
+            if (template_path(self.current_macro.meta.name, name)).exists()
+        }
+        template_meta = {
+            name: copy.deepcopy(self.current_macro.to_dict().get("templates", {}).get(name, {}))
+            for name in refs
+            if name in self.current_macro.to_dict().get("templates", {})
+        }
+        self.step_clipboard = {
+            "steps": steps,
+            "templates": template_data,
+            "template_meta": template_meta,
+        }
+
+    def cut_selected_steps(self) -> None:
+        self.copy_selected_steps()
+        if self.step_clipboard:
+            self.delete_selected_step()
+
+    def paste_steps(self) -> None:
+        if self.step_tree is None or not self.step_clipboard or self.current_macro is None:
+            return
+
+        self.push_undo()
+
+        clipboard_steps = copy.deepcopy(self.step_clipboard.get("steps", []))
+        if not clipboard_steps:
+            return
+
+        target_node = self.selected_step_node()
+        inserted_nodes = self.step_tree.insert_steps_after(target_node, clipboard_steps)
+
+        templates_dir(self.current_macro.meta.name).mkdir(parents=True, exist_ok=True)
+
+        for name, data in self.step_clipboard.get("templates", {}).items():
+            destination = template_path(self.current_macro.meta.name, name)
+            if not destination.exists():
+                destination.write_bytes(data)
+
+        for name, meta in self.step_clipboard.get("template_meta", {}).items():
+            if name not in self.current_macro.templates:
+                self.current_macro.templates[name] = (
+                    self.current_macro.templates.get(name)
+                    or Macro.from_dict({"meta": {}, "templates": {name: meta}, "steps": []}).templates[name]
+                )
+                continue
+
+            current_meta = self.current_macro.templates[name]
+            if not current_meta.label and "label" in meta:
+                current_meta.label = str(meta["label"])
+            if not current_meta.capture_width and "capture_width" in meta:
+                current_meta.capture_width = int(meta["capture_width"])
+            if not current_meta.capture_height and "capture_height" in meta:
+                current_meta.capture_height = int(meta["capture_height"])
+
+        self.selected_step = inserted_nodes[0].step if inserted_nodes else self.selected_step
+        self.mutate_current_macro()
 
     def refresh_macro_list(self) -> None:
         macro_items = self.macro_model.list_macros()

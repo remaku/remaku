@@ -121,6 +121,11 @@ class CenterPanel(CardWidget):
         self.content_layout.addWidget(self.empty_label)
 
     def handle_context_menu(self, pos: QPoint) -> None:
+        item = self.step_list.itemAt(pos)
+
+        if item is None or item in self.item_to_branch or item not in self.item_to_step:
+            return
+
         menu = RoundMenu(parent=self)
 
         has_selection = bool(self.step_list.selectedItems())

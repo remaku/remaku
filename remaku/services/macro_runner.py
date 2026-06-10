@@ -122,8 +122,8 @@ class MacroRunner(Engine):
 
         for name in self.templates:
             info = templates_meta.get(name, {})
-            width = info.get("capture_width", screen_width)
-            height = info.get("capture_height", screen_height)
+            width = info.get("capture_width") or screen_width
+            height = info.get("capture_height") or screen_height
             result[name] = (width, height)
 
         return result

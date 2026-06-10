@@ -706,6 +706,174 @@ class HomeController(QObject):
         dialog.yesButton.setText(yes_text)
         return bool(dialog.exec())
 
+    def import_failed(self, content: str) -> None:
+        self.show_message_dialog(self.view.tr("Import failed"), content)
+
+    def import_macro(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.view,
+            self.view.tr("Import Macro"),
+            "",
+            self.view.tr("Macro ZIP (*.zip)"),
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with zipfile.ZipFile(file_path, "r") as archive:
+                archive_names = set(archive.namelist())
+                if "macro.json" not in archive_names:
+                    self.import_failed(self.view.tr("macro.json is missing from the archive"))
+                    return
+
+                raw_macro = json.loads(archive.read("macro.json"))
+                if not isinstance(raw_macro, dict):
+                    self.import_failed(self.view.tr("Invalid macro data"))
+                    return
+
+                meta_data = raw_macro.get("meta")
+                if not isinstance(meta_data, dict) or not meta_data.get("name"):
+                    self.import_failed(self.view.tr("Macro metadata is invalid"))
+                    return
+
+                if not isinstance(raw_macro.get("steps"), list):
+                    self.import_failed(self.view.tr("Macro steps are invalid"))
+                    return
+
+                refs = StepTree(raw_macro["steps"]).collect_template_refs()
+                missing_templates = sorted(name for name in refs if f"templates/{name}.png" not in archive_names)
+                if missing_templates:
+                    self.import_failed(
+                        self.view.tr("Missing templates: {names}").format(names=", ".join(missing_templates))
+                    )
+                    return
+
+                imported_macro_id = str(meta_data["name"])
+                destination = macro_path(imported_macro_id)
+                if destination.exists():
+                    imported_macro_id = self.resolve_timestamp_macro_name()
+                    destination = macro_path(imported_macro_id)
+                    meta_data["name"] = imported_macro_id
+
+                conflicts = self.find_template_conflicts(imported_macro_id, refs)
+                overwrite = False
+                if conflicts:
+                    overwrite = self.show_confirm_dialog(
+                        self.view.tr("Template conflict"),
+                        self.view.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
+                    )
+
+                raw_templates = raw_macro.setdefault("templates", {})
+                if not isinstance(raw_templates, dict):
+                    raw_templates = {}
+                    raw_macro["templates"] = raw_templates
+
+                template_dir = templates_dir(imported_macro_id)
+                template_dir.mkdir(parents=True, exist_ok=True)
+
+                for name in refs:
+                    png_destination = template_dir / f"{name}.png"
+                    if not png_destination.exists() or (overwrite and name in conflicts):
+                        png_destination.write_bytes(archive.read(f"templates/{name}.png"))
+
+                    legacy_meta_path = f"templates/{name}.json"
+                    if legacy_meta_path not in archive_names:
+                        continue
+
+                    try:
+                        legacy_meta = json.loads(archive.read(legacy_meta_path))
+                    except (OSError, ValueError):
+                        continue
+
+                    if not isinstance(legacy_meta, dict):
+                        continue
+
+                    entry = raw_templates.get(name, {"label": name})
+                    if not isinstance(entry, dict):
+                        entry = {"label": name}
+
+                    for key in ("capture_width", "capture_height"):
+                        if key in legacy_meta and key not in entry:
+                            entry[key] = legacy_meta[key]
+
+                    raw_templates[name] = entry
+        except zipfile.BadZipFile:
+            self.import_failed(self.view.tr("Invalid zip file"))
+            return
+        except (OSError, json.JSONDecodeError, ValueError):
+            self.import_failed(self.view.tr("Failed to import macro"))
+            return
+
+        imported_macro = Macro.from_dict(raw_macro)
+        imported_macro.meta.name = imported_macro_id
+        if not imported_macro.meta.label:
+            imported_macro.meta.label = imported_macro_id
+
+        self.macro_model.save(imported_macro)
+
+        if imported_macro_id not in config_model.config.general.macro_order:
+            config_model.config.general.macro_order.append(imported_macro_id)
+            config_model.save()
+
+        self.selected_macro_id = imported_macro_id
+        self.refresh_macro_list()
+        self.view.set_status_text(self.view.tr("Imported macro: {name}").format(name=imported_macro.meta.label))
+
+    def find_template_conflicts(self, macro_name: str, refs: set[str]) -> list[str]:
+        return sorted(name for name in refs if (template_path(macro_name, name)).exists())
+
+    def resolve_timestamp_macro_name(self) -> str:
+        existing_names = {item.name for item in self.macro_model.list_macros()}
+        base = int(time.time())
+
+        offset = 0
+        while True:
+            candidate = str(base + offset)
+            if candidate not in existing_names:
+                return candidate
+            offset += 1
+
+    def step_tree_refs_from_macro(self, macro: Macro) -> set[str]:
+        step_tree = StepTree([step_to_dict(step) for step in macro.steps])
+        return step_tree.collect_template_refs()
+
+    def export_current_macro(self) -> None:
+        if self.current_macro is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        suggested_path = macro_path(self.current_macro.meta.name).with_suffix(".zip")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.view,
+            self.view.tr("Export Macro"),
+            str(suggested_path),
+            self.view.tr("Macro ZIP (*.zip)"),
+        )
+
+        if not file_path:
+            return
+
+        self.sync_macro_steps_from_tree()
+        template_refs = self.step_tree_refs_from_macro(self.current_macro)
+        template_root = templates_dir(self.current_macro.meta.name)
+
+        try:
+            with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(
+                    "macro.json",
+                    json.dumps(self.current_macro.to_dict(), indent=2, ensure_ascii=False),
+                )
+
+                for name in sorted(template_refs):
+                    png_path = template_root / f"{name}.png"
+                    if png_path.exists():
+                        archive.write(png_path, f"templates/{name}.png")
+        except OSError:
+            self.view.set_status_text(self.view.tr("Failed to export macro"))
+            return
+
+        self.view.set_status_text(self.view.tr("Exported macro: {name}").format(name=self.current_macro.meta.name))
 
     def quit_application(self) -> None:
         self.view.window().close()

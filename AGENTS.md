@@ -29,6 +29,8 @@ Rules:
 
 - All `import` statements must be placed at the top of the file. Do not use inline imports inside functions.
 - Do not use `_` prefix for naming functions or variables.
+  - ❌ `self._current_macro` `def _on_macro_changed()`
+  - ✅ `self.current_macro` `def handle_macro_changed()`
 - Add a blank line before and after block statements (`if`, `for`, `while`) for readability. Do not add one before `elif`/`else` (they follow the `if` block directly). Consecutive short statements or tightly related logic do not require forced blank lines.
 
 ## Git Rules

@@ -15,6 +15,12 @@ def main():
 
     config_model = ConfigModel()
     macro_model = MacroModel()
+
+    if not app_config.config.general.templates_migrated:
+        migrate_legacy_templates(macro_model)
+        app_config.config.general.templates_migrated = True
+        app_config.save()
+
     apply_theme(config_model.config.general.theme)
 
     window = MainWindow()

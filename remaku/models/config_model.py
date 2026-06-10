@@ -18,6 +18,7 @@ class GeneralConfig:
     macro_order: list[str] = field(default_factory=list)
     overlay_enabled: bool = True
     overlay_position: tuple[int, int] = DEFAULT_OVERLAY_POSITION
+    templates_migrated: bool = False
 
 
 @dataclass(slots=True)
@@ -77,6 +78,7 @@ class AppConfig:
             ],
             overlay_enabled=bool(general_data.get("overlay_enabled", default_general.overlay_enabled)),
             overlay_position=(int(overlay_position[0]), int(overlay_position[1])),
+            templates_migrated=bool(general_data.get("templates_migrated", default_general.templates_migrated)),
         )
 
         capture = CaptureConfig(

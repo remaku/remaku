@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -30,6 +31,21 @@ from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
 from remaku.views.components.step_menu import show_step_menu
 from remaku.views.components.template_editor import TemplateEditor
+
+NUMERIC_PROPERTY_KEYS = frozenset(
+    {
+        "ms",
+        "hold_ms",
+        "timeout_ms",
+        "load_delay_ms",
+        "find_timeout_ms",
+        "gone_grace_ms",
+        "hard_timeout_ms",
+        "count",
+        "rows",
+        "start",
+    }
+)
 
 
 class RightPanel(ScrollArea):
@@ -92,47 +108,49 @@ class RightPanel(ScrollArea):
 
         match step:
             case KeyStep():
-                self.add_text_input(self.tr("Key"), step.key)
-                self.add_text_input(self.tr("Hold (ms)"), str(step.hold_ms))
+                self.add_text_input(self.tr("Key"), step.key, "key")
+                self.add_text_input(self.tr("Hold (ms)"), str(step.hold_ms), "hold_ms")
             case DelayStep():
-                self.add_text_input(self.tr("Duration (ms)"), str(step.ms))
+                self.add_text_input(self.tr("Duration (ms)"), str(step.ms), "ms")
             case WaitImageStep():
                 self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold)
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms))
+                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
+                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
                 self.add_dropdown(
                     self.tr("On Timeout"),
                     step.on_timeout,
                     [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
+                    "on_timeout",
                 )
             case HoldKeyUntilGoneStep():
-                self.add_text_input(self.tr("Key"), step.key)
+                self.add_text_input(self.tr("Key"), step.key, "key")
                 self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold)
-                self.add_text_input(self.tr("Load Delay (ms)"), str(step.load_delay_ms))
-                self.add_text_input(self.tr("Find Timeout (ms)"), str(step.find_timeout_ms))
-                self.add_text_input(self.tr("Gone Grace (ms)"), str(step.gone_grace_ms))
-                self.add_text_input(self.tr("Hard Timeout (ms)"), str(step.hard_timeout_ms))
+                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
+                self.add_text_input(self.tr("Load Delay (ms)"), str(step.load_delay_ms), "load_delay_ms")
+                self.add_text_input(self.tr("Find Timeout (ms)"), str(step.find_timeout_ms), "find_timeout_ms")
+                self.add_text_input(self.tr("Gone Grace (ms)"), str(step.gone_grace_ms), "gone_grace_ms")
+                self.add_text_input(self.tr("Hard Timeout (ms)"), str(step.hard_timeout_ms), "hard_timeout_ms")
             case RepeatStep():
-                self.add_text_input(self.tr("Count"), str(step.count))
+                self.add_text_input(self.tr("Count"), str(step.count), "count")
             case IfImageStep():
                 self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold)
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms))
+                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
+                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
                 # then
                 # else
             case IfAnyImageStep():
                 self.add_template_list_editor(macro, step.templates)
-                self.add_slider(self.tr("Threshold"), step.threshold)
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms))
+                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
+                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
                 self.add_dropdown(
                     self.tr("On Timeout"),
                     step.on_timeout,
                     [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
+                    "on_timeout",
                 )
             case GridNavStep():
-                self.add_text_input(self.tr("Rows"), str(step.rows))
-                self.add_text_input(self.tr("Start Cell"), str(step.start))
+                self.add_text_input(self.tr("Rows"), str(step.rows), "rows")
+                self.add_text_input(self.tr("Start Cell"), str(step.start), "start")
 
     def show_branch_properties(self, macro: Macro, parent_title: str, branch_title: str, steps: list[Step]) -> None:
         self.clear_content()
@@ -162,22 +180,66 @@ class RightPanel(ScrollArea):
         label = BodyLabel(text, self.content_widget)
         self.content_layout.addWidget(label)
 
-    def add_text_input(self, label: str, value: str) -> None:
+    def add_text_input(self, label: str, value: str, property_key: str = "") -> None:
         self.add_field_label(label)
         field = LineEdit(self.content_widget)
         field.setText(value)
+
+        if property_key:
+            if property_key in NUMERIC_PROPERTY_KEYS:
+                field.setValidator(QIntValidator(field))
+                field.textChanged.connect(lambda text, w=field: w.setError(False))
+                field.editingFinished.connect(lambda pk=property_key, w=field: self.commit_numeric_field(pk, w))
+            else:
+                field.editingFinished.connect(
+                    lambda pk=property_key, w=field: event_bus.step_property_changed.emit(pk, w.text())
+                )
+
         self.content_layout.addWidget(field)
 
-    def add_slider(self, label: str, value: int | float, min_value: int = 0, max_value: int = 100) -> None:
+    def commit_numeric_field(self, property_key: str, field: LineEdit) -> None:
+        text = field.text().strip()
+
+        if not text:
+            field.setError(True)
+            return
+
+        try:
+            int(text)
+        except ValueError:
+            field.setError(True)
+            return
+
+        field.setError(False)
+        event_bus.step_property_changed.emit(property_key, text)
+
+    def add_slider(
+        self, label: str, value: int | float, min_value: int = 0, max_value: int = 100, property_key: str = ""
+    ) -> None:
         percentage = value if isinstance(value, int) else int(value * 100)
 
-        self.add_field_label(f"{label} ({percentage}%)")
+        slider_label = BodyLabel(f"{label} ({percentage}%)", self.content_widget)
+        self.content_layout.addWidget(slider_label)
+
         slider = Slider(Qt.Orientation.Horizontal, self.content_widget)
         slider.setRange(min_value, max_value)
         slider.setValue(percentage)
+
+        if property_key:
+            slider.valueChanged.connect(lambda val, lbl=slider_label, text=label: lbl.setText(f"{text} ({val}%)"))
+
+            save_timer = QTimer(slider)
+            save_timer.setSingleShot(True)
+            save_timer.setInterval(200)
+
+            save_timer.timeout.connect(
+                lambda pk=property_key, s=slider: event_bus.step_property_changed.emit(pk, str(s.value()))
+            )
+            slider.valueChanged.connect(lambda: save_timer.start())
+
         self.content_layout.addWidget(slider)
 
-    def add_dropdown(self, label: str, value: str, options: list[tuple[str, str]]) -> None:
+    def add_dropdown(self, label: str, value: str, options: list[tuple[str, str]], property_key: str = "") -> None:
         self.add_field_label(label)
         combo = ComboBox(self.content_widget)
 
@@ -188,6 +250,11 @@ class RightPanel(ScrollArea):
 
         if index >= 0:
             combo.setCurrentIndex(index)
+
+        if property_key:
+            combo.currentIndexChanged.connect(
+                lambda index, pk=property_key, c=combo: event_bus.step_property_changed.emit(pk, str(c.currentData()))
+            )
 
         self.content_layout.addWidget(combo)
 
@@ -208,6 +275,10 @@ class RightPanel(ScrollArea):
         if index >= 0:
             target_combo.setCurrentIndex(index)
 
+        target_combo.currentIndexChanged.connect(
+            lambda index, c=target_combo: event_bus.macro_meta_changed.emit("target_window", str(c.currentData()))
+        )
+
         self.content_layout.addWidget(target_combo)
 
     def add_hotkey_text_input(self, macro: Macro) -> None:
@@ -218,12 +289,18 @@ class RightPanel(ScrollArea):
         hotkey_edit.setReadOnly(True)
         hotkey_edit.setClearButtonEnabled(True)
 
+        hotkey_edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
+
         self.content_layout.addWidget(hotkey_edit)
 
     def add_enabled_checkbox(self, macro: Macro) -> None:
         self.add_field_label(self.tr("Enabled"))
         enabled_checkbox = CheckBox(self.tr("Enabled"), self.content_widget)
         enabled_checkbox.setChecked(macro.meta.enabled)
+
+        enabled_checkbox.checkStateChanged.connect(
+            lambda state: event_bus.macro_meta_changed.emit("enabled", str(state == Qt.CheckState.Checked))
+        )
 
         self.content_layout.addWidget(enabled_checkbox)
 
@@ -232,6 +309,10 @@ class RightPanel(ScrollArea):
         skip_checkbox = CheckBox(self.tr("Skip"), self.content_widget)
         skip_checkbox.setChecked(value)
 
+        skip_checkbox.checkStateChanged.connect(
+            lambda state: event_bus.step_property_changed.emit("skip", str(state == Qt.CheckState.Checked))
+        )
+
         self.content_layout.addWidget(skip_checkbox)
 
     def add_note_input(self, value: str) -> None:
@@ -239,6 +320,8 @@ class RightPanel(ScrollArea):
         note_edit = LineEdit(self.content_widget)
         note_edit.setText(value)
         note_edit.setPlaceholderText(self.tr("Add a note for this step"))
+
+        note_edit.editingFinished.connect(lambda w=note_edit: event_bus.step_property_changed.emit("note", w.text()))
 
         self.content_layout.addWidget(note_edit)
 

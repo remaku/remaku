@@ -33,7 +33,7 @@ class TemplateEditor(QWidget):
 
         self.add_field_label(self.tr("Template"))
         self.add_template_preview(self.template_id)
-        self.add_text_input(value=self.template_label)
+        self.add_text_input(value=self.template_label, field_key="label")
 
         capture_screen_button = PushButton(self.tr("Capture Screen"), self)
         capture_screen_button.clicked.connect(lambda: event_bus.template_capture_requested.emit(self.template_id))
@@ -47,19 +47,27 @@ class TemplateEditor(QWidget):
         delete_template_button.clicked.connect(lambda: event_bus.template_delete_requested.emit(self.template_id))
         self.content_layout.addWidget(delete_template_button)
 
-        self.add_text_input(self.tr("Capture Width"), str(self.capture_width))
-        self.add_text_input(self.tr("Capture Height"), str(self.capture_height))
+        self.add_text_input(self.tr("Capture Width"), str(self.capture_width), field_key="capture_width")
+        self.add_text_input(self.tr("Capture Height"), str(self.capture_height), field_key="capture_height")
 
     def add_field_label(self, text: str) -> None:
         label = BodyLabel(text, self)
         self.content_layout.addWidget(label)
 
-    def add_text_input(self, label: str | None = None, value: str = "") -> None:
+    def add_text_input(self, label: str | None = None, value: str = "", field_key: str = "") -> None:
         if label is not None:
             self.add_field_label(label)
 
         edit = LineEdit(self)
         edit.setText(value)
+
+        if field_key:
+            edit.editingFinished.connect(
+                lambda fk=field_key, tid=self.template_id, w=edit: event_bus.template_meta_changed.emit(
+                    tid, fk, w.text()
+                )
+            )
+
         self.content_layout.addWidget(edit)
 
     def add_template_preview(self, template_id: str) -> None:

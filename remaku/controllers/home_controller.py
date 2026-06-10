@@ -106,6 +106,9 @@ class HomeController(QObject):
         event_bus.template_delete_requested.connect(self.handle_template_delete)
         event_bus.template_add_requested.connect(self.handle_template_add)
         event_bus.step_add_requested.connect(self.add_step)
+        event_bus.macro_meta_changed.connect(self.handle_macro_meta_changed)
+        event_bus.step_property_changed.connect(self.handle_step_property_changed)
+        event_bus.template_meta_changed.connect(self.handle_template_meta_changed)
 
         self.register_shortcuts()
         self.update_undo_redo_state()
@@ -531,6 +534,50 @@ class HomeController(QObject):
         self.selected_branch_key = branch_key
         self.show_step_selection(None)
         self.update_step_action_state()
+
+    def handle_macro_meta_changed(self, field: str, value: str) -> None:
+        if self.current_macro is None:
+            return
+
+        if field == "enabled":
+            setattr(self.current_macro.meta, field, value.lower() == "true")
+        else:
+            setattr(self.current_macro.meta, field, value)
+
+        self.macro_model.save(self.current_macro)
+
+    def handle_step_property_changed(self, key: str, value: str) -> None:
+        if self.selected_step is None:
+            return
+
+        parsed_value = self.parse_step_property(key, value)
+        self.selected_step[key] = parsed_value
+        self.sync_macro_steps_from_tree()
+        self.save_current_macro()
+        self.refresh_step_tree()
+
+    def parse_step_property(self, key: str, value: str) -> int | float | bool | str:
+        if key == "skip":
+            return value.lower() == "true"
+
+        if key in (
+            "ms",
+            "hold_ms",
+            "timeout_ms",
+            "load_delay_ms",
+            "find_timeout_ms",
+            "gone_grace_ms",
+            "hard_timeout_ms",
+            "count",
+            "rows",
+            "start",
+        ):
+            return int(value)
+
+        if key == "threshold":
+            return int(value) / 100
+
+        return value
 
     def selected_step_node(self) -> StepNode | None:
         if self.step_tree is None or self.selected_step is None:
@@ -1285,6 +1332,26 @@ class HomeController(QObject):
         self.current_macro.templates[new_template_id] = TemplateInfo()
         self.selected_step.setdefault("templates", []).append(new_template_id)
         self.mutate_current_macro()
+
+    def handle_template_meta_changed(self, template_id: str, field: str, value: str) -> None:
+        if self.current_macro is None:
+            return
+
+        template_info = self.current_macro.templates.get(template_id)
+        if template_info is None:
+            return
+
+        if field == "label":
+            template_info.label = value
+        elif field in ("capture_width", "capture_height"):
+            try:
+                setattr(template_info, field, int(value))
+            except ValueError:
+                return
+
+        self.sync_macro_steps_from_tree()
+        self.save_current_macro()
+        self.refresh_step_tree()
 
     def show_about_dialog(self) -> None:
         dialog = AboutDialog(self.view.window(), __version__)

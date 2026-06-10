@@ -140,12 +140,18 @@ class HomeController(QObject):
             "Ctrl+N": self.handle_new_macro,
         }
 
+        editing_keys = {k for k in shortcut_map if k not in ("Ctrl+N", "Ctrl+,")}
+
         self.shortcuts: list[QShortcut] = []
+        self.editing_shortcuts: list[QShortcut] = []
 
         for key, handler in shortcut_map.items():
             shortcut = QShortcut(QKeySequence(key), self.view)
             shortcut.activated.connect(handler)
             self.shortcuts.append(shortcut)
+
+            if key in editing_keys:
+                self.editing_shortcuts.append(shortcut)
 
     def set_current_macro(self, macro: Macro | None) -> None:
         self.current_macro = macro
@@ -289,9 +295,6 @@ class HomeController(QObject):
         self.show_step_selection(self.selected_step)
 
     def undo(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.current_runner is None or not self.undo_stack:
             return
 
@@ -304,9 +307,6 @@ class HomeController(QObject):
         self.update_undo_redo_state()
 
     def redo(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.current_runner is None or not self.redo_stack:
             return
 
@@ -322,9 +322,6 @@ class HomeController(QObject):
         return StepTree(copy.deepcopy(steps)).collect_template_refs()
 
     def copy_selected_steps(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             return
 
@@ -357,17 +354,11 @@ class HomeController(QObject):
         event_bus.clipboard_changed.emit(True)
 
     def cut_selected_steps(self) -> None:
-        if self.editing_locked:
-            return
-
         self.copy_selected_steps()
         if self.step_clipboard:
             self.delete_selected_step()
 
     def paste_steps(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None or not self.step_clipboard or self.current_macro is None:
             return
 
@@ -1068,9 +1059,6 @@ class HomeController(QObject):
         return factory()
 
     def add_step(self, step_type: str) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
@@ -1108,9 +1096,6 @@ class HomeController(QObject):
         self.save_current_macro()
 
     def duplicate_selected_step(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
@@ -1131,9 +1116,6 @@ class HomeController(QObject):
         self.view.set_status_text(self.view.tr("Duplicated step"))
 
     def delete_selected_step(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
@@ -1163,9 +1145,6 @@ class HomeController(QObject):
         self.view.set_status_text(self.view.tr("Deleted step"))
 
     def wrap_selected_step_in_repeat(self) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
@@ -1182,9 +1161,6 @@ class HomeController(QObject):
         self.view.set_status_text(self.view.tr("Wrapped step in repeat"))
 
     def move_selected_step(self, direction: int) -> None:
-        if self.editing_locked:
-            return
-
         if self.step_tree is None:
             self.view.set_status_text(self.view.tr("Select a macro first"))
             return
@@ -1531,6 +1507,9 @@ class HomeController(QObject):
 
     def set_editing_locked(self, locked: bool) -> None:
         self.editing_locked = locked
+
+        for shortcut in self.editing_shortcuts:
+            shortcut.setEnabled(not locked)
 
         toolbar = self.view.toolbar
         toolbar.add_button.setDisabled(locked)

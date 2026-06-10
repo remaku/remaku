@@ -686,34 +686,42 @@ class HomeController(QObject):
 
     def describe_step(self, step: dict) -> str:
         step_type = step.get("type", "unknown")
+        note = step.get("note", "")
+
+        label = ""
 
         match step_type:
             case "key":
-                return self.view.tr("Press {key}").format(key=step.get("key", ""))
+                label = self.view.tr("Press {key}").format(key=step.get("key", ""))
             case "delay":
-                return self.view.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
+                label = self.view.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
             case "wait_image":
-                return self.view.tr("Wait for {template}").format(
+                label = self.view.tr("Wait for {template}").format(
                     template=self.get_template_label(step.get("template", ""))
                 )
             case "hold_key_until_gone":
-                return self.view.tr("Hold {key} until {template} gone").format(
+                label = self.view.tr("Hold {key} until {template} gone").format(
                     key=step.get("key", ""),
                     template=self.get_template_label(step.get("template", "")),
                 )
             case "repeat":
-                return self.view.tr("Repeat {count} times").format(count=step.get("count", 1))
+                label = self.view.tr("Repeat {count} times").format(count=step.get("count", 1))
             case "if_image":
-                return self.view.tr("If image {template}").format(
+                label = self.view.tr("If image {template}").format(
                     template=self.get_template_label(step.get("template", ""))
                 )
             case "if_any_image":
                 templates = ", ".join([self.get_template_label(t) for t in step.get("templates", [])])
-                return self.view.tr("If any image {templates}").format(templates=templates)
+                label = self.view.tr("If any image {templates}").format(templates=templates)
             case "grid_nav":
-                return self.view.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
+                label = self.view.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
             case _:
-                return step_type
+                label = step_type
+
+        if note:
+            label = f"{label} ({note})"
+
+        return label
 
     def get_template_label(self, template_id: str) -> str:
         if self.current_macro is None:

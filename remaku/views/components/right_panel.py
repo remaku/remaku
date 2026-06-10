@@ -87,6 +87,8 @@ class RightPanel(ScrollArea):
         self.clear_content()
 
         self.add_title_label(title_text)
+        self.add_skip_checkbox(step.skip)
+        self.add_note_input(step.note)
 
         match step:
             case KeyStep():
@@ -224,6 +226,21 @@ class RightPanel(ScrollArea):
         enabled_checkbox.setChecked(macro.meta.enabled)
 
         self.content_layout.addWidget(enabled_checkbox)
+
+    def add_skip_checkbox(self, value: bool) -> None:
+        self.add_field_label(self.tr("Skip"))
+        skip_checkbox = CheckBox(self.tr("Skip"), self.content_widget)
+        skip_checkbox.setChecked(value)
+
+        self.content_layout.addWidget(skip_checkbox)
+
+    def add_note_input(self, value: str) -> None:
+        self.add_field_label(self.tr("Note"))
+        note_edit = LineEdit(self.content_widget)
+        note_edit.setText(value)
+        note_edit.setPlaceholderText(self.tr("Add a note for this step"))
+
+        self.content_layout.addWidget(note_edit)
 
     def add_template_editor(self, macro: Macro, template_id: str) -> None:
         template_editor = TemplateEditor(macro, template_id, self.content_widget)

@@ -17,6 +17,8 @@ DEFAULT_GRID_ROWS = 1
 DEFAULT_GRID_START = 0
 DEFAULT_ON_TIMEOUT = "stop"
 DEFAULT_KEY = "enter"
+DEFAULT_STEP_SKIP = False
+DEFAULT_STEP_NOTE = ""
 
 
 @dataclass(slots=True)
@@ -38,6 +40,8 @@ class TemplateInfo:
 @dataclass(slots=True)
 class KeyStep:
     type: str = "key"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     key: str = DEFAULT_KEY
     hold_ms: int = DEFAULT_KEY_HOLD_MS
 
@@ -46,6 +50,8 @@ class KeyStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             key=str(data.get("key", default.key)),
             hold_ms=int(data.get("hold_ms", default.hold_ms)),
         )
@@ -57,13 +63,19 @@ class KeyStep:
 @dataclass(slots=True)
 class DelayStep:
     type: str = "delay"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     ms: int = DEFAULT_DELAY_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DelayStep":
         default = cls()
 
-        return cls(ms=int(data.get("ms", default.ms)))
+        return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
+            ms=int(data.get("ms", default.ms)),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return step_to_dict(self)
@@ -72,6 +84,8 @@ class DelayStep:
 @dataclass(slots=True)
 class WaitImageStep:
     type: str = "wait_image"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     template: str = ""
     timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
@@ -82,6 +96,8 @@ class WaitImageStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             template=str(data.get("template", default.template)),
             timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
@@ -95,6 +111,8 @@ class WaitImageStep:
 @dataclass(slots=True)
 class HoldKeyUntilGoneStep:
     type: str = "hold_key_until_gone"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     key: str = ""
     template: str = ""
     load_delay_ms: int = DEFAULT_LOAD_DELAY_MS
@@ -108,6 +126,8 @@ class HoldKeyUntilGoneStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             key=str(data.get("key", default.key)),
             template=str(data.get("template", default.template)),
             load_delay_ms=int(data.get("load_delay_ms", default.load_delay_ms)),
@@ -133,6 +153,8 @@ def step_to_dict(step: Step) -> dict[str, Any]:
 @dataclass(slots=True)
 class RepeatStep:
     type: str = "repeat"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     count: int = DEFAULT_REPEAT_COUNT
     steps: list[Step] = field(default_factory=list)
 
@@ -141,6 +163,8 @@ class RepeatStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             count=int(data.get("count", default.count)),
             steps=parse_steps(data.get("steps", default.steps)),
         )
@@ -152,6 +176,8 @@ class RepeatStep:
 @dataclass(slots=True)
 class IfImageStep:
     type: str = "if_image"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     template: str = ""
     timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
     threshold: float = DEFAULT_THRESHOLD
@@ -163,6 +189,8 @@ class IfImageStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             template=str(data.get("template", default.template)),
             timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
             threshold=float(data.get("threshold", default.threshold)),
@@ -177,6 +205,8 @@ class IfImageStep:
 @dataclass(slots=True)
 class IfAnyImageStep:
     type: str = "if_any_image"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     templates: list[str] = field(default_factory=list)
     timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
@@ -192,6 +222,8 @@ class IfAnyImageStep:
             raw_branches = default.branches
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             templates=[str(template) for template in data.get("templates", default.templates)],
             timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
@@ -206,6 +238,8 @@ class IfAnyImageStep:
 @dataclass(slots=True)
 class GridNavStep:
     type: str = "grid_nav"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
     rows: int = DEFAULT_GRID_ROWS
     start: int = DEFAULT_GRID_START
     on_next_row: list[Step] = field(default_factory=list)
@@ -216,6 +250,8 @@ class GridNavStep:
         default = cls()
 
         return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
             rows=int(data.get("rows", default.rows)),
             start=int(data.get("start", default.start)),
             on_next_row=parse_steps(data.get("on_next_row", default.on_next_row)),

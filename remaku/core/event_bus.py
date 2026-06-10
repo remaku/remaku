@@ -3,6 +3,8 @@ from PySide6.QtCore import QObject, Signal
 
 class EventBus(QObject):
     switch_page_requested = Signal(str)
+    overlay_toggled = Signal()
+    overlay_position_changed = Signal(int, int)
     check_updates_requested = Signal()
     settings_changed = Signal()
     action_triggered = Signal(str)

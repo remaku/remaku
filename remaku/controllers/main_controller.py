@@ -20,6 +20,27 @@ class MainController:
         event_bus.switch_page_requested.connect(self.switch_page)
         event_bus.check_updates_requested.connect(self.check_updates)
         event_bus.settings_changed.connect(self.apply_overlay_settings)
+        event_bus.overlay_position_changed.connect(self.update_overlay_position)
+
+        self.overlay = OverlayWidget()
+        self.overlay_timer = QTimer(self.main_window)
+        self.overlay_timer.setInterval(200)
+        self.overlay_timer.timeout.connect(self.refresh_overlay)
+        self.overlay_timer.start()
+        self.apply_overlay_settings()
+        self.refresh_overlay()
+
+        if config_model.config.general.check_update_on_startup:
+            QTimer.singleShot(1000, self.startup_check_update)
+
+    def apply_overlay_settings(self) -> None:
+        config = config_model.config.general
+        self.overlay.move(*config.overlay_position)
+
+    def update_overlay_position(self, x: int, y: int) -> None:
+        config_model.config.general.overlay_position = (x, y)
+        config_model.save()
+
     def prompt_update(self, info: UpdateInfo) -> None:
         dialog = UpdateDialog(self.main_window, info)
         dialog.show()

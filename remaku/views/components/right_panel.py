@@ -367,7 +367,6 @@ class RightPanel(ScrollArea):
         event_bus.step_property_changed.emit("key", key_name)
 
     def add_enabled_checkbox(self, macro: Macro) -> None:
-        self.add_field_label(self.tr("Enabled"))
         enabled_checkbox = CheckBox(self.tr("Enabled"), self.content_widget)
         enabled_checkbox.setChecked(macro.meta.enabled)
 
@@ -378,7 +377,6 @@ class RightPanel(ScrollArea):
         self.content_layout.addWidget(enabled_checkbox)
 
     def add_skip_checkbox(self, value: bool) -> None:
-        self.add_field_label(self.tr("Skip"))
         skip_checkbox = CheckBox(self.tr("Skip"), self.content_widget)
         skip_checkbox.setChecked(value)
 

@@ -1,14 +1,48 @@
+import copy
+import json
+import os
+import shutil
+import time
 import webbrowser
+import zipfile
+from collections.abc import Callable
+from typing import Any
+
+from PySide6.QtCore import QObject, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import QApplication, QFileDialog
+
+from remaku.core.dialogs import show_confirm_dialog, show_message_dialog
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
+from remaku.models.macro_model import (
+    DelayStep,
+    GridNavStep,
+    HoldKeyUntilGoneStep,
+    IfAnyImageStep,
+    IfImageStep,
+    KeyStep,
+    Macro,
+    MacroMeta,
+    MacroModel,
+    MacroSummary,
+    RepeatStep,
+    Step,
+    TemplateInfo,
+    WaitImageStep,
+    parse_step,
+    step_to_dict,
+)
+from remaku.models.step_node import StepNode
+from remaku.models.step_tree import StepTree
+from remaku.paths import log_dir, macro_path, macros_dir, template_path, templates_dir
 from remaku.services.macro_runner import MacroRunner
 from remaku.version import __version__
 from remaku.views.components.about_dialog import AboutDialog
-from remaku.views.components.confirm_dialog import ConfirmDialog
-from remaku.views.components.message_dialog import MessageDialog
 from remaku.views.components.new_macro_dialog import NewMacroDialog
 from remaku.views.components.rename_macro_dialog import RenameMacroDialog
 from remaku.views.home_view import HomeView
+from remaku.views.region_selector import RegionSelector
 
 
 class HomeController(QObject):
@@ -56,6 +90,7 @@ class HomeController(QObject):
             "check_updates": lambda: event_bus.check_updates_requested.emit(),
         }
 
+        event_bus.overlay_toggled.connect(self.run_current_macro)
         event_bus.action_triggered.connect(self.handle_toolbar_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
         event_bus.macro_selected.connect(self.handle_macro_selected)

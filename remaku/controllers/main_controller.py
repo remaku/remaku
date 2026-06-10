@@ -1,5 +1,14 @@
+from PySide6.QtCore import QTimer
+
 from remaku.controllers.home_controller import HomeController
-from remaku.models.config_model import AppConfig
+from remaku.controllers.settings_controller import SettingsController
+from remaku.core.dialogs import show_message_dialog
+from remaku.core.event_bus import event_bus
+from remaku.models.config_model import config_model
+from remaku.models.macro_model import MacroModel
+from remaku.services.updater import CheckResult, UpdateInfo, check_async
+from remaku.views.components.overlay import OverlayWidget
+from remaku.views.components.update_dialog import UpdateDialog
 from remaku.views.main_window import MainWindow
 
 
@@ -40,6 +49,59 @@ class MainController:
     def update_overlay_position(self, x: int, y: int) -> None:
         config_model.config.general.overlay_position = (x, y)
         config_model.save()
+
+    def refresh_overlay(self) -> None:
+        runner = self.home_controller.current_runner
+        if runner is None:
+            self.overlay.hide()
+            return
+
+        status = runner.get_status()
+
+        if not status.running:
+            self.overlay.hide()
+            return
+
+        label = runner.label
+        elapsed_prefix = ""
+        if runner.start_time is not None:
+            elapsed = int(status.elapsed_s)
+            elapsed_prefix = f"{elapsed // 60:02d}:{elapsed % 60:02d} | "
+
+        message = self.main_window.tr("Running: {label}").format(label=label)
+        message = f"{elapsed_prefix}{message}"
+
+        if status.state and status.state not in ("-", "running"):
+            message = f"{elapsed_prefix}{status.state}"
+        else:
+            if status.progress and status.repeat_total:
+                loop_progress = self.main_window.tr("Loop {progress}/{total}").format(
+                    progress=status.progress,
+                    total=status.repeat_total,
+                )
+                message += f" | {loop_progress}"
+
+            current = getattr(runner, "current_step", None)
+            if current is not None:
+                summary = self.home_controller.describe_step(current)
+                message += f" | {summary}"
+
+            if status.score > 0:
+                match_label = runner.template_label(status.match_name) if status.match_name else ""
+                score_text = f"{int(status.score * 100)}%"
+                message += f" | {match_label} {score_text}" if match_label else f" | {score_text}"
+
+        self.overlay.set_text(message)
+
+        if config_model.config.general.overlay_enabled:
+            self.overlay.show()
+
+    def switch_page(self, page: str):
+        match page:
+            case "settings":
+                self.main_window.switchTo(self.main_window.settings_view)
+            case _:
+                return
 
     def prompt_update(self, info: UpdateInfo) -> None:
         dialog = UpdateDialog(self.main_window, info)

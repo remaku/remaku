@@ -28,13 +28,10 @@ class OverlayWidget(QWidget):
         layout.setContentsMargins(8, 6, 12, 6)
         layout.setSpacing(6)
 
-        self.icon_play = white_icon("play")
-        self.icon_pause = white_icon("pause")
-
         self.button = QPushButton()
         self.button.setFixedSize(24, 24)
         self.button.setIconSize(QSize(16, 16))
-        self.button.setIcon(self.icon_pause)
+        self.button.setIcon(white_icon("pause"))
         self.button.setStyleSheet(
             "QPushButton { background: rgba(255, 255, 255, 40); border: none; border-radius: 4px; }"
             "QPushButton:hover { background: rgba(255, 255, 255, 80); }"
@@ -51,9 +48,6 @@ class OverlayWidget(QWidget):
     def set_text(self, text: str) -> None:
         self.label.setText(text)
         self.adjustSize()
-
-    def set_running(self, running: bool) -> None:
-        self.button.setIcon(self.icon_pause if running else self.icon_play)
 
     def show(self) -> None:
         super().show()

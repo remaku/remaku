@@ -53,7 +53,7 @@ class HomeController(QObject):
             "duplicate_macro": self.duplicate_current_macro,
             "import_macro": self.import_macro,
             "export_macro": self.export_current_macro,
-            "check_updates": self.check_updates,
+            "check_updates": lambda: event_bus.check_updates_requested.emit(),
         }
 
         event_bus.action_triggered.connect(self.handle_toolbar_action)
@@ -344,7 +344,9 @@ class HomeController(QObject):
             new_macro_label = dialog.value()
 
             if not new_macro_label:
-                self.show_message_dialog(self.view.tr("New Macro"), self.view.tr("Macro name cannot be empty."))
+                show_message_dialog(
+                    self.view.window(), self.view.tr("New Macro"), self.view.tr("Macro name cannot be empty.")
+                )
                 continue
 
             new_macro_id = str(int(time.time()))
@@ -390,7 +392,9 @@ class HomeController(QObject):
             new_label = dialog.value()
 
             if not new_label:
-                self.show_message_dialog(self.view.tr("Rename Macro"), self.view.tr("Macro name cannot be empty."))
+                show_message_dialog(
+                    self.view.window(), self.view.tr("Rename Macro"), self.view.tr("Macro name cannot be empty.")
+                )
                 continue
 
             if new_label == current_label:
@@ -408,7 +412,8 @@ class HomeController(QObject):
         macro = self.macro_model.load(macro_id)
         macro_label = macro.meta.label if macro is not None and macro.meta.label else macro_id
 
-        confirmed = self.show_confirm_dialog(
+        confirmed = show_confirm_dialog(
+            self.view.window(),
             self.view.tr("Delete Macro"),
             self.view.tr('Are you sure you want to delete "{name}"?').format(name=macro_label),
             self.view.tr("Delete"),
@@ -418,7 +423,9 @@ class HomeController(QObject):
             return
 
         if not self.macro_model.delete(macro_id):
-            self.show_message_dialog(self.view.tr("Delete Macro"), self.view.tr("Unable to delete the macro."))
+            show_message_dialog(
+                self.view.window(), self.view.tr("Delete Macro"), self.view.tr("Unable to delete the macro.")
+            )
             return
 
         template_dir = templates_dir(macro_id)
@@ -690,17 +697,8 @@ class HomeController(QObject):
         self.refresh_macro_list()
         self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_marco_label))
 
-    def show_message_dialog(self, title: str, content: str) -> None:
-        dialog = MessageDialog(title, content, self.view.window())
-        dialog.exec()
-
-    def show_confirm_dialog(self, title: str, content: str, yes_text: str = "OK") -> bool:
-        dialog = ConfirmDialog(title, content, self.view.window())
-        dialog.yesButton.setText(yes_text)
-        return bool(dialog.exec())
-
     def import_failed(self, content: str) -> None:
-        self.show_message_dialog(self.view.tr("Import failed"), content)
+        show_message_dialog(self.view.window(), self.view.tr("Import failed"), content)
 
     def import_macro(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
@@ -752,7 +750,8 @@ class HomeController(QObject):
                 conflicts = self.find_template_conflicts(imported_macro_id, refs)
                 overwrite = False
                 if conflicts:
-                    overwrite = self.show_confirm_dialog(
+                    overwrite = show_confirm_dialog(
+                        self.view.window(),
                         self.view.tr("Template conflict"),
                         self.view.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
                     )

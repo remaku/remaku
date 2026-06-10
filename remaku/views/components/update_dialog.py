@@ -31,14 +31,19 @@ class UpdateDialog(MessageBoxBase):
         self.info = info
         self.download: Download | None = None
         self.phase = self.PHASE_PROMPT
+        self.init_ui()
 
     def init_ui(self) -> None:
-        self.title_label = SubtitleLabel(self.tr("Update Available: {tag}").format(tag=self.info.tag))
+        self.widget.setMinimumWidth(550)
+
+        self.title_label = SubtitleLabel(self.tr("New version {tag} available").format(tag=self.info.tag))
         self.current_version_label = CaptionLabel(self.tr("Current version: {version}").format(version=__version__))
+
         self.notes_box = QTextBrowser(self)
         self.notes_box.setOpenExternalLinks(True)
         self.notes_box.setMarkdown(self.info.body or self.tr("No release notes available."))
         self.notes_box.setMinimumHeight(220)
+
         self.status_label = CaptionLabel("")
         self.progress = ProgressBar(self)
         self.progress.setRange(0, 100)
@@ -51,7 +56,9 @@ class UpdateDialog(MessageBoxBase):
         self.yesButton.clicked.connect(self.on_install)
 
         self.viewLayout.addWidget(self.title_label)
+        self.viewLayout.addSpacing(4)
         self.viewLayout.addWidget(self.current_version_label)
+        self.viewLayout.addSpacing(8)
         self.viewLayout.addWidget(BodyLabel(self.tr("Release Notes"), self))
 
         notes_layout = QVBoxLayout()
@@ -62,6 +69,7 @@ class UpdateDialog(MessageBoxBase):
 
         self.skip_button = PushButton(self.tr("Skip This Version"), self)
         self.buttonLayout.insertWidget(0, self.skip_button)
+        self.buttonLayout.insertStretch(1, 1)
         self.skip_button.clicked.connect(self.on_skip)
 
     def on_skip(self) -> None:

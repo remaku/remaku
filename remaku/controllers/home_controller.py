@@ -51,6 +51,8 @@ class HomeController(QObject):
             "copy": self.copy_selected_steps,
             "paste": self.paste_steps,
             "duplicate_macro": self.duplicate_current_macro,
+            "import_macro": self.import_macro,
+            "export_macro": self.export_current_macro,
 
         event_bus.action_triggered.connect(self.handle_toolbar_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)

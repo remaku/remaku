@@ -7,42 +7,63 @@
 ### Added
 
 - Numeric input fields now show a red error border when empty or invalid, and only save valid numbers instead of silently falling back to zero
+- File menu now includes an "Open Macro Folder" option for quick access to macro files
 
 ### Changed
 
 - Step tree now displays branches (then/else, template branches, grid navigation) directly in the tree, making it easier to see and navigate step structure
+- Wait image steps now show an on-timeout action dropdown in the right panel, letting you choose whether the macro stops or continues when the image is not found
+- Settings are now saved automatically as you change them, removing the need to click a save button
+- Dialog windows have been visually improved with clearer descriptions and better layout
+- Templates in if-any-image steps are now grouped inside cards for better visibility and organization
 
 ### Fixed
 
+- Right-clicking a macro now selects it before opening the context menu, so rename, duplicate, and delete actions always target the clicked macro
 - Clicking on empty space in the step tree now deselects the current step and resets the toolbar buttons
+- Update dialog now displays correctly when using light theme
 
 <!-- lang:zh_tw -->
 
 ### 新增
 
 - 數字輸入欄位現在在空白或無效時會顯示紅色錯誤邊框，僅儲存有效數字，不再默默回退為零
+- 檔案選單現在包含「開啟巨集資料夾」選項，可快速存取巨集檔案
 
 ### 變更
 
 - 步驟樹現在直接在樹狀結構中顯示分支（then/else、模板分支、網格導航），更方便檢視及導覽步驟結構
+- 等待圖片步驟的右側面板現在顯示逾時動作下拉選單，可選擇找不到圖片時停止或繼續執行
+- 設定現在會隨變更自動儲存，不再需要點擊儲存按鈕
+- 對話框視覺改進，加入更清晰的說明文字與更好的版面配置
+- if-any-image 步驟中的模板現在以卡片方式分組顯示，提升可視性與組織性
 
 ### 修正
 
+- 右鍵點擊巨集時現在會先選取該巨集再開啟選單，確保重新命名、複製、刪除操作永遠作用在點擊的巨集上
 - 點擊步驟樹的空白區域現在會取消選取目前步驟，並重置工具列按鈕狀態
+- 更新對話框在淺色主題下現在能正確顯示
 
 <!-- lang:zh_cn -->
 
 ### 新增
 
 - 数字输入字段现在在空白或无效时会显示红色错误边框，仅保存有效数字，不再静默回退为零
+- 文件菜单现在包含「打开宏文件夹」选项，可快速访问宏文件
 
 ### 变更
 
 - 步骤树现在直接在树状结构中显示分支（then/else、模板分支、网格导航），更方便查看及导航步骤结构
+- 等待图片步骤的右侧面板现在显示超时动作下拉菜单，可选择找不到图片时停止或继续执行
+- 设置现在会随变更自动保存，不再需要点击保存按钮
+- 对话框视觉改进，加入更清晰的说明文字与更好的版面配置
+- if-any-image 步骤中的模板现在以卡片方式分组显示，提升可见性与组织性
 
 ### 修复
 
+- 右键点击宏时现在会先选中该宏再打开菜单，确保重命名、复制、删除操作始终作用在点击的宏上
 - 点击步骤树的空白区域现在会取消选中当前步骤，并重置工具栏按钮状态
+- 更新对话框在浅色主题下现在能正确显示
 
 ## v0.5.0
 

@@ -8,6 +8,10 @@
 
 - Numeric input fields now show a red error border when empty or invalid, and only save valid numbers instead of silently falling back to zero
 
+### Changed
+
+- Step tree now displays branches (then/else, template branches, grid navigation) directly in the tree, making it easier to see and navigate step structure
+
 ### Fixed
 
 - Clicking on empty space in the step tree now deselects the current step and resets the toolbar buttons
@@ -18,6 +22,10 @@
 
 - 數字輸入欄位現在在空白或無效時會顯示紅色錯誤邊框，僅儲存有效數字，不再默默回退為零
 
+### 變更
+
+- 步驟樹現在直接在樹狀結構中顯示分支（then/else、模板分支、網格導航），更方便檢視及導覽步驟結構
+
 ### 修正
 
 - 點擊步驟樹的空白區域現在會取消選取目前步驟，並重置工具列按鈕狀態
@@ -27,6 +35,10 @@
 ### 新增
 
 - 数字输入字段现在在空白或无效时会显示红色错误边框，仅保存有效数字，不再静默回退为零
+
+### 变更
+
+- 步骤树现在直接在树状结构中显示分支（then/else、模板分支、网格导航），更方便查看及导航步骤结构
 
 ### 修复
 

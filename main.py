@@ -51,16 +51,16 @@ def preview_update(window):
     QTimer.singleShot(2000, lambda: preview_download_phase(dialog))
 
 
-def preview_download_phase(dialog):
+def preview_download_phase(dialog: UpdateDialog):
     dialog.phase = dialog.PHASE_DOWNLOAD
     dialog.skip_button.setEnabled(False)
     dialog.cancelButton.setEnabled(False)
     dialog.yesButton.setText("Cancel")
     with contextlib.suppress(RuntimeError):
         dialog.yesButton.clicked.disconnect()
-    dialog.yesButton.clicked.connect(dialog.on_cancel_download)
+    dialog.yesButton.clicked.connect(dialog.handle_cancel_download)
     dialog.progress.show()
-    dialog.progress.setValue(33.5)
+    dialog.progress.setValue(34)
     dialog.status_label.setText("6.7 MB / 20.0 MB")
 
 

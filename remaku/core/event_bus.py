@@ -4,6 +4,7 @@ from PySide6.QtCore import QObject, Signal
 class EventBus(QObject):
     switch_page_requested = Signal(str)
     check_updates_requested = Signal()
+    settings_changed = Signal()
     action_triggered = Signal(str)
     new_macro_requested = Signal()
     macro_selected = Signal(str)

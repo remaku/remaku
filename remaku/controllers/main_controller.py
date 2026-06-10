@@ -10,8 +10,16 @@ class MainController:
 
         self.main_window.set_always_on_top(config_model.config.general.always_on_top)
 
+        self.home_controller = HomeController(
+            self.main_window.home_view,
+            self.macro_model,
+        )
+
+        self.settings_controller = SettingsController(self.main_window.settings_view, self.main_window)
+
         event_bus.switch_page_requested.connect(self.switch_page)
         event_bus.check_updates_requested.connect(self.check_updates)
+        event_bus.settings_changed.connect(self.apply_overlay_settings)
     def prompt_update(self, info: UpdateInfo) -> None:
         dialog = UpdateDialog(self.main_window, info)
         dialog.show()

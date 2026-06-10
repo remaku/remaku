@@ -10,7 +10,7 @@ import zipfile
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QFileDialog
 
@@ -118,6 +118,7 @@ class HomeController(QObject):
         event_bus.step_property_changed.connect(self.handle_step_property_changed)
         event_bus.template_meta_changed.connect(self.handle_template_meta_changed)
         event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
+        event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
 
         self.register_shortcuts()
         self.update_undo_redo_state()
@@ -546,6 +547,20 @@ class HomeController(QObject):
             self.load_selected_macro(macro_id)
 
         self.duplicate_current_macro()
+
+    def handle_macro_order_changed(self) -> None:
+        items = [self.view.left_panel.macro_list.item(i) for i in range(self.view.left_panel.macro_list.count())]
+
+        new_order: list[str] = []
+
+        for item in items:
+            if item is not None:
+                name = item.data(Qt.ItemDataRole.UserRole)
+                if isinstance(name, str):
+                    new_order.append(name)
+
+        config_model.config.general.macro_order = new_order
+        config_model.save()
 
     def handle_step_selected(self, step: dict | None) -> None:
         self.selected_branch_parent = None

@@ -34,6 +34,9 @@ class LeftPanel(CardWidget):
         layout.addLayout(header)
 
         self.macro_list = ListWidget(self)
+        self.macro_list.setDragDropMode(ListWidget.DragDropMode.InternalMove)
+        self.macro_list.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.macro_list.model().rowsMoved.connect(self.handle_order_changed)
         self.macro_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.macro_list.customContextMenuRequested.connect(self.handle_context_menu)
         self.macro_list.itemSelectionChanged.connect(self.handle_selection_changed)
@@ -136,3 +139,10 @@ class LeftPanel(CardWidget):
 
         if isinstance(name, str):
             event_bus.macro_delete_requested.emit(name)
+
+    def handle_order_changed(self) -> None:
+        event_bus.macro_order_changed.emit()
+        current = self.macro_list.currentItem()
+        self.macro_list.clearSelection()
+        if current is not None:
+            self.macro_list.setCurrentItem(current)

@@ -53,6 +53,8 @@ class HomeController(QObject):
             "duplicate_macro": self.duplicate_current_macro,
             "import_macro": self.import_macro,
             "export_macro": self.export_current_macro,
+            "check_updates": self.check_updates,
+        }
 
         event_bus.action_triggered.connect(self.handle_toolbar_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
@@ -865,6 +867,9 @@ class HomeController(QObject):
             return
 
         self.view.set_status_text(self.view.tr("Exported macro: {name}").format(name=self.current_macro.meta.name))
+
+    def open_settings(self) -> None:
+        event_bus.switch_page_requested.emit("settings")
 
     def quit_application(self) -> None:
         self.view.window().close()

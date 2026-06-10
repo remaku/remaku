@@ -4,8 +4,9 @@ from PySide6.QtWidgets import QApplication
 
 import remaku.resources.resources_rc  # noqa: F401
 from remaku.controllers.main_controller import MainController
-from remaku.models.config_model import ConfigModel
+from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
+from remaku.services.migration import migrate_legacy_templates
 from remaku.theme import apply_theme
 from remaku.views.main_window import MainWindow
 
@@ -13,13 +14,12 @@ from remaku.views.main_window import MainWindow
 def main():
     app = QApplication(sys.argv)
 
-    config_model = ConfigModel()
     macro_model = MacroModel()
 
-    if not app_config.config.general.templates_migrated:
+    if not config_model.config.general.templates_migrated:
         migrate_legacy_templates(macro_model)
-        app_config.config.general.templates_migrated = True
-        app_config.save()
+        config_model.config.general.templates_migrated = True
+        config_model.save()
 
     apply_theme(config_model.config.general.theme)
 

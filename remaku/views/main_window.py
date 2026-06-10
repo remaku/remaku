@@ -44,3 +44,4 @@ class MainWindow(FluentWindow):
 
     def set_always_on_top(self, always_on_top: bool):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
+        self.show()

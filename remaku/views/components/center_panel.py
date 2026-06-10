@@ -129,16 +129,19 @@ class CenterPanel(CardWidget):
         copy = Action(self.tr("Copy"), self)
         copy.setEnabled(has_selection)
         copy.setShortcut(QKeySequence("Ctrl+C"))
+        copy.triggered.connect(lambda: event_bus.action_triggered.emit("copy"))
         menu.addAction(copy)
 
         cut = Action(self.tr("Cut"), self)
         cut.setEnabled(has_selection)
         cut.setShortcut(QKeySequence("Ctrl+X"))
+        cut.triggered.connect(lambda: event_bus.action_triggered.emit("cut"))
         menu.addAction(cut)
 
         paste = Action(self.tr("Paste"), self)
         paste.setEnabled(has_clipboard)
         paste.setShortcut(QKeySequence("Ctrl+V"))
+        paste.triggered.connect(lambda: event_bus.action_triggered.emit("paste"))
         menu.addAction(paste)
 
         menu.addSeparator()
@@ -146,17 +149,20 @@ class CenterPanel(CardWidget):
         duplicate = Action(self.tr("Duplicate Step"), self)
         duplicate.setEnabled(has_selection)
         duplicate.setShortcut(QKeySequence("Ctrl+D"))
+        duplicate.triggered.connect(lambda: event_bus.action_triggered.emit("duplicate_step"))
         menu.addAction(duplicate)
 
         delete = Action(self.tr("Delete Step"), self)
         delete.setEnabled(has_selection)
         delete.setShortcut(QKeySequence("Del"))
+        delete.triggered.connect(lambda: event_bus.action_triggered.emit("delete_step"))
         menu.addAction(delete)
 
         menu.addSeparator()
 
         wrap = Action(self.tr("Wrap in Repeat"), self)
         wrap.setEnabled(has_selection)
+        wrap.triggered.connect(lambda: event_bus.action_triggered.emit("wrap_in_repeat"))
         menu.addAction(wrap)
 
         target = self.step_list if self.step_list.isVisible() else self

@@ -65,7 +65,7 @@ class HomeController(QObject):
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
         self.step_clipboard: dict | None = None
-        self.toolbar_actions: dict[str, Callable[[], object]] = {
+        self.actions: dict[str, Callable[[], object]] = {
             "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
             "run": self.run_current_macro,
@@ -92,7 +92,7 @@ class HomeController(QObject):
         }
 
         event_bus.overlay_toggled.connect(self.run_current_macro)
-        event_bus.action_triggered.connect(self.handle_toolbar_action)
+        event_bus.action_triggered.connect(self.handle_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
         event_bus.macro_selected.connect(self.handle_macro_selected)
         event_bus.macro_rename_requested.connect(self.handle_macro_rename)
@@ -726,8 +726,8 @@ class HomeController(QObject):
 
         return template_id
 
-    def handle_toolbar_action(self, action_id: str) -> None:
-        action = self.toolbar_actions.get(action_id)
+    def handle_action(self, action_id: str) -> None:
+        action = self.actions.get(action_id)
 
         if action is None:
             return
@@ -740,7 +740,7 @@ class HomeController(QObject):
             return
 
         new_macro_id = str(int(time.time()))
-        new_marco_label = (
+        new_macro_label = (
             f"{self.current_macro.meta.label} Copy" if self.current_macro.meta.label else f"{new_macro_id} Copy"
         )
 
@@ -752,7 +752,7 @@ class HomeController(QObject):
 
         new_macro = copy.deepcopy(self.current_macro)
         new_macro.meta.name = new_macro_id
-        new_macro.meta.label = new_marco_label
+        new_macro.meta.label = new_macro_label
         self.macro_model.save(new_macro)
 
         source_templates = templates_dir(self.current_macro.meta.name)
@@ -763,7 +763,7 @@ class HomeController(QObject):
 
         self.selected_macro_id = new_macro_id
         self.refresh_macro_list()
-        self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_marco_label))
+        self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_macro_label))
 
     def import_failed(self, content: str) -> None:
         show_message_dialog(self.view.window(), self.view.tr("Import failed"), content)

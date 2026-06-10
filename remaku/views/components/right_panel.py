@@ -98,6 +98,11 @@ class RightPanel(ScrollArea):
                 self.add_template_editor(macro, step.template)
                 self.add_slider(self.tr("Threshold"), step.threshold)
                 self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms))
+                self.add_dropdown(
+                    self.tr("On Timeout"),
+                    step.on_timeout,
+                    [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
+                )
             case HoldKeyUntilGoneStep():
                 self.add_text_input(self.tr("Key"), step.key)
                 self.add_template_editor(macro, step.template)
@@ -121,7 +126,7 @@ class RightPanel(ScrollArea):
                 self.add_dropdown(
                     self.tr("On Timeout"),
                     step.on_timeout,
-                    [(self.tr("Skip"), "skip"), (self.tr("Continue"), "continue")],
+                    [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
                 )
             case GridNavStep():
                 self.add_text_input(self.tr("Rows"), str(step.rows))

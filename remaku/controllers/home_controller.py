@@ -1,17 +1,51 @@
 import webbrowser
-
+from remaku.core.event_bus import event_bus
+from remaku.models.config_model import config_model
+from remaku.services.macro_runner import MacroRunner
 from remaku.version import __version__
+from remaku.views.components.about_dialog import AboutDialog
+from remaku.views.components.confirm_dialog import ConfirmDialog
+from remaku.views.components.message_dialog import MessageDialog
+from remaku.views.components.new_macro_dialog import NewMacroDialog
+from remaku.views.components.rename_macro_dialog import RenameMacroDialog
 from remaku.views.home_view import HomeView
 
 
-class HomeController:
-    def __init__(self, view: HomeView):
+class HomeController(QObject):
+    def __init__(
+        self,
+        view: HomeView,
+        macro_model: MacroModel,
+    ):
+        super().__init__()
+
         self.view = view
+        self.macro_model = macro_model
+        self.selected_macro_id = ""
+        self.selected_step: dict | None = None
+        self.selected_branch_parent: dict | None = None
+        self.selected_branch_key = ""
+        self.current_macro: Macro | None = None
         self.current_runner: MacroRunner | None = None
+        self.step_tree: StepTree | None = None
+        self.undo_stacks: dict[str, list[dict]] = {}
+        self.redo_stacks: dict[str, list[dict]] = {}
+
+        event_bus.action_triggered.connect(self.handle_toolbar_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
+        event_bus.macro_selected.connect(self.handle_macro_selected)
         event_bus.macro_rename_requested.connect(self.handle_macro_rename)
         event_bus.macro_delete_requested.connect(self.handle_macro_delete)
         event_bus.macro_duplicate_requested.connect(self.handle_macro_duplicate)
+        event_bus.macro_running_changed.connect(self.handle_macro_running_changed)
+        event_bus.step_selected.connect(self.handle_step_selected)
+        event_bus.branch_selected.connect(self.handle_branch_selected)
+        event_bus.template_capture_requested.connect(self.handle_template_capture)
+        event_bus.template_pick_requested.connect(self.handle_template_pick)
+        event_bus.template_delete_requested.connect(self.handle_template_delete)
+        event_bus.template_add_requested.connect(self.handle_template_add)
+        event_bus.step_add_requested.connect(self.add_step)
+
         self.toolbar_actions: dict[str, Callable[[], object]] = {
             "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
@@ -21,6 +55,11 @@ class HomeController:
             "new_macro": self.handle_new_macro,
             "settings": self.open_settings,
             "quit": self.quit_application,
+            "move_up": lambda: self.move_selected_step(-1),
+            "move_down": lambda: self.move_selected_step(1),
+            "undo": self.undo,
+            "redo": self.redo,
+            "duplicate_macro": self.duplicate_current_macro,
 
     def register_shortcuts(self) -> None:
         shortcut_map = {
@@ -45,6 +84,44 @@ class HomeController:
             shortcut.activated.connect(handler)
             self.shortcuts.append(shortcut)
 
+    def set_current_macro(self, macro: Macro | None) -> None:
+        self.current_macro = macro
+        self.update_undo_redo_state()
+
+    @property
+    def undo_stack(self) -> list[dict]:
+        return self.undo_stacks.setdefault(self.selected_macro_id, [])
+
+    @property
+    def redo_stack(self) -> list[dict]:
+        return self.redo_stacks.setdefault(self.selected_macro_id, [])
+
+    def current_macro_dict(self) -> dict | None:
+        if self.current_runner is None:
+            return None
+
+        return self.current_runner.macro
+
+    def push_undo(self) -> None:
+        macro_dict = self.current_macro_dict()
+        if self.current_runner is None or macro_dict is None:
+            return
+
+        snapshot = copy.deepcopy(macro_dict)
+        self.undo_stack.append(snapshot)
+
+        if len(self.undo_stack) > 50:
+            self.undo_stack.pop(0)
+
+        self.redo_stack.clear()
+        self.update_undo_redo_state()
+
+    def update_undo_redo_state(self) -> None:
+        has_undo = bool(self.current_runner and self.undo_stack)
+        has_redo = bool(self.current_runner and self.redo_stack)
+        self.view.toolbar.undo_button.setEnabled(has_undo)
+        self.view.toolbar.redo_button.setEnabled(has_redo)
+
     def update_step_action_state(self) -> None:
         node = self.selected_step_node()
 
@@ -64,7 +141,6 @@ class HomeController:
             return
 
         self.sync_runner_macro_from_current()
-        self.current_runner.last_snapshot = copy.deepcopy(self.current_runner.macro)
         self.macro_model.save(self.current_macro)
         self.update_undo_redo_state()
 
@@ -74,6 +150,57 @@ class HomeController:
         self.refresh_step_tree()
         self.refresh_selected_step()
         self.save_current_macro()
+
+    def restore_macro_state(self, macro_dict: dict) -> None:
+        if self.current_runner is None:
+            return
+
+        old_steps = list(self.current_macro.steps) if self.current_macro else []
+
+        restored_macro = Macro.from_dict(copy.deepcopy(macro_dict))
+        source_path = self.current_runner.macro_path
+
+        restored_runner = MacroRunner(
+            restored_macro,
+            macro_path=source_path,
+        )
+
+        step_tree = StepTree([step_to_dict(step) for step in restored_macro.steps])
+
+        self.show_loaded_macro(
+            restored_macro,
+            restored_runner,
+            step_tree,
+        )
+
+        self.select_after_undo_redo(old_steps, list(restored_macro.steps))
+
+        self.macro_model.save(restored_macro)
+
+
+    def undo(self) -> None:
+        if self.current_runner is None or not self.undo_stack:
+            return
+
+        current_macro_dict = self.current_macro_dict()
+        if current_macro_dict is not None:
+            self.redo_stack.append(copy.deepcopy(current_macro_dict))
+
+        restored_state = self.undo_stack.pop()
+        self.restore_macro_state(restored_state)
+        self.update_undo_redo_state()
+
+    def redo(self) -> None:
+        if self.current_runner is None or not self.redo_stack:
+            return
+
+        current_macro_dict = self.current_macro_dict()
+        if current_macro_dict is not None:
+            self.undo_stack.append(copy.deepcopy(current_macro_dict))
+
+        restored_state = self.redo_stack.pop()
+        self.restore_macro_state(restored_state)
+        self.update_undo_redo_state()
 
     def refresh_macro_list(self) -> None:
         macro_items = self.macro_model.list_macros()
@@ -243,7 +370,7 @@ class HomeController:
             self.show_macro_load_error(macro_id)
             return
 
-        runner = self.macro_model.create_runner(macro, macro_path(macro_id))
+        runner = MacroRunner(macro, macro_path(macro_id))
         step_tree = StepTree([step_to_dict(step) for step in macro.steps])
         self.show_loaded_macro(macro, runner, step_tree)
 
@@ -593,8 +720,8 @@ class HomeController:
 
         self.push_undo()
         if not self.step_tree.move_step(target_node, direction):
-            if self.current_runner is not None and self.current_runner.undo_stack:
-                self.current_runner.undo_stack.pop()
+            if self.current_runner is not None and self.undo_stack:
+                self.undo_stack.pop()
             self.update_undo_redo_state()
             self.view.set_status_text(self.view.tr("Cannot move selected step"))
             return
@@ -617,6 +744,21 @@ class HomeController:
         self.current_runner.start()
         event_bus.macro_running_changed.emit(True)
         self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
+
+    def handle_macro_running_changed(self, is_running: bool) -> None:
+        if is_running:
+            if self.current_runner is not None:
+                self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
+            return
+
+        if self.current_runner is not None:
+            status = self.current_runner.get_status()
+            if status.last_reason == "user_stopped":
+                self.view.set_status_text(self.view.tr("Stopped macro: {name}").format(name=self.current_runner.label))
+            elif status.last_reason == "done":
+                self.view.set_status_text(self.view.tr("Done: {name}").format(name=self.current_runner.label))
+            elif status.message:
+                self.view.set_status_text(f"{self.current_runner.label}: {status.message}")
 
     def open_logs_folder(self) -> None:
         target = log_dir()

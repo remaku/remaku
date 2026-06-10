@@ -7,6 +7,7 @@ from remaku.paths import macro_path, macros_dir
 DEFAULT_THRESHOLD = 0.85
 DEFAULT_IMAGE_TIMEOUT = 5000
 DEFAULT_KEY_HOLD_MS = 90
+DEFAULT_DELAY_MS = 0
 DEFAULT_LOAD_DELAY_MS = 2000
 DEFAULT_FIND_TIMEOUT_MS = 15000
 DEFAULT_GONE_GRACE_MS = 1500
@@ -56,7 +57,7 @@ class KeyStep:
 @dataclass(slots=True)
 class DelayStep:
     type: str = "delay"
-    ms: int = 0
+    ms: int = DEFAULT_DELAY_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DelayStep":
@@ -393,6 +394,10 @@ def get_step_key(step: dict) -> str:
 
 def get_step_hold_ms(step: dict) -> int:
     return step.get("hold_ms", DEFAULT_KEY_HOLD_MS)
+
+
+def get_step_ms(step: dict) -> int:
+    return step.get("ms", DEFAULT_DELAY_MS)
 
 
 def get_step_load_delay(step: dict) -> int:

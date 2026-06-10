@@ -1,5 +1,7 @@
 import copy
+import ctypes
 import json
+import logging
 import os
 import shutil
 import time
@@ -44,6 +46,8 @@ from remaku.views.components.rename_macro_dialog import RenameMacroDialog
 from remaku.views.home_view import HomeView
 from remaku.views.region_selector import RegionSelector
 
+logger = logging.getLogger(__name__)
+
 
 class HomeController(QObject):
     def __init__(
@@ -65,6 +69,9 @@ class HomeController(QObject):
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
         self.step_clipboard: dict | None = None
+        self.hotkey_ids: list[int] = []
+        self.hotkey_map: dict[int, str] = {}
+        self.hotkey_runners: dict[str, MacroRunner] = {}
         self.actions: dict[str, Callable[[], object]] = {
             "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
@@ -109,10 +116,12 @@ class HomeController(QObject):
         event_bus.macro_meta_changed.connect(self.handle_macro_meta_changed)
         event_bus.step_property_changed.connect(self.handle_step_property_changed)
         event_bus.template_meta_changed.connect(self.handle_template_meta_changed)
+        event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
 
         self.register_shortcuts()
         self.update_undo_redo_state()
         self.refresh_macro_list()
+        self.register_hotkeys()
 
     def register_shortcuts(self) -> None:
         shortcut_map = {
@@ -388,9 +397,10 @@ class HomeController(QObject):
 
         if self.selected_macro_id:
             self.load_selected_macro(self.selected_macro_id)
-            return
+        else:
+            self.show_empty_macro_state()
 
-        self.show_empty_macro_state()
+        self.register_hotkeys()
 
     def sort_macro_items(self, macro_items: list[MacroSummary]) -> list[MacroSummary]:
         order_index = {name: index for index, name in enumerate(config_model.config.general.macro_order)}
@@ -545,6 +555,9 @@ class HomeController(QObject):
             setattr(self.current_macro.meta, field, value)
 
         self.macro_model.save(self.current_macro)
+
+        if field in ("hotkey", "enabled"):
+            self.register_hotkeys()
 
     def handle_step_property_changed(self, key: str, value: str) -> None:
         if self.selected_step is None:
@@ -1352,6 +1365,113 @@ class HomeController(QObject):
         self.sync_macro_steps_from_tree()
         self.save_current_macro()
         self.refresh_step_tree()
+
+    def register_hotkeys(self) -> None:
+        user32 = ctypes.windll.user32
+
+        for hid in self.hotkey_ids:
+            user32.UnregisterHotKey(int(self.view.window().winId()), hid)
+
+        self.hotkey_ids = []
+        self.hotkey_map = {}
+
+        for i, summary in enumerate(self.macro_model.list_macros()):
+            macro = self.macro_model.load(summary.name)
+            if macro is None or not macro.meta.enabled or not macro.meta.hotkey:
+                continue
+
+            mods, vk = self.parse_hotkey(macro.meta.hotkey)
+            if vk == 0:
+                continue
+
+            hid = 0xBF00 + i
+
+            if user32.RegisterHotKey(int(self.view.window().winId()), hid, mods, vk):
+                self.hotkey_ids.append(hid)
+                self.hotkey_map[hid] = summary.name
+                logger.info("Registered hotkey: %s -> %s", macro.meta.hotkey, summary.label)
+            else:
+                logger.warning("Hotkey registration failed: %s", macro.meta.hotkey)
+
+    def parse_hotkey(self, hotkey: str) -> tuple[int, int]:
+        MOD_ALT = 0x0001
+        MOD_CTRL = 0x0002
+        MOD_SHIFT = 0x0004
+        mods = 0
+        vk = 0
+        parts = hotkey.lower().split("+")
+
+        for part in parts:
+            if part == "ctrl":
+                mods |= MOD_CTRL
+            elif part == "alt":
+                mods |= MOD_ALT
+            elif part == "shift":
+                mods |= MOD_SHIFT
+            else:
+                vk = self.key_to_vk(part)
+
+        return mods, vk
+
+    def key_to_vk(self, key: str) -> int:
+        vk_map: dict[str, int] = {
+            "f1": 0x70,
+            "f2": 0x71,
+            "f3": 0x72,
+            "f4": 0x73,
+            "f5": 0x74,
+            "f6": 0x75,
+            "f7": 0x76,
+            "f8": 0x77,
+            "f9": 0x78,
+            "f10": 0x79,
+            "f11": 0x7A,
+            "f12": 0x7B,
+            "space": 0x20,
+            "enter": 0x0D,
+            "return": 0x0D,
+            "tab": 0x09,
+            "esc": 0x1B,
+            "escape": 0x1B,
+            "insert": 0x2D,
+            "delete": 0x2E,
+            "home": 0x24,
+            "end": 0x23,
+            "pageup": 0x21,
+            "pagedown": 0x22,
+            "up": 0x26,
+            "down": 0x28,
+            "left": 0x25,
+            "right": 0x27,
+        }
+
+        if key in vk_map:
+            return vk_map[key]
+
+        if len(key) == 1:
+            return ctypes.windll.user32.VkKeyScanW(ord(key)) & 0xFF
+
+        return 0
+
+    def handle_hotkey_triggered(self, hid: int) -> None:
+        macro_id = self.hotkey_map.get(hid)
+        if macro_id is None:
+            return
+
+        macro = self.macro_model.load(macro_id)
+        if macro is None or not macro.meta.enabled:
+            return
+
+        if self.selected_macro_id == macro_id and self.current_runner is not None and self.current_runner.is_running():
+            self.current_runner.stop()
+            event_bus.macro_running_changed.emit(False)
+            return
+
+        self.selected_macro_id = macro_id
+        self.set_current_macro(macro)
+        self.current_runner = MacroRunner(macro, macro_path=macro_path(macro_id))
+        self.current_runner.start()
+        event_bus.macro_running_changed.emit(True)
 
     def show_about_dialog(self) -> None:
         dialog = AboutDialog(self.view.window(), __version__)

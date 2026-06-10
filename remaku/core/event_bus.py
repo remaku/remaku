@@ -26,6 +26,7 @@ class EventBus(QObject):
     macro_meta_changed = Signal(str, str)
     step_property_changed = Signal(str, str)
     template_meta_changed = Signal(str, str, str)
+    hotkey_triggered = Signal(int)
 
 
 event_bus = EventBus()

@@ -1,7 +1,11 @@
+import ctypes
+import ctypes.wintypes
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentWindow, TransparentToolButton, qrouter
 
+from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
 from remaku.views.home_view import HomeView
 from remaku.views.settings_view import SettingsView
@@ -41,6 +45,16 @@ class MainWindow(FluentWindow):
         super().resizeEvent(e)
         self.titleBar.move(0, 0)
         self.titleBar.resize(self.width(), self.titleBar.height())
+
+    def nativeEvent(self, eventType: bytes | bytearray, message: int) -> object:
+        WM_HOTKEY = 0x0312
+
+        if eventType == b"windows_generic_MSG":
+            msg = ctypes.wintypes.MSG.from_address(int(message))
+            if msg.message == WM_HOTKEY:
+                event_bus.hotkey_triggered.emit(msg.wParam)
+
+        return super().nativeEvent(eventType, message)
 
     def set_always_on_top(self, always_on_top: bool):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)

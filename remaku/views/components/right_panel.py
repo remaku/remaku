@@ -1,5 +1,6 @@
+import pydirectinput as pdi
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QIntValidator
+from PySide6.QtGui import QIntValidator, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -108,7 +109,7 @@ class RightPanel(ScrollArea):
 
         match step:
             case KeyStep():
-                self.add_text_input(self.tr("Key"), step.key, "key")
+                self.add_key_input(self.tr("Key"), step.key)
                 self.add_text_input(self.tr("Hold (ms)"), str(step.hold_ms), "hold_ms")
             case DelayStep():
                 self.add_text_input(self.tr("Duration (ms)"), str(step.ms), "ms")
@@ -123,7 +124,7 @@ class RightPanel(ScrollArea):
                     "on_timeout",
                 )
             case HoldKeyUntilGoneStep():
-                self.add_text_input(self.tr("Key"), step.key, "key")
+                self.add_key_input(self.tr("Key"), step.key)
                 self.add_template_editor(macro, step.template)
                 self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
                 self.add_text_input(self.tr("Load Delay (ms)"), str(step.load_delay_ms), "load_delay_ms")
@@ -289,9 +290,81 @@ class RightPanel(ScrollArea):
         hotkey_edit.setReadOnly(True)
         hotkey_edit.setClearButtonEnabled(True)
 
-        hotkey_edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
+        hotkey_edit.textChanged.connect(
+            lambda text: event_bus.macro_meta_changed.emit("hotkey", "") if not text else None
+        )
+        hotkey_edit.keyPressEvent = lambda e: self.capture_hotkey(e, hotkey_edit)
 
         self.content_layout.addWidget(hotkey_edit)
+
+    def capture_hotkey(self, event: QKeyEvent, edit: LineEdit) -> None:
+        key = event.key()
+
+        if key in (
+            Qt.Key.Key_Shift,
+            Qt.Key.Key_Control,
+            Qt.Key.Key_Alt,
+            Qt.Key.Key_Meta,
+        ):
+            return
+
+        parts: list[str] = []
+        mods = event.modifiers()
+
+        if mods & Qt.KeyboardModifier.ControlModifier:
+            parts.append("ctrl")
+        if mods & Qt.KeyboardModifier.AltModifier:
+            parts.append("alt")
+        if mods & Qt.KeyboardModifier.ShiftModifier:
+            parts.append("shift")
+
+        key_name = QKeySequence(key).toString().lower()
+        parts.append(key_name)
+
+        hotkey_str = "+".join(parts)
+        edit.setText(hotkey_str)
+        event_bus.macro_meta_changed.emit("hotkey", hotkey_str)
+
+    def add_key_input(self, label: str, value: str) -> None:
+        self.add_field_label(label)
+        field = LineEdit(self.content_widget)
+        field.setText(value)
+        field.setReadOnly(True)
+        field.setClearButtonEnabled(True)
+
+        field.textChanged.connect(lambda text: event_bus.step_property_changed.emit("key", "") if not text else None)
+        field.keyPressEvent = lambda e: self.capture_key(e, field)
+
+        self.content_layout.addWidget(field)
+
+    def capture_key(self, event: QKeyEvent, edit: LineEdit) -> None:
+        key = event.key()
+
+        if key in (
+            Qt.Key.Key_Shift,
+            Qt.Key.Key_Control,
+            Qt.Key.Key_Alt,
+            Qt.Key.Key_Meta,
+        ):
+            return
+
+        key_name = QKeySequence(key).toString().lower()
+        key_name = {
+            "return": "enter",
+            "del": "delete",
+            "pgdown": "pagedown",
+            "pgup": "pageup",
+            "ins": "insert",
+            "print": "printscreen",
+        }.get(key_name, key_name)
+
+        if key_name not in pdi.KEYBOARD_MAPPING:
+            return
+
+        edit.blockSignals(True)
+        edit.setText(key_name)
+        edit.blockSignals(False)
+        event_bus.step_property_changed.emit("key", key_name)
 
     def add_enabled_checkbox(self, macro: Macro) -> None:
         self.add_field_label(self.tr("Enabled"))

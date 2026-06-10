@@ -3,15 +3,12 @@ import os
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QTextBrowser, QVBoxLayout
-from qfluentwidgets import BodyLabel, CaptionLabel, MessageBox, MessageBoxBase, ProgressBar, PushButton, SubtitleLabel
+from qfluentwidgets import BodyLabel, CaptionLabel, MessageBoxBase, ProgressBar, PushButton, SubtitleLabel
 
-from remaku.models.config_model import config_model
 from remaku.services.updater import (
     RELEASES_URL,
-    CheckResult,
     Download,
     UpdateInfo,
-    check_async,
     installer_temp_path,
     launch_installer_and_quit,
     open_releases_page,
@@ -53,7 +50,7 @@ class UpdateDialog(MessageBoxBase):
         self.yesButton.setText(self.tr("Install Now"))
         self.cancelButton.setText(self.tr("Later"))
         self.yesButton.clicked.disconnect()
-        self.yesButton.clicked.connect(self.on_install)
+        self.yesButton.clicked.connect(self.handle_install)
 
         self.viewLayout.addWidget(self.title_label)
         self.viewLayout.addSpacing(4)
@@ -70,13 +67,13 @@ class UpdateDialog(MessageBoxBase):
         self.skip_button = PushButton(self.tr("Skip This Version"), self)
         self.buttonLayout.insertWidget(0, self.skip_button)
         self.buttonLayout.insertStretch(1, 1)
-        self.skip_button.clicked.connect(self.on_skip)
+        self.skip_button.clicked.connect(self.handle_skip)
 
-    def on_skip(self) -> None:
+    def handle_skip(self) -> None:
         remember_skip(self.info.tag)
         self.reject()
 
-    def on_install(self) -> None:
+    def handle_install(self) -> None:
         if not self.info.installer_url:
             open_releases_page(self.info.release_url or RELEASES_URL)
             self.close()
@@ -91,7 +88,7 @@ class UpdateDialog(MessageBoxBase):
         self.yesButton.setText(self.tr("Cancel"))
         with contextlib.suppress(RuntimeError):
             self.yesButton.clicked.disconnect()
-        self.yesButton.clicked.connect(self.on_cancel_download)
+        self.yesButton.clicked.connect(self.handle_cancel_download)
 
         self.progress.show()
         self.progress.setValue(0)
@@ -129,7 +126,7 @@ class UpdateDialog(MessageBoxBase):
         downloaded_mb = downloaded / (1024 * 1024)
         self.status_label.setText(self.tr("Downloading {downloaded:.1f} MB").format(downloaded_mb=downloaded_mb))
 
-    def on_cancel_download(self) -> None:
+    def handle_cancel_download(self) -> None:
         if self.download is not None:
             self.download.cancel()
         self.close()
@@ -165,49 +162,3 @@ class UpdateDialog(MessageBoxBase):
     def fallback_browser(self) -> None:
         open_releases_page(self.info.release_url or RELEASES_URL)
         self.close()
-
-
-def prompt_update(parent, info: UpdateInfo) -> UpdateDialog:
-    dialog = UpdateDialog(parent, info)
-    dialog.show()
-    return dialog
-
-
-def check_updates(parent) -> None:
-    def callback(result: CheckResult) -> None:
-        if result.status == "available" and result.info is not None:
-            prompt_update(parent, result.info)
-            return
-
-        if result.status == "up_to_date":
-            dialog = MessageBox(
-                parent.tr("Up to date"),
-                parent.tr("You are already using the latest version."),
-                parent,
-            )
-            dialog.cancelButton.hide()
-            dialog.exec()
-            return
-
-        dialog = MessageBox(
-            parent.tr("Update check failed"),
-            result.error or parent.tr("Unable to check for updates."),
-            parent,
-        )
-        dialog.cancelButton.hide()
-        dialog.exec()
-
-    check_async(parent, callback)
-
-
-def startup_check_update(parent) -> None:
-    def callback(result: CheckResult) -> None:
-        if result.status != "available" or result.info is None:
-            return
-
-        if result.info.tag == config_model.config.general.skipped_version:
-            return
-
-        prompt_update(parent, result.info)
-
-    check_async(parent, callback)

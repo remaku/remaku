@@ -78,7 +78,6 @@ class Toolbar(QWidget):
 
             action.triggered.connect(lambda checked, item_id=item["id"]: event_bus.action_triggered.emit(item_id))
 
-            self.addAction(action)
             menu.addAction(action)
 
         menu.exec(button.mapToGlobal(button.rect().bottomLeft()))

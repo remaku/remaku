@@ -79,6 +79,7 @@ class HomeController(QObject):
             "delete_step": self.delete_selected_step,
             "move_up": lambda: self.move_selected_step(-1),
             "move_down": lambda: self.move_selected_step(1),
+            "wrap_in_repeat": self.wrap_selected_step_in_repeat,
             "undo": self.undo,
             "redo": self.redo,
             "cut": self.cut_selected_steps,
@@ -234,6 +235,37 @@ class HomeController(QObject):
 
         self.macro_model.save(restored_macro)
 
+    # needs improvements
+    def select_after_undo_redo(self, old_steps: list, new_steps: list) -> None:
+        if self.step_tree is None or not self.step_tree.steps:
+            self.selected_step = None
+            self.show_macro_properties(self.current_macro)
+            return
+
+        old_tree = StepTree([step_to_dict(s) for s in old_steps])
+        old_flat = old_tree.flatten()
+        new_flat = self.step_tree.flatten()
+
+        diff_index = 0
+
+        while diff_index < len(old_flat) and diff_index < len(new_flat):
+            if old_flat[diff_index].step != new_flat[diff_index].step:
+                break
+            diff_index += 1
+
+        if diff_index < len(new_flat):
+            target_node = new_flat[diff_index]
+        elif len(new_flat) > 0:
+            prev_index = diff_index - 1 if diff_index > 0 else 0
+            target_node = new_flat[prev_index]
+        else:
+            self.selected_step = None
+            self.show_macro_properties(self.current_macro)
+            return
+
+        self.selected_step = target_node.step
+        self.refresh_step_tree()
+        self.show_step_selection(self.selected_step)
 
     def undo(self) -> None:
         if self.current_runner is None or not self.undo_stack:
@@ -292,6 +324,7 @@ class HomeController(QObject):
             "templates": template_data,
             "template_meta": template_meta,
         }
+        event_bus.clipboard_changed.emit(True)
 
     def cut_selected_steps(self) -> None:
         self.copy_selected_steps()
@@ -1012,6 +1045,22 @@ class HomeController(QObject):
         self.set_selected_step(next_selection.step if next_selection is not None else None)
         self.save_current_macro()
         self.view.set_status_text(self.view.tr("Deleted step"))
+
+    def wrap_selected_step_in_repeat(self) -> None:
+        if self.step_tree is None:
+            self.view.set_status_text(self.view.tr("Select a macro first"))
+            return
+
+        target_node = self.selected_step_node()
+        if target_node is None:
+            self.view.set_status_text(self.view.tr("Select a step first"))
+            return
+
+        self.push_undo()
+        wrapped_node = self.step_tree.wrap_in_repeat([target_node])
+        self.set_selected_step(wrapped_node.step)
+        self.save_current_macro()
+        self.view.set_status_text(self.view.tr("Wrapped step in repeat"))
 
     def move_selected_step(self, direction: int) -> None:
         if self.step_tree is None:

@@ -1,8 +1,9 @@
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QTreeWidgetItem, QVBoxLayout
-from qfluentwidgets import BodyLabel, CardWidget, TreeWidget
+from qfluentwidgets import Action, BodyLabel, CardWidget, RoundMenu, TreeWidget
 
 from remaku.core.event_bus import event_bus
 
@@ -13,6 +14,10 @@ class CenterPanel(CardWidget):
 
         self.item_to_step: dict[QTreeWidgetItem, object] = {}
         self.item_to_branch: dict[QTreeWidgetItem, tuple[object, str]] = {}
+        self.has_clipboard = False
+
+        event_bus.clipboard_changed.connect(self.set_has_clipboard)
+
         self.init_ui()
 
     def init_ui(self):
@@ -105,6 +110,8 @@ class CenterPanel(CardWidget):
         self.step_list.setHeaderHidden(True)
         self.step_list.setSelectionMode(TreeWidget.SelectionMode.ExtendedSelection)
         self.step_list.currentItemChanged.connect(self.handle_step_selected)
+        self.step_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.step_list.customContextMenuRequested.connect(self.handle_context_menu)
         self.content_layout.addWidget(self.step_list, 1)
 
     def add_empty_label(self) -> None:
@@ -112,3 +119,48 @@ class CenterPanel(CardWidget):
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setWordWrap(True)
         self.content_layout.addWidget(self.empty_label)
+
+    def handle_context_menu(self, pos: QPoint) -> None:
+        menu = RoundMenu(parent=self)
+
+        has_selection = bool(self.step_list.selectedItems())
+        has_clipboard = self.has_clipboard
+
+        copy = Action(self.tr("Copy"), self)
+        copy.setEnabled(has_selection)
+        copy.setShortcut(QKeySequence("Ctrl+C"))
+        menu.addAction(copy)
+
+        cut = Action(self.tr("Cut"), self)
+        cut.setEnabled(has_selection)
+        cut.setShortcut(QKeySequence("Ctrl+X"))
+        menu.addAction(cut)
+
+        paste = Action(self.tr("Paste"), self)
+        paste.setEnabled(has_clipboard)
+        paste.setShortcut(QKeySequence("Ctrl+V"))
+        menu.addAction(paste)
+
+        menu.addSeparator()
+
+        duplicate = Action(self.tr("Duplicate Step"), self)
+        duplicate.setEnabled(has_selection)
+        duplicate.setShortcut(QKeySequence("Ctrl+D"))
+        menu.addAction(duplicate)
+
+        delete = Action(self.tr("Delete Step"), self)
+        delete.setEnabled(has_selection)
+        delete.setShortcut(QKeySequence("Del"))
+        menu.addAction(delete)
+
+        menu.addSeparator()
+
+        wrap = Action(self.tr("Wrap in Repeat"), self)
+        wrap.setEnabled(has_selection)
+        menu.addAction(wrap)
+
+        target = self.step_list if self.step_list.isVisible() else self
+        menu.exec(target.mapToGlobal(pos))
+
+    def set_has_clipboard(self, value: bool) -> None:
+        self.has_clipboard = value

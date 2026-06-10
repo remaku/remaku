@@ -7,6 +7,7 @@ class EventBus(QObject):
     overlay_position_changed = Signal(int, int)
     check_updates_requested = Signal()
     settings_changed = Signal()
+    clipboard_changed = Signal(bool)
     action_triggered = Signal(str)
     new_macro_requested = Signal()
     macro_selected = Signal(str)

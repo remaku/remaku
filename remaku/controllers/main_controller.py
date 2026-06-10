@@ -4,8 +4,9 @@ from remaku.views.main_window import MainWindow
 
 
 class MainController:
-    def __init__(self, main_window: MainWindow, config: AppConfig):
+    def __init__(self, main_window: MainWindow, macro_model: MacroModel):
         self.main_window = main_window
+        self.macro_model = macro_model
 
         self.main_window.set_always_on_top(config.general.always_on_top)
 

@@ -259,22 +259,35 @@ class RightPanel(ScrollArea):
 
         self.content_layout.addWidget(combo)
 
+    def refresh_target_windows(self, combo: ComboBox, selected_window: str) -> None:
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self.tr("(Use foreground window)"), userData="")
+
+        for title in window.list_visible_windows():
+            combo.addItem(title, userData=title)
+
+        index = combo.findData(selected_window)
+
+        if index < 0 and selected_window:
+            combo.addItem(selected_window, userData=selected_window)
+            index = combo.count() - 1
+
+        if index >= 0:
+            combo.setCurrentIndex(index)
+
+        combo.blockSignals(False)
+
     def add_target_window_combo(self, macro: Macro) -> None:
         self.add_field_label(self.tr("Target window"))
         target_combo = ComboBox(self.content_widget)
-        target_combo.addItem(self.tr("(Use foreground window)"), userData="")
 
-        for title in window.list_visible_windows():
-            target_combo.addItem(title, userData=title)
+        self.refresh_target_windows(target_combo, macro.meta.target_window)
 
-        index = target_combo.findData(macro.meta.target_window)
-
-        if index < 0 and macro.meta.target_window:
-            target_combo.addItem(macro.meta.target_window, userData=macro.meta.target_window)
-            index = target_combo.count() - 1
-
-        if index >= 0:
-            target_combo.setCurrentIndex(index)
+        target_combo.mousePressEvent = lambda event: (
+            self.refresh_target_windows(target_combo, str(target_combo.currentData() or ""))
+            or ComboBox.mousePressEvent(target_combo, event)
+        )
 
         target_combo.currentIndexChanged.connect(
             lambda index, c=target_combo: event_bus.macro_meta_changed.emit("target_window", str(c.currentData()))

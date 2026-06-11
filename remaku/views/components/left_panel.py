@@ -40,6 +40,7 @@ class LeftPanel(CardWidget):
         self.macro_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.macro_list.customContextMenuRequested.connect(self.handle_context_menu)
         self.macro_list.itemSelectionChanged.connect(self.handle_selection_changed)
+        self.macro_list.itemClicked.connect(self.handle_item_clicked)
         layout.addWidget(self.macro_list, 1)
 
         self.empty_label = BodyLabel(self.tr("No macros yet"), self)
@@ -74,7 +75,12 @@ class LeftPanel(CardWidget):
 
     def handle_selection_changed(self) -> None:
         item = self.macro_list.currentItem()
+        self.emit_macro_selected(item)
 
+    def handle_item_clicked(self, item: QListWidgetItem) -> None:
+        self.emit_macro_selected(item)
+
+    def emit_macro_selected(self, item: QListWidgetItem | None) -> None:
         if item is None:
             return
 

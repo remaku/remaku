@@ -1,10 +1,12 @@
 import contextlib
 import os
+import re
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QLocale, QTimer
 from PySide6.QtWidgets import QTextBrowser, QVBoxLayout
 from qfluentwidgets import BodyLabel, CaptionLabel, MessageBoxBase, ProgressBar, PushButton, SubtitleLabel
 
+from remaku.models.config_model import config_model
 from remaku.services.updater import (
     RELEASES_URL,
     Download,
@@ -15,6 +17,32 @@ from remaku.services.updater import (
     remember_skip,
 )
 from remaku.version import __version__
+
+
+def normalize_language(language: str) -> str:
+    return language.strip().replace("-", "_").lower()
+
+
+def localized_body(body: str) -> str:
+    sections = re.split(r"<!--\s*lang:([\w-]+)\s*-->", body)
+
+    if len(sections) < 3:
+        return body.strip()
+
+    mapping: dict[str, str] = {}
+
+    for index in range(1, len(sections), 2):
+        mapping[normalize_language(sections[index])] = sections[index + 1].strip()
+
+    language = config_model.config.general.language
+
+    if language == "system":
+        language = QLocale.system().name()
+
+    normalized_language = normalize_language(language)
+    base_language = normalized_language.split("_", 1)[0]
+
+    return mapping.get(normalized_language) or mapping.get(base_language) or mapping.get("en") or body.strip()
 
 
 class UpdateDialog(MessageBoxBase):
@@ -38,7 +66,7 @@ class UpdateDialog(MessageBoxBase):
 
         self.notes_box = QTextBrowser(self)
         self.notes_box.setOpenExternalLinks(True)
-        self.notes_box.setMarkdown(self.info.body or self.tr("No release notes available."))
+        self.notes_box.setMarkdown(localized_body(self.info.body) or self.tr("No release notes available."))
         self.notes_box.setMinimumHeight(220)
 
         self.status_label = CaptionLabel("")

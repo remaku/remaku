@@ -137,8 +137,6 @@ class RightPanel(ScrollArea):
                 self.add_template_editor(macro, step.template)
                 self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
                 self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
-                # then
-                # else
             case IfAnyImageStep():
                 self.add_template_list_editor(macro, step.templates)
                 self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")

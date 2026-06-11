@@ -52,10 +52,81 @@ class FakeWindow:
         return 99
 
 
+class FakeMacroListItem:
+    def __init__(self, macro_id: str) -> None:
+        self.macro_id = macro_id
+
+    def data(self, role) -> str:
+        assert role == Qt.ItemDataRole.UserRole
+        return self.macro_id
+
+
+class FakeMacroList:
+    def __init__(self, macro_ids: list[str]) -> None:
+        self.items = [FakeMacroListItem(macro_id) for macro_id in macro_ids]
+        self.current_item: FakeMacroListItem | None = None
+        self.blocked_states: list[bool] = []
+
+    def blockSignals(self, blocked: bool) -> None:
+        self.blocked_states.append(blocked)
+
+    def count(self) -> int:
+        return len(self.items)
+
+    def item(self, index: int) -> FakeMacroListItem:
+        return self.items[index]
+
+    def setCurrentItem(self, item: FakeMacroListItem) -> None:
+        self.current_item = item
+
+
+class FakeLeftPanel:
+    def __init__(self, macro_ids: list[str]) -> None:
+        self.macro_list = FakeMacroList(macro_ids)
+
+
+class FakeCenterPanel:
+    def __init__(self) -> None:
+        self.step_tree_items: list[dict] = []
+        self.selected_step = None
+        self.selected_branch = None
+
+    def set_step_tree(self, items: list[dict], selected_step=None, selected_branch=None) -> None:
+        self.step_tree_items = items
+        self.selected_step = selected_step
+        self.selected_branch = selected_branch
+
+
+class FakeRightPanel:
+    def __init__(self) -> None:
+        self.macro_properties: Macro | None = None
+
+    def show_macro_properties(self, macro: Macro | None) -> None:
+        self.macro_properties = macro
+
+
+class FakeButton:
+    def __init__(self) -> None:
+        self.enabled = True
+
+    def setEnabled(self, enabled: bool) -> None:
+        self.enabled = enabled
+
+
+class FakeToolbar:
+    def __init__(self) -> None:
+        self.undo_button = FakeButton()
+        self.redo_button = FakeButton()
+
+
 class FakeView:
     def __init__(self) -> None:
         self.statuses: list[str] = []
         self.fake_window = FakeWindow()
+        self.left_panel = FakeLeftPanel([])
+        self.center_panel = FakeCenterPanel()
+        self.right_panel = FakeRightPanel()
+        self.toolbar = FakeToolbar()
 
     def set_status_text(self, text: str) -> None:
         self.statuses.append(text)
@@ -88,11 +159,19 @@ class FakeDialog:
 def make_controller() -> HomeController:
     controller = cast(Any, HomeController.__new__(HomeController))
     controller.current_macro = None
+    controller.current_runner = None
     controller.selected_macro_id = ""
     controller.selected_step = None
+    controller.selected_branch_parent = None
+    controller.selected_branch_key = ""
     controller.step_tree = None
     controller.view = FakeView()
     controller.macro_model = cast(MacroModel, FakeMacroModel())
+    controller.editing_locked = False
+    controller.undo_stacks = {}
+    controller.redo_stacks = {}
+    controller.undo_selection_indexes = {}
+    controller.redo_selection_indexes = {}
     return cast(HomeController, controller)
 
 
@@ -186,6 +265,35 @@ def test_register_hotkeys_does_not_store_failed_registration(monkeypatch) -> Non
     assert user32.register_calls == [(99, 0xBF00, 0x0002, 0x70)]
     assert controller.hotkey_ids == []
     assert controller.hotkey_map == {}
+
+
+def test_handle_hotkey_triggered_selects_macro_and_loads_steps(monkeypatch, tmp_path: Path) -> None:
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "target", "label": "Target", "enabled": True},
+            "steps": [{"type": "key", "key": "enter"}],
+        }
+    )
+    model = FakeMacroModel(macros={"target": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.hotkey_map = {0xBF00: "target"}
+    cast(Any, controller.view).left_panel = FakeLeftPanel(["other", "target"])
+    show_loaded_calls = []
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / f"{macro_id}.json")
+    monkeypatch.setattr(home_controller.MacroRunner, "start", lambda self: show_loaded_calls.append("start"))
+
+    controller.handle_hotkey_triggered(0xBF00)
+
+    macro_list = cast(Any, controller.view).left_panel.macro_list
+    assert controller.selected_macro_id == "target"
+    assert controller.current_macro is macro
+    assert controller.step_tree is not None
+    assert controller.step_tree.steps[0]["type"] == "key"
+    assert controller.step_tree.steps[0]["key"] == "enter"
+    assert macro_list.current_item is macro_list.items[1]
+    assert macro_list.blocked_states == [True, False]
+    assert show_loaded_calls == ["start"]
 
 
 def test_parse_step_property_converts_known_types() -> None:

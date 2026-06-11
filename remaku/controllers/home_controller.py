@@ -1610,11 +1610,31 @@ class HomeController(QObject):
             event_bus.macro_running_changed.emit(False)
             return
 
+        runner = MacroRunner(macro, macro_path=macro_path(macro_id))
+        step_tree = StepTree([step_to_dict(step) for step in macro.steps])
+
         self.selected_macro_id = macro_id
-        self.set_current_macro(macro)
-        self.current_runner = MacroRunner(macro, macro_path=macro_path(macro_id))
-        self.current_runner.start()
+        self.show_loaded_macro(macro, runner, step_tree)
+        self.select_macro_list_item(macro_id)
+
+        runner.start()
         event_bus.macro_running_changed.emit(True)
+
+    def select_macro_list_item(self, macro_id: str) -> None:
+        macro_list = self.view.left_panel.macro_list
+        macro_list.blockSignals(True)
+
+        for index in range(macro_list.count()):
+            item = macro_list.item(index)
+
+            if item is None:
+                continue
+
+            if item.data(Qt.ItemDataRole.UserRole) == macro_id:
+                macro_list.setCurrentItem(item)
+                break
+
+        macro_list.blockSignals(False)
 
     def set_editing_locked(self, locked: bool) -> None:
         self.editing_locked = locked

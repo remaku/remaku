@@ -34,16 +34,14 @@ uv run python -m PyInstaller `
   --icon icon.ico `
   --manifest Remaku.manifest `
   --add-data "icon.ico;." `
-  --add-data "src/icons;icons" `
-  --add-data "src/i18n;i18n" `
   --add-data "pyproject.toml;." `
   --version-file version_info.txt `
-  --paths src `
+  --paths remaku `
   --hidden-import win32api `
   --hidden-import win32gui `
   --exclude-module tkinter `
   --exclude-module PyQt5 `
   --exclude-module PyQt6 `
-  src/main.py
+  main.py
 
 iscc /DMyAppVersion="$numericV" installer.iss

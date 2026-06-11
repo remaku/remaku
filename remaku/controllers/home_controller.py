@@ -771,7 +771,6 @@ class HomeController(QObject):
         if self.step_tree is None or self.current_macro is None:
             return
 
-        self.step_tree.sync_from_tree()
         self.current_macro.steps = [parse_step(step) for step in self.step_tree.steps]
 
     def build_step_items(self) -> list[dict]:

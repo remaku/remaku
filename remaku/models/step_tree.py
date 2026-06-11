@@ -1,14 +1,6 @@
 import copy
 
-from remaku.models.step_dict import (
-    StepDict,
-    get_step_branch_names,
-    get_step_branches,
-    get_step_list,
-    get_step_str,
-    get_step_str_list,
-    get_step_type,
-)
+from remaku.models.step_dict import StepDict, get_step_list, get_step_str, get_step_str_list
 from remaku.models.step_node import CONTAINER_CHILD_KEYS, StepNode
 
 
@@ -154,13 +146,6 @@ class StepTree:
             current_target = node
 
         return nodes
-
-    def sync_from_tree(self) -> None:
-        for node in self.root_nodes:
-            node.serialize_children()
-
-    def sync_node_children(self, node: StepNode) -> None:
-        node.serialize_children()
 
     def collect_template_refs(self) -> set[str]:
         refs: set[str] = set()
@@ -409,50 +394,3 @@ class StepTree:
             return keys[next_index]
 
         return None
-
-    @staticmethod
-    def find_sibling_key_raw(
-        step_type: str, current_key: str, direction: int, step: StepDict | None = None
-    ) -> str | None:
-        if step_type == "if_any_image" and step is not None:
-            keys = get_step_branch_names(step)
-            try:
-                index = keys.index(current_key)
-            except ValueError:
-                return None
-
-            next_index = index + direction
-            if 0 <= next_index < len(keys):
-                return keys[next_index]
-
-            return None
-
-        keys = CONTAINER_CHILD_KEYS.get(step_type, [])
-        try:
-            index = keys.index(current_key)
-        except ValueError:
-            return None
-
-        next_index = index + direction
-        if 0 <= next_index < len(keys):
-            return keys[next_index]
-
-        return None
-
-    @staticmethod
-    def get_parent_step_list(parent_step: StepDict, parent_type: str, key: str) -> list[StepDict]:
-        if parent_type == "if_any_image":
-            return get_step_branches(parent_step).setdefault(key, [])
-
-        return get_step_list(parent_step, key)
-
-    def sync_parent_raw(self, node: StepNode) -> None:
-        if node.parent is not None:
-            node.parent.serialize_children()
-
-        for root_node in self.root_nodes:
-            root_node.serialize_children()
-
-    @staticmethod
-    def step_type(step: StepDict) -> str:
-        return get_step_type(step)

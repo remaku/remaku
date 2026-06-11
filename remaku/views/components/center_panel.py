@@ -1,6 +1,6 @@
 from typing import Any
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QModelIndex, QPoint, Qt
 from PySide6.QtGui import QIcon, QKeySequence
 from PySide6.QtWidgets import QTreeWidgetItem, QVBoxLayout
 from qfluentwidgets import Action, BodyLabel, CardWidget, RoundMenu, TreeWidget
@@ -172,6 +172,7 @@ class CenterPanel(CardWidget):
             item = self.step_list.itemAt(event.pos())
             if item is None:
                 self.step_list.clearSelection()
+                self.step_list.setCurrentIndex(QModelIndex())
                 self.handle_step_selected(None)
                 return
             original_mouse_press(event)

@@ -25,6 +25,7 @@
 - Selecting the first or last step now correctly disables the move up or move down button when no further movement is possible
 - Changing the display language now automatically restarts the app, no manual restart needed
 - Update dialog now displays correctly when using light theme
+- Screen capture now falls back to a more compatible method when fast capture is unavailable, avoiding startup failures on unsupported devices
 
 <!-- lang:zh_tw -->
 
@@ -49,6 +50,7 @@
 - 選取第一個或最後一個步驟時現在會正確停用無法再移動方向的上移或下移按鈕
 - 變更顯示語言後現在會自動重啟應用程式，無需手動重開
 - 更新對話框在淺色主題下現在能正確顯示
+- 快速螢幕擷取無法使用時，現在會改用相容性更高的方式，避免不支援的裝置啟動失敗
 
 <!-- lang:zh_cn -->
 
@@ -73,6 +75,7 @@
 - 选中第一个或最后一个步骤时现在会正确禁用无法再移动方向的上移或下移按钮
 - 变更显示语言后现在会自动重启应用程序，无需手动重启
 - 更新对话框在浅色主题下现在能正确显示
+- 快速屏幕捕获无法使用时，现在会改用兼容性更高的方式，避免不支持的设备启动失败
 
 ## v0.5.0
 

@@ -1,0 +1,185 @@
+from dataclasses import dataclass
+from typing import Any, cast
+
+from remaku.controllers import main_controller
+from remaku.controllers.main_controller import MainController
+from remaku.models.config_model import AppConfig
+from remaku.services.engine import Status
+
+
+@dataclass
+class FakeConfigModel:
+    config: AppConfig
+    save_calls: int = 0
+
+    def save(self) -> None:
+        self.save_calls += 1
+
+
+class FakeOverlay:
+    def __init__(self) -> None:
+        self.moved_to: tuple[int, int] | None = None
+        self.text = ""
+        self.show_calls = 0
+        self.hide_calls = 0
+
+    def move(self, x: int, y: int) -> None:
+        self.moved_to = (x, y)
+
+    def set_text(self, text: str) -> None:
+        self.text = text
+
+    def show(self) -> None:
+        self.show_calls += 1
+
+    def hide(self) -> None:
+        self.hide_calls += 1
+
+
+class FakeHomeController:
+    def __init__(self) -> None:
+        self.current_runner: object | None = None
+        self.highlight_calls = 0
+
+    def highlight_current_step(self) -> None:
+        self.highlight_calls += 1
+
+    def describe_step(self, step: dict) -> str:
+        return f"step:{step['type']}"
+
+
+class FakeMainWindow:
+    def __init__(self) -> None:
+        self.switched_to = None
+        self.settings_view = object()
+
+    def switchTo(self, view) -> None:
+        self.switched_to = view
+
+
+class FakeRunner:
+    label = "Sample"
+    start_time = None
+
+    def __init__(self, status: Status) -> None:
+        self.status = status
+        self.current_step = {"type": "key"}
+
+    def get_status(self) -> Status:
+        return self.status
+
+    def template_label(self, template_id: str) -> str:
+        return f"Template {template_id}"
+
+
+def make_controller(
+    monkeypatch,
+) -> tuple[MainController, FakeConfigModel, FakeHomeController, FakeOverlay, FakeMainWindow]:
+    fake_config = FakeConfigModel(AppConfig())
+    fake_home = FakeHomeController()
+    fake_overlay = FakeOverlay()
+    fake_window = FakeMainWindow()
+    monkeypatch.setattr(main_controller, "config_model", fake_config)
+    controller = cast(Any, MainController.__new__(MainController))
+    controller.main_window = fake_window
+    controller.home_controller = fake_home
+    controller.overlay = fake_overlay
+    return cast(MainController, controller), fake_config, fake_home, fake_overlay, fake_window
+
+
+def test_update_overlay_position_saves_config(monkeypatch) -> None:
+    controller, fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+
+    controller.update_overlay_position(12, 34)
+
+    assert fake_config.config.general.overlay_position == (12, 34)
+    assert fake_config.save_calls == 1
+
+
+def test_apply_overlay_settings_moves_overlay(monkeypatch) -> None:
+    controller, fake_config, _home, overlay, _window = make_controller(monkeypatch)
+    fake_config.config.general.overlay_position = (20, 40)
+
+    controller.apply_overlay_settings()
+
+    assert overlay.moved_to == (20, 40)
+
+
+def test_refresh_overlay_hides_when_no_runner(monkeypatch) -> None:
+    controller, _fake_config, _home, overlay, _window = make_controller(monkeypatch)
+
+    controller.refresh_overlay()
+
+    assert overlay.hide_calls == 1
+
+
+def test_refresh_overlay_hides_when_runner_is_not_running(monkeypatch) -> None:
+    controller, _fake_config, home, overlay, _window = make_controller(monkeypatch)
+    home.current_runner = FakeRunner(Status(running=False))
+
+    controller.refresh_overlay()
+
+    assert overlay.hide_calls == 1
+
+
+def test_refresh_overlay_shows_running_status(monkeypatch) -> None:
+    controller, fake_config, home, overlay, _window = make_controller(monkeypatch)
+    fake_config.config.general.overlay_enabled = True
+    home.current_runner = FakeRunner(Status(running=True, progress=1, repeat_total=3, score=0.92, match_id="start"))
+
+    controller.refresh_overlay()
+
+    assert home.highlight_calls == 1
+    assert overlay.show_calls == 1
+    assert "Sample" in overlay.text
+    assert "Loop 1/3" in overlay.text
+    assert "step:key" in overlay.text
+    assert "Template start 92%" in overlay.text
+
+
+def test_switch_page_shows_settings(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, window = make_controller(monkeypatch)
+
+    controller.switch_page("settings")
+
+    assert window.switched_to is window.settings_view
+
+
+def test_startup_check_update_skips_remembered_version(monkeypatch) -> None:
+    controller, fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+    prompts = []
+    callbacks = []
+    fake_config.config.general.skipped_version = "v2.0.0"
+
+    def prompt_update(info: main_controller.UpdateInfo) -> None:
+        prompts.append(info)
+
+    cast(Any, controller).prompt_update = prompt_update
+    monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
+
+    controller.startup_check_update()
+    callbacks[0](
+        main_controller.CheckResult(
+            status="available", info=main_controller.UpdateInfo("v2.0.0", (2, 0, 0, 999999), "", "", "")
+        )
+    )
+
+    assert prompts == []
+
+
+def test_check_updates_prompts_available_update(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+    prompts = []
+    callbacks = []
+    info = main_controller.UpdateInfo("v2.0.0", (2, 0, 0, 999999), "", "", "")
+
+    def prompt_update(info: main_controller.UpdateInfo) -> None:
+        prompts.append(info)
+
+    cast(Any, controller).prompt_update = prompt_update
+    monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
+
+    controller.check_updates()
+    callbacks[0](main_controller.CheckResult(status="available", info=info))
+
+    assert prompts == [info]

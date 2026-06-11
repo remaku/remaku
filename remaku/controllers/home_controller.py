@@ -68,6 +68,8 @@ class HomeController(QObject):
         self.step_tree: StepTree | None = None
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
+        self.undo_selection_indexes: dict[str, list[int | None]] = {}
+        self.redo_selection_indexes: dict[str, list[int | None]] = {}
         self.step_clipboard: dict | None = None
         self.editing_locked = False
         self.hotkey_ids: list[int] = []
@@ -168,6 +170,14 @@ class HomeController(QObject):
     def redo_stack(self) -> list[dict]:
         return self.redo_stacks.setdefault(self.selected_macro_id, [])
 
+    @property
+    def undo_selection_index_stack(self) -> list[int | None]:
+        return self.undo_selection_indexes.setdefault(self.selected_macro_id, [])
+
+    @property
+    def redo_selection_index_stack(self) -> list[int | None]:
+        return self.redo_selection_indexes.setdefault(self.selected_macro_id, [])
+
     def current_macro_dict(self) -> dict | None:
         if self.current_runner is None:
             return None
@@ -183,18 +193,21 @@ class HomeController(QObject):
             macro_path=self.current_runner.macro_path,
         )
 
-    def push_undo(self) -> None:
+    def push_undo(self, restore_selection_index: int | None = None) -> None:
         macro_dict = self.current_macro_dict()
         if self.current_runner is None or macro_dict is None:
             return
 
         snapshot = copy.deepcopy(macro_dict)
         self.undo_stack.append(snapshot)
+        self.undo_selection_index_stack.append(restore_selection_index)
 
         if len(self.undo_stack) > 50:
             self.undo_stack.pop(0)
+            self.undo_selection_index_stack.pop(0)
 
         self.redo_stack.clear()
+        self.redo_selection_index_stack.clear()
         self.update_undo_redo_state()
 
     def update_undo_redo_state(self) -> None:
@@ -240,7 +253,7 @@ class HomeController(QObject):
         self.refresh_selected_step()
         self.save_current_macro()
 
-    def restore_macro_state(self, macro_dict: dict) -> None:
+    def restore_macro_state(self, macro_dict: dict, selection_index: int | None = None) -> None:
         if self.current_runner is None:
             return
 
@@ -262,16 +275,23 @@ class HomeController(QObject):
             step_tree,
         )
 
-        self.select_after_undo_redo(old_steps, list(restored_macro.steps))
+        self.select_after_undo_redo(old_steps, list(restored_macro.steps), selection_index)
 
         self.macro_model.save(restored_macro)
 
-    # needs improvements
-    def select_after_undo_redo(self, old_steps: list, new_steps: list) -> None:
+    def select_after_undo_redo(self, old_steps: list, new_steps: list, selection_index: int | None = None) -> None:
         if self.step_tree is None or not self.step_tree.steps:
             self.selected_step = None
             self.show_macro_properties(self.current_macro)
             return
+
+        if selection_index is not None:
+            target_node = self.step_tree.node_at(selection_index)
+            if target_node is not None:
+                self.selected_step = target_node.step
+                self.refresh_step_tree()
+                self.show_step_selection(self.selected_step)
+                return
 
         old_tree = StepTree([step_to_dict(s) for s in old_steps])
         old_flat = old_tree.flatten()
@@ -305,9 +325,11 @@ class HomeController(QObject):
         current_macro_dict = self.current_macro_dict()
         if current_macro_dict is not None:
             self.redo_stack.append(copy.deepcopy(current_macro_dict))
+            self.redo_selection_index_stack.append(self.selected_step_flat_index())
 
         restored_state = self.undo_stack.pop()
-        self.restore_macro_state(restored_state)
+        selection_index = self.undo_selection_index_stack.pop() if self.undo_selection_index_stack else None
+        self.restore_macro_state(restored_state, selection_index)
         self.update_undo_redo_state()
 
     def redo(self) -> None:
@@ -317,9 +339,11 @@ class HomeController(QObject):
         current_macro_dict = self.current_macro_dict()
         if current_macro_dict is not None:
             self.undo_stack.append(copy.deepcopy(current_macro_dict))
+            self.undo_selection_index_stack.append(self.selected_step_flat_index())
 
         restored_state = self.redo_stack.pop()
-        self.restore_macro_state(restored_state)
+        selection_index = self.redo_selection_index_stack.pop() if self.redo_selection_index_stack else None
+        self.restore_macro_state(restored_state, selection_index)
         self.update_undo_redo_state()
 
     def collect_template_refs_from_steps(self, steps: list[dict]) -> set[str]:
@@ -633,6 +657,16 @@ class HomeController(QObject):
             return None
 
         return self.step_tree.find_node(self.selected_step)
+
+    def selected_step_flat_index(self) -> int | None:
+        selected_node = self.selected_step_node()
+        if self.step_tree is None or selected_node is None:
+            return None
+
+        try:
+            return self.step_tree.flatten().index(selected_node)
+        except ValueError:
+            return None
 
     def selected_step_nodes(self) -> list[StepNode]:
         if self.step_tree is None:
@@ -1200,7 +1234,8 @@ class HomeController(QObject):
             self.view.set_status_text(self.tr("Select a step first"))
             return
 
-        self.push_undo()
+        selection_index = self.selected_step_flat_index()
+        self.push_undo(selection_index)
 
         for node in reversed(selected):
             self.step_tree.delete_node(node)
@@ -1209,9 +1244,9 @@ class HomeController(QObject):
         self.refresh_step_tree()
         self.save_current_macro()
 
-        if self.step_tree.root_nodes:
-            top_level = self.step_tree.root_nodes[0]
-            self.set_selected_step(top_level.step)
+        if selection_index is not None:
+            next_node = self.step_tree.node_at(selection_index) or self.step_tree.node_at(selection_index - 1)
+            self.set_selected_step(next_node.step if next_node is not None else None)
         else:
             self.set_selected_step(None)
 

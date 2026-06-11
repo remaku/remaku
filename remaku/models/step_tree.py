@@ -4,20 +4,24 @@ from remaku.models.step_dict import (
     StepDict,
     get_step_branch_names,
     get_step_branches,
-    get_step_in_list_index,
     get_step_list,
     get_step_str,
     get_step_str_list,
     get_step_type,
-    move_step_in_list,
 )
 from remaku.models.step_node import CONTAINER_CHILD_KEYS, StepNode
 
 
 class StepTree:
     def __init__(self, steps: list[StepDict]) -> None:
-        self.steps = steps
-        self.root_nodes: list[StepNode] = [StepNode(s) for s in steps]
+        self.root_nodes: list[StepNode] = [StepNode(step) for step in steps]
+
+    @property
+    def steps(self) -> list[StepDict]:
+        for node in self.root_nodes:
+            node.serialize_children()
+
+        return [node.step for node in self.root_nodes]
 
     @classmethod
     def from_macro(cls, macro: StepDict) -> "StepTree":
@@ -28,12 +32,14 @@ class StepTree:
         for node in self.root_nodes:
             result.append(node)
             result.extend(node.all_descendants())
+
         return result
 
     def find_node(self, step: StepDict) -> StepNode | None:
         for node in self.flatten():
             if node.step is step:
                 return node
+
         return None
 
     def find_node_by_path(self, path: tuple[tuple[str, int], ...]) -> StepNode | None:
@@ -62,6 +68,7 @@ class StepTree:
         flat = self.flatten()
         if 0 <= flat_index < len(flat):
             return flat[flat_index]
+
         return None
 
     def get_top_level(self, nodes: list[StepNode]) -> list[StepNode]:
@@ -73,52 +80,26 @@ class StepTree:
 
         top_level = self.get_top_level(nodes)
         first = top_level[0]
-        first_parent = first.parent
+        siblings = self.sibling_list(first)
+        indexed_nodes = sorted(
+            ((siblings.index(node), node) for node in top_level if node in siblings),
+            key=lambda item: item[0],
+        )
 
-        insert_key = ""
-        insert_index = 0
-        if first_parent is not None:
-            for key, child_list in first_parent.child_lists():
-                if first in child_list:
-                    insert_key = key
-                    insert_index = child_list.index(first)
-                    break
+        if not indexed_nodes:
+            raise ValueError("Cannot wrap nodes from different sibling lists")
 
-        wrapped_steps = [copy.deepcopy(node.step) for node in top_level]
+        insert_index = indexed_nodes[0][0]
+        wrapped_steps = [copy.deepcopy(node.step) for _, node in indexed_nodes]
+        parent = first.parent
 
-        for node in reversed(top_level):
-            node.remove()
+        for index, node in reversed(indexed_nodes):
+            siblings.pop(index)
+            node.parent = None
 
         repeat_step: StepDict = {"type": "repeat", "count": 1, "steps": wrapped_steps}
-        repeat_node = StepNode(repeat_step)
-
-        if first_parent is not None:
-            raw_list = get_step_list(first_parent.step, insert_key)
-            repeat_node.parent = first_parent
-            first_parent.get_child_list(insert_key).insert(insert_index, repeat_node)
-            raw_list.insert(insert_index, repeat_step)
-        else:
-            positions = []
-            for node in top_level:
-                try:
-                    positions.append(next(index for index, s in enumerate(self.steps) if s is node.step))
-                except StopIteration:
-                    positions.append(-1)
-
-            for node in top_level:
-                try:
-                    index = next(i for i, n in enumerate(self.root_nodes) if n is node)
-                    self.root_nodes.pop(index)
-                    self.steps.pop(index)
-                except StopIteration:
-                    pass
-
-            first_position = positions[0]
-            removed_before = sum(1 for p in positions if 0 <= p < first_position)
-            adjusted_index = first_position - removed_before
-
-            self.steps.insert(adjusted_index, repeat_step)
-            self.root_nodes.insert(adjusted_index, repeat_node)
+        repeat_node = StepNode(repeat_step, parent=parent)
+        siblings.insert(insert_index, repeat_node)
 
         return repeat_node
 
@@ -128,71 +109,41 @@ class StepTree:
 
         for node in top_level:
             dup_step = copy.deepcopy(node.step)
-            dup_node = StepNode(dup_step)
+            dup_node = StepNode(dup_step, parent=node.parent)
+            siblings = self.sibling_list(node)
+            index = self.sibling_index(node)
+            if index < 0:
+                index = len(siblings) - 1
 
-            if node.parent is not None:
-                dup_node.insert_after(node)
-            else:
-                try:
-                    index = self.root_nodes.index(node)
-                except ValueError:
-                    index = len(self.root_nodes)
-                self.root_nodes.insert(index + 1, dup_node)
-                try:
-                    raw_index = next(i for i, s in enumerate(self.steps) if s is node.step)
-                except StopIteration:
-                    raw_index = len(self.steps)
-                self.steps.insert(raw_index + 1, dup_step)
-
+            siblings.insert(index + 1, dup_node)
             duplicates.append(dup_node)
 
         return duplicates
 
     def add_step(self, target_node: StepNode | None, step: StepDict) -> StepNode:
+        node = StepNode(step)
+
         if target_node is None:
-            self.steps.append(step)
-            node = StepNode(step)
             self.root_nodes.append(node)
             return node
 
-        if target_node.step_type == "repeat":
-            get_step_list(target_node.step, "steps").append(step)
-            target_node.clear_caches()
-            return StepNode(step, parent=target_node)
+        default_key = self.default_child_key(target_node)
+        if default_key:
+            child_list = target_node.get_child_list(default_key)
+            node.parent = target_node
+            child_list.append(node)
+            return node
 
-        if target_node.step_type in ("if_image", "if_any_image"):
-            get_step_list(target_node.step, "then").append(step)
-            target_node.clear_caches()
-            return StepNode(step, parent=target_node)
-
-        parent_key = target_node.sibling_key()
-        if target_node.parent is not None and parent_key:
-            raw_list = get_step_list(target_node.parent.step, parent_key)
-            index = next((i for i, s in enumerate(raw_list) if s is target_node.step), len(raw_list))
-            raw_list.insert(index + 1, step)
-            target_node.parent.clear_caches()
-            return StepNode(step, parent=target_node.parent)
-
-        index = next((i for i, s in enumerate(self.steps) if s is target_node.step), len(self.steps))
-        self.steps.insert(index + 1, step)
-        node = StepNode(step)
-        self.root_nodes.insert(index + 1, node)
+        self.insert_node_after(target_node, node)
         return node
 
     def add_step_to_branch(self, parent_node: StepNode, branch_key: str, step: StepDict) -> StepNode:
-        if parent_node.step_type == "if_any_image":
-            branches = get_step_branches(parent_node.step)
-            branches.setdefault(branch_key, []).append(step)
-        else:
-            get_step_list(parent_node.step, branch_key).append(step)
-        parent_node.clear_caches()
-        return StepNode(step, parent=parent_node)
+        node = StepNode(step, parent=parent_node)
+        parent_node.get_child_list(branch_key).append(node)
+        return node
 
     def add_step_to_any_branch(self, parent_node: StepNode, template_id: str, step: StepDict) -> StepNode:
-        branches = get_step_branches(parent_node.step)
-        branches.setdefault(template_id, []).append(step)
-        parent_node.clear_caches()
-        return StepNode(step, parent=parent_node)
+        return self.add_step_to_branch(parent_node, template_id, step)
 
     def insert_steps_after(self, target_node: StepNode | None, steps: list[StepDict]) -> list[StepNode]:
         nodes: list[StepNode] = []
@@ -201,29 +152,25 @@ class StepTree:
             node = self.add_step(current_target, step)
             nodes.append(node)
             current_target = node
+
         return nodes
 
     def sync_from_tree(self) -> None:
-        self.steps[:] = [node.step for node in self.root_nodes]
         for node in self.root_nodes:
-            self.sync_node_children(node)
+            node.serialize_children()
 
     def sync_node_children(self, node: StepNode) -> None:
-        for key, child_list in node.child_lists():
-            if node.step_type == "if_any_image":
-                get_step_branches(node.step)[key] = [child.step for child in child_list]
-            else:
-                node.step[key] = [child.step for child in child_list]
-            for child in child_list:
-                self.sync_node_children(child)
+        node.serialize_children()
 
     def collect_template_refs(self) -> set[str]:
         refs: set[str] = set()
         for node in self.flatten():
             if template_id := get_step_str(node.step, "template"):
                 refs.add(template_id)
+
             for template_id in get_step_str_list(node.step, "templates"):
                 refs.add(template_id)
+
         return refs
 
     def flatten_with_depth(self) -> list[tuple[StepNode, int]]:
@@ -231,6 +178,7 @@ class StepTree:
         for node in self.root_nodes:
             result.append((node, 0))
             self.collect_descendants_with_depth(node, 1, result)
+
         return result
 
     def collect_descendants_with_depth(self, node: StepNode, depth: int, out: list[tuple[StepNode, int]]) -> None:
@@ -240,104 +188,64 @@ class StepTree:
                 self.collect_descendants_with_depth(child, depth + 1, out)
 
     def delete_node(self, node: StepNode) -> None:
-        if node.parent is not None:
-            node.remove()
-        else:
-            try:
-                index = next(i for i, n in enumerate(self.root_nodes) if n is node)
-                self.root_nodes.pop(index)
-                self.steps.pop(index)
-            except StopIteration:
-                pass
+        self.remove_node(node)
 
     def move_step(self, node: StepNode, direction: int) -> bool:
-        if node.parent is None:
-            return self.move_root(node, direction)
-
-        source_parent = node.parent
-        sibling_key = node.sibling_key()
-        source_list = self.get_parent_step_list(source_parent.step, source_parent.step_type, sibling_key)
-        source_index = get_step_in_list_index(source_list, node.step)
+        source_list = self.sibling_list(node)
+        source_index = self.sibling_index(node)
         if source_index < 0:
             return False
 
         new_index = source_index + direction
 
         if 0 <= new_index < len(source_list):
-            neighbor_step = source_list[new_index]
-            if self.try_move_into_container(source_list, source_index, neighbor_step, direction):
-                source_parent.clear_caches()
+            neighbor = source_list[new_index]
+            if self.try_move_into_container(source_list, source_index, neighbor, direction):
                 return True
 
-            move_step_in_list(source_list, source_index, new_index)
-            source_parent.clear_caches()
+            moved = source_list.pop(source_index)
+            source_list.insert(new_index, moved)
             return True
 
-        parent_step = source_parent.step
-        parent_type = get_step_type(parent_step)
-        target_sibling_key = self.find_sibling_key_raw(parent_type, sibling_key, direction, parent_step)
+        if node.parent is None:
+            return False
+
+        source_parent = node.parent
+        sibling_key = node.sibling_key()
+        target_sibling_key = self.find_sibling_key(source_parent, sibling_key, direction)
         if target_sibling_key is not None:
-            dest_list = self.get_parent_step_list(parent_step, parent_type, target_sibling_key)
-            self.move_between_lists(source_list, source_index, dest_list, append=direction == -1)
-            source_parent.clear_caches()
+            dest_list = source_parent.get_child_list(target_sibling_key)
+            self.move_between_lists(source_list, source_index, dest_list, source_parent, append=direction == -1)
             return True
 
         grandparent = source_parent.parent
         if grandparent is not None:
-            parent_key = source_parent.sibling_key()
-            parent_list = self.get_parent_step_list(grandparent.step, grandparent.step_type, parent_key)
-            parent_index = get_step_in_list_index(parent_list, source_parent.step)
+            parent_list = self.sibling_list(source_parent)
+            parent_index = self.sibling_index(source_parent)
             if parent_index < 0:
                 return False
 
             insert_at = parent_index if direction == -1 else parent_index + 1
-            self.move_between_lists(source_list, source_index, parent_list, insert_at=insert_at)
-            source_parent.clear_caches()
-            grandparent.clear_caches()
+            self.move_between_lists(source_list, source_index, parent_list, grandparent, insert_at=insert_at)
             return True
 
-        parent_in_roots = self.root_nodes.index(source_parent) if source_parent in self.root_nodes else -1
+        parent_in_roots = self.sibling_index(source_parent)
         if parent_in_roots < 0:
             return False
 
-        source_list.pop(source_index)
         insert_at = parent_in_roots if direction == -1 else parent_in_roots + 1
-        self.root_nodes.insert(insert_at, node)
-        self.steps.insert(insert_at, node.step)
-        source_parent.clear_caches()
-        node.parent = None
+        self.move_between_lists(source_list, source_index, self.root_nodes, None, insert_at=insert_at)
         return True
 
     def move_root(self, node: StepNode, direction: int) -> bool:
-        try:
-            index = self.root_nodes.index(node)
-        except ValueError:
+        if node.parent is not None:
             return False
 
-        new_index = index + direction
-
-        if 0 <= new_index < len(self.root_nodes):
-            neighbor = self.root_nodes[new_index]
-            if self.try_move_into_container(self.steps, index, neighbor.step, direction):
-                self.root_nodes.pop(index)
-                node.parent = neighbor
-                neighbor.clear_caches()
-                return True
-
-            self.root_nodes[index], self.root_nodes[new_index] = self.root_nodes[new_index], self.root_nodes[index]
-            move_step_in_list(self.steps, index, new_index)
-            return True
-
-        return False
+        return self.move_step(node, direction)
 
     def can_move(self, node: StepNode, direction: int) -> bool:
-        if node.parent is None:
-            return self.can_move_root(node, direction)
-
-        source_parent = node.parent
-        sibling_key = node.sibling_key()
-        source_list = self.get_parent_step_list(source_parent.step, source_parent.step_type, sibling_key)
-        source_index = get_step_in_list_index(source_list, node.step)
+        source_list = self.sibling_list(node)
+        source_index = self.sibling_index(node)
         if source_index < 0:
             return False
 
@@ -345,76 +253,162 @@ class StepTree:
         if 0 <= new_index < len(source_list):
             return True
 
-        parent_type = get_step_type(source_parent.step)
-        target_sibling_key = self.find_sibling_key_raw(parent_type, sibling_key, direction, source_parent.step)
-        if target_sibling_key is not None:
+        if node.parent is None:
+            return False
+
+        source_parent = node.parent
+        sibling_key = node.sibling_key()
+        if self.find_sibling_key(source_parent, sibling_key, direction) is not None:
             return True
 
-        grandparent = source_parent.parent
-        if grandparent is not None:
-            parent_key = source_parent.sibling_key()
-            parent_list = self.get_parent_step_list(grandparent.step, grandparent.step_type, parent_key)
-            parent_index = get_step_in_list_index(parent_list, source_parent.step)
-            if parent_index >= 0:
-                return True
+        if source_parent.parent is not None:
+            return self.sibling_index(source_parent) >= 0
 
         return source_parent in self.root_nodes
 
     def can_move_root(self, node: StepNode, direction: int) -> bool:
-        try:
-            index = self.root_nodes.index(node)
-        except ValueError:
+        if node.parent is not None:
+            return False
+
+        index = self.sibling_index(node)
+        if index < 0:
             return False
 
         new_index = index + direction
         return 0 <= new_index < len(self.root_nodes)
 
+    def sibling_list(self, node: StepNode) -> list[StepNode]:
+        if node.parent is None:
+            return self.root_nodes
+
+        return node.parent.get_child_list(node.sibling_key())
+
+    def sibling_index(self, node: StepNode) -> int:
+        siblings = self.sibling_list(node)
+        for index, sibling in enumerate(siblings):
+            if sibling is node:
+                return index
+
+        return -1
+
+    def next_sibling(self, node: StepNode) -> StepNode | None:
+        siblings = self.sibling_list(node)
+        index = self.sibling_index(node)
+        if index < 0 or index + 1 >= len(siblings):
+            return None
+
+        return siblings[index + 1]
+
+    def prev_sibling(self, node: StepNode) -> StepNode | None:
+        siblings = self.sibling_list(node)
+        index = self.sibling_index(node)
+        if index <= 0:
+            return None
+
+        return siblings[index - 1]
+
+    def insert_node_after(self, target_node: StepNode | None, node: StepNode) -> None:
+        if target_node is None:
+            node.parent = None
+            self.root_nodes.append(node)
+            return
+
+        siblings = self.sibling_list(target_node)
+        index = self.sibling_index(target_node)
+        if index < 0:
+            index = len(siblings) - 1
+
+        node.parent = target_node.parent
+        siblings.insert(index + 1, node)
+
+    def remove_node(self, node: StepNode) -> None:
+        siblings = self.sibling_list(node)
+        index = self.sibling_index(node)
+        if index >= 0:
+            siblings.pop(index)
+
+        node.parent = None
+
+    @staticmethod
+    def default_child_key(node: StepNode) -> str:
+        if node.step_type == "if_any_image":
+            branches = node.branches_map()
+            return next(iter(branches), "")
+
+        keys = CONTAINER_CHILD_KEYS.get(node.step_type, [])
+        return keys[0] if keys else ""
+
     @staticmethod
     def try_move_into_container(
-        source_list: list[StepDict], source_index: int, neighbor_step: StepDict, direction: int
+        source_list: list[StepNode], source_index: int, neighbor: StepNode, direction: int
     ) -> bool:
-        neighbor_type = get_step_type(neighbor_step)
-        keys = CONTAINER_CHILD_KEYS.get(neighbor_type, [])
-
-        if neighbor_type == "if_any_image":
-            branch_names = get_step_branch_names(neighbor_step)
-            if not branch_names:
-                return False
-            child_key = branch_names[0] if direction == 1 else branch_names[-1]
-            dest_list = get_step_branches(neighbor_step)[child_key]
-        elif keys:
-            child_key = keys[0] if direction == 1 else keys[-1]
-            dest_list = get_step_list(neighbor_step, child_key)
-        else:
+        if neighbor.is_leaf:
             return False
 
-        step = source_list.pop(source_index)
-        if direction == -1:
-            dest_list.append(step)
+        moved = source_list[source_index]
+        if neighbor.is_descendant_of(moved):
+            return False
+
+        if neighbor.step_type == "if_any_image":
+            branch_names = list(neighbor.branches_map())
         else:
-            dest_list.insert(0, step)
+            branch_names = CONTAINER_CHILD_KEYS.get(neighbor.step_type, [])
+
+        if not branch_names:
+            return False
+
+        child_key = branch_names[0] if direction == 1 else branch_names[-1]
+        dest_list = neighbor.get_child_list(child_key)
+        moved = source_list.pop(source_index)
+        moved.parent = neighbor
+
+        if direction == -1:
+            dest_list.append(moved)
+        else:
+            dest_list.insert(0, moved)
 
         return True
 
     @staticmethod
     def move_between_lists(
-        source_list: list[StepDict],
+        source_list: list[StepNode],
         source_index: int,
-        dest_list: list[StepDict],
+        dest_list: list[StepNode],
+        parent: StepNode | None,
         *,
         append: bool = False,
         insert_at: int | None = None,
     ) -> None:
-        step = source_list.pop(source_index)
+        node = source_list.pop(source_index)
+        node.parent = parent
+
         if append:
-            dest_list.append(step)
+            dest_list.append(node)
             return
 
         if insert_at is None:
-            dest_list.insert(0, step)
+            dest_list.insert(0, node)
             return
 
-        dest_list.insert(insert_at, step)
+        dest_list.insert(insert_at, node)
+
+    @staticmethod
+    def find_sibling_key(parent: StepNode, current_key: str, direction: int) -> str | None:
+        if parent.step_type == "if_any_image":
+            keys = list(parent.branches_map())
+        else:
+            keys = CONTAINER_CHILD_KEYS.get(parent.step_type, [])
+
+        try:
+            index = keys.index(current_key)
+        except ValueError:
+            return None
+
+        next_index = index + direction
+        if 0 <= next_index < len(keys):
+            return keys[next_index]
+
+        return None
 
     @staticmethod
     def find_sibling_key_raw(
@@ -426,9 +420,11 @@ class StepTree:
                 index = keys.index(current_key)
             except ValueError:
                 return None
+
             next_index = index + direction
             if 0 <= next_index < len(keys):
                 return keys[next_index]
+
             return None
 
         keys = CONTAINER_CHILD_KEYS.get(step_type, [])
@@ -436,29 +432,27 @@ class StepTree:
             index = keys.index(current_key)
         except ValueError:
             return None
+
         next_index = index + direction
         if 0 <= next_index < len(keys):
             return keys[next_index]
+
         return None
 
     @staticmethod
     def get_parent_step_list(parent_step: StepDict, parent_type: str, key: str) -> list[StepDict]:
         if parent_type == "if_any_image":
             return get_step_branches(parent_step).setdefault(key, [])
+
         return get_step_list(parent_step, key)
 
     def sync_parent_raw(self, node: StepNode) -> None:
-        if node.parent is None:
-            return
-        parent = node.parent
-        for key in CONTAINER_CHILD_KEYS.get(parent.step_type, []):
-            cache_key = f"cached_children_{key}"
-            cached = getattr(parent, cache_key, None)
-            if cached is not None:
-                parent.step[key] = [n.step for n in cached]
-        if parent.step_type == "if_any_image":
-            cached_branches = getattr(parent, "cached_branches", None)
-            if cached_branches is not None:
-                for branch_name, nodes in cached_branches.items():
-                    get_step_branches(parent.step)[branch_name] = [n.step for n in nodes]
-        parent.clear_caches()
+        if node.parent is not None:
+            node.parent.serialize_children()
+
+        for root_node in self.root_nodes:
+            root_node.serialize_children()
+
+    @staticmethod
+    def step_type(step: StepDict) -> str:
+        return get_step_type(step)

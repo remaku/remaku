@@ -744,7 +744,7 @@ class HomeController(QObject):
         if self.step_tree is None:
             return []
 
-        return [self.build_step_item(node) for node in self.step_tree.root_nodes]
+        return [self.build_step_item(node, (("steps", index),)) for index, node in enumerate(self.step_tree.root_nodes)]
 
     def refresh_step_tree(self) -> None:
         selected_branch = None
@@ -756,25 +756,31 @@ class HomeController(QObject):
     def show_macro_properties(self, macro: Macro | None) -> None:
         self.view.right_panel.show_macro_properties(macro)
 
-    def build_step_item(self, node: StepNode) -> dict:
+    def build_step_item(self, node: StepNode, path: tuple[tuple[str, int], ...]) -> dict:
         children: list[dict[str, Any]] = []
 
         if node.step_type == "repeat":
             child_list = node.get_child_list("steps")
-            children = [self.build_step_item(child) for child in child_list]
+            children = [
+                self.build_step_item(child, (*path, ("steps", index))) for index, child in enumerate(child_list)
+            ]
         else:
             for branch_key, child_list in node.child_lists():
-                branch_children = [self.build_step_item(child) for child in child_list]
+                branch_children = [
+                    self.build_step_item(child, (*path, (branch_key, index))) for index, child in enumerate(child_list)
+                ]
                 children.append(
                     {
                         "label": self.branch_label(branch_key, node.step),
                         "branch": (node.step, branch_key),
+                        "state_key": ("branch", path, branch_key),
                         "children": branch_children,
                     }
                 )
         return {
             "label": self.describe_step(node.step),
             "step": node.step,
+            "state_key": ("step", path),
             "children": children,
         }
 

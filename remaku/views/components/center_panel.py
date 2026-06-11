@@ -14,6 +14,7 @@ class CenterPanel(CardWidget):
 
         self.item_to_step: dict[QTreeWidgetItem, object] = {}
         self.item_to_branch: dict[QTreeWidgetItem, tuple[object, str]] = {}
+        self.item_to_state_key: dict[QTreeWidgetItem, object] = {}
         self.has_clipboard = False
 
         event_bus.clipboard_changed.connect(self.set_has_clipboard)
@@ -35,10 +36,13 @@ class CenterPanel(CardWidget):
         selected_step: object | None = None,
         selected_branch: tuple[object, str] | None = None,
     ) -> None:
+        collapsed_keys = self.capture_collapsed_state()
+
         self.step_list.blockSignals(True)
         self.step_list.clear()
         self.item_to_step = {}
         self.item_to_branch = {}
+        self.item_to_state_key = {}
         selected_item: QTreeWidgetItem | None = None
 
         for item_data in items:
@@ -60,6 +64,11 @@ class CenterPanel(CardWidget):
                     break
 
         self.step_list.expandAll()
+        self.apply_collapsed_state(collapsed_keys)
+
+        if selected_item is not None:
+            self.expand_item_ancestors(selected_item)
+
         self.step_list.blockSignals(False)
 
         if selected_item is not None:
@@ -74,8 +83,33 @@ class CenterPanel(CardWidget):
         event_bus.branch_selected.emit(None, "")
         event_bus.step_selected.emit(None)
 
+    def capture_collapsed_state(self) -> set[object]:
+        collapsed_keys: set[object] = set()
+
+        for item, state_key in self.item_to_state_key.items():
+            if item.childCount() > 0 and not item.isExpanded():
+                collapsed_keys.add(state_key)
+
+        return collapsed_keys
+
+    def apply_collapsed_state(self, collapsed_keys: set[object]) -> None:
+        for item, state_key in self.item_to_state_key.items():
+            if item.childCount() > 0:
+                item.setExpanded(state_key not in collapsed_keys)
+
+    def expand_item_ancestors(self, item: QTreeWidgetItem) -> None:
+        parent = item.parent()
+
+        while parent is not None:
+            parent.setExpanded(True)
+            parent = parent.parent()
+
     def build_tree_item(self, item_data: dict[str, Any]) -> QTreeWidgetItem:
         item = QTreeWidgetItem([item_data["label"]])
+        state_key = item_data.get("state_key")
+
+        if state_key is not None:
+            self.item_to_state_key[item] = state_key
 
         if "branch" in item_data:
             parent_step, branch_key = item_data["branch"]

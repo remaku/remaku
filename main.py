@@ -1,6 +1,8 @@
 import contextlib
+import platform
 import sys
 
+from loguru import logger
 from PySide6.QtCore import QLocale, QTimer, QTranslator
 from PySide6.QtWidgets import QApplication
 
@@ -8,16 +10,42 @@ import remaku.resources.resources_rc  # noqa: F401
 from remaku.controllers.main_controller import MainController
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
+from remaku.paths import log_dir
 from remaku.services.migration import migrate_legacy_templates
 from remaku.services.updater import UpdateInfo
 from remaku.theme import apply_theme
+from remaku.version import __version__
 from remaku.views.components.update_dialog import UpdateDialog
 from remaku.views.main_window import MainWindow
 
 active_translator: QTranslator | None = None
 
 
+def setup_logging() -> None:
+    logs_path = log_dir()
+    logs_path.mkdir(parents=True, exist_ok=True)
+
+    log_fmt = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<7} | {thread.name}:{module}:{line} | {message}"
+
+    logger.remove()
+    logger.add(logs_path / "remaku.log", format=log_fmt, rotation="2 MB", retention=5, enqueue=True)
+
+    if sys.stderr:
+        logger.add(sys.stderr, format=log_fmt, level="DEBUG")
+
+    sys.excepthook = lambda *args: logger.opt(exception=args).critical("Uncaught exception")
+
+
 def main():
+    setup_logging()
+    logger.info(
+        "Starting Remaku v{} | Python {} | {} {}",
+        __version__,
+        sys.version.split()[0],
+        platform.system(),
+        platform.version(),
+    )
+
     app = QApplication(sys.argv)
     load_translator(app)
 

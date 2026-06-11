@@ -100,11 +100,11 @@ class RightPanel(ScrollArea):
         self.add_hotkey_text_input(macro)
         self.add_enabled_checkbox(macro)
 
-    def show_step_properties(self, macro: Macro, title_text: str, step: Step) -> None:
+    def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
         self.clear_content()
 
         self.add_title_label(title_text)
-        self.add_skip_checkbox(step.skip)
+        self.add_skip_checkbox(step.skip, skip_enabled)
         self.add_note_input(step.note)
 
         match step:
@@ -376,9 +376,10 @@ class RightPanel(ScrollArea):
 
         self.content_layout.addWidget(enabled_checkbox)
 
-    def add_skip_checkbox(self, value: bool) -> None:
+    def add_skip_checkbox(self, value: bool, enabled: bool = True) -> None:
         skip_checkbox = CheckBox(self.tr("Skip"), self.content_widget)
         skip_checkbox.setChecked(value)
+        skip_checkbox.setEnabled(enabled)
 
         skip_checkbox.checkStateChanged.connect(
             lambda state: event_bus.step_property_changed.emit("skip", str(state == Qt.CheckState.Checked))

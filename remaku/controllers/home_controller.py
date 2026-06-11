@@ -596,9 +596,14 @@ class HomeController(QObject):
 
         parsed_value = self.parse_step_property(key, value)
         self.selected_step[key] = parsed_value
+
+        if key == "skip" and self.selected_step.get("type") == "repeat":
+            self.set_descendant_skip(self.selected_step, bool(parsed_value))
+
         self.sync_macro_steps_from_tree()
         self.save_current_macro()
         self.refresh_step_tree()
+        self.refresh_selected_step()
 
     def parse_step_property(self, key: str, value: str) -> int | float | bool | str:
         if key == "skip":
@@ -711,8 +716,11 @@ class HomeController(QObject):
             return
 
         parsed_step = parse_step(step)
+        skip_enabled = not self.is_child_of_skipped_repeat(step)
 
-        self.view.right_panel.show_step_properties(self.current_macro, self.describe_step(step), parsed_step)
+        self.view.right_panel.show_step_properties(
+            self.current_macro, self.describe_step(step), parsed_step, skip_enabled
+        )
 
     def set_selected_step(self, step: dict | None) -> None:
         self.selected_branch_parent = None
@@ -790,6 +798,28 @@ class HomeController(QObject):
             return []
 
         return [parse_step(child.step) for child in parent_node.get_child_list(branch_key)]
+
+    def is_child_of_skipped_repeat(self, step: dict) -> bool:
+        node = self.step_tree.find_node(step) if self.step_tree is not None else None
+        if node is None:
+            return False
+
+        parent = node.parent
+        while parent is not None:
+            if parent.step_type == "repeat" and parent.step.get("skip", False):
+                return True
+
+            parent = parent.parent
+
+        return False
+
+    def set_descendant_skip(self, step: dict, skip: bool) -> None:
+        node = self.step_tree.find_node(step) if self.step_tree is not None else None
+        if node is None:
+            return
+
+        for descendant in node.all_descendants():
+            descendant.step["skip"] = skip
 
     def describe_step(self, step: dict) -> str:
         step_type = step.get("type", "unknown")

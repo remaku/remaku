@@ -62,7 +62,7 @@ class RightPanel(ScrollArea):
         self.setFrameShape(ScrollArea.Shape.NoFrame)
         self.setStyleSheet("background: transparent;")
 
-        self.content_widget = CardWidget()
+        self.content_widget = CardWidget(self)
         self.content_layout = QVBoxLayout(self.content_widget)
 
         self.content_layout.setContentsMargins(8, 8, 8, 8)

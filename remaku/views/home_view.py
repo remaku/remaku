@@ -29,9 +29,9 @@ class HomeView(QWidget):
         splitter.setHandleWidth(1)
         splitter.setStyleSheet("QSplitter::handle { background: transparent; }")
 
-        self.left_panel = LeftPanel()
-        self.center_panel = CenterPanel()
-        self.right_panel = RightPanel()
+        self.left_panel = LeftPanel(splitter)
+        self.center_panel = CenterPanel(splitter)
+        self.right_panel = RightPanel(splitter)
 
         splitter.addWidget(self.left_panel)
         splitter.addWidget(self.center_panel)

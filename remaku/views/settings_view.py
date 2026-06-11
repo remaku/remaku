@@ -20,7 +20,7 @@ class SettingsView(ScrollArea):
         self.setFrameShape(ScrollArea.Shape.NoFrame)
         self.setStyleSheet("background: transparent;")
 
-        self.content_widget = QWidget()
+        self.content_widget = QWidget(self)
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(16, 16, 16, 32)
         self.content_layout.setSpacing(4)
@@ -73,24 +73,24 @@ class SettingsView(ScrollArea):
         self.content_layout.addWidget(label)
 
     def add_checkbox(self, key: str, label: str, checked: bool = False) -> None:
-        card = CardWidget()
+        card = CardWidget(self.content_widget)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(16, 12, 16, 12)
-        checkbox = CheckBox(label)
+        checkbox = CheckBox(label, self.content_widget)
         checkbox.setChecked(checked)
         layout.addWidget(checkbox)
         self.content_layout.addWidget(card)
         self.widgets[key] = checkbox
 
     def add_dropdown(self, key: str, label: str, value: str, options: list[tuple[str, str]]) -> None:
-        card = CardWidget()
+        card = CardWidget(self.content_widget)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(16, 12, 16, 12)
 
-        layout.addWidget(BodyLabel(label))
+        layout.addWidget(BodyLabel(label, card))
         layout.addStretch(1)
 
-        combo = ComboBox()
+        combo = ComboBox(card)
 
         for option_label, option_value in options:
             combo.addItem(self.tr(option_label), userData=option_value)
@@ -106,14 +106,14 @@ class SettingsView(ScrollArea):
         self.widgets[key] = combo
 
     def add_text_input(self, key: str, label: str, value: str) -> None:
-        card = CardWidget()
+        card = CardWidget(self.content_widget)
         layout = QHBoxLayout(card)
         layout.setContentsMargins(16, 12, 16, 12)
 
-        layout.addWidget(BodyLabel(label))
+        layout.addWidget(BodyLabel(label, card))
         layout.addStretch(1)
 
-        edit = LineEdit()
+        edit = LineEdit(card)
         edit.setText(value)
         layout.addWidget(edit)
 

@@ -28,7 +28,7 @@ class OverlayWidget(QWidget):
         layout.setContentsMargins(8, 6, 12, 6)
         layout.setSpacing(6)
 
-        self.button = QPushButton()
+        self.button = QPushButton(self)
         self.button.setFixedSize(24, 24)
         self.button.setIconSize(QSize(16, 16))
         self.button.setIcon(white_icon("pause"))
@@ -39,7 +39,7 @@ class OverlayWidget(QWidget):
         self.button.clicked.connect(event_bus.overlay_toggled.emit)
         layout.addWidget(self.button)
 
-        self.label = QLabel()
+        self.label = QLabel(self)
         self.label.setStyleSheet("color: white; font-size: 13px;")
         layout.addWidget(self.label, 1)
 

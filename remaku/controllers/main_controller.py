@@ -52,6 +52,14 @@ class MainController(QObject):
         config_model.config.general.overlay_position = (x, y)
         config_model.save()
 
+    def translated_status_state(self, state: str) -> str:
+        labels = {
+            "waiting_window": self.tr("Open the selected window to continue"),
+            "waiting_foreground": self.tr("Switch back to the selected window to continue"),
+        }
+
+        return labels.get(state, state)
+
     def refresh_overlay(self) -> None:
         runner = self.home_controller.current_runner
         if runner is None:
@@ -76,7 +84,7 @@ class MainController(QObject):
         message = f"{elapsed_prefix}{message}"
 
         if status.state and status.state not in ("-", "running"):
-            message = f"{elapsed_prefix}{status.state}"
+            message = f"{elapsed_prefix}{self.translated_status_state(status.state)}"
         else:
             if status.progress and status.repeat_total:
                 loop_progress = self.tr("Loop {progress}/{total}").format(

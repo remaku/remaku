@@ -427,6 +427,16 @@
             <translation>執行中：{label}</translation>
         </message>
         <message>
+            <location filename="../../controllers/main_controller.py" line="57" />
+            <source>Open the selected window to continue</source>
+            <translation>請開啟指定的視窗以繼續</translation>
+        </message>
+        <message>
+            <location filename="../../controllers/main_controller.py" line="58" />
+            <source>Switch back to the selected window to continue</source>
+            <translation>請切換回指定的視窗以繼續</translation>
+        </message>
+        <message>
             <location filename="../../controllers/main_controller.py" line="82" />
             <source>Loop {progress}/{total}</source>
             <translation>迴圈 {progress}/{total}</translation>

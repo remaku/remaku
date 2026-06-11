@@ -1,7 +1,7 @@
 import contextlib
 import sys
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QLocale, QTimer, QTranslator
 from PySide6.QtWidgets import QApplication
 
 import remaku.resources.resources_rc  # noqa: F401
@@ -14,9 +14,12 @@ from remaku.theme import apply_theme
 from remaku.views.components.update_dialog import UpdateDialog
 from remaku.views.main_window import MainWindow
 
+active_translator: QTranslator | None = None
+
 
 def main():
     app = QApplication(sys.argv)
+    load_translator(app)
 
     macro_model = MacroModel()
 
@@ -35,6 +38,25 @@ def main():
         QTimer.singleShot(500, lambda: preview_update(window))
 
     sys.exit(app.exec())
+
+
+def load_translator(app: QApplication) -> None:
+    global active_translator
+
+    language = config_model.config.general.language
+
+    if language == "system":
+        language = QLocale.system().name()
+
+    if language not in ("zh_TW", "zh_CN"):
+        return
+
+    translator = QTranslator(app)
+    if not translator.load(f":/remaku/locales/{language}.qm"):
+        return
+
+    app.installTranslator(translator)
+    active_translator = translator
 
 
 def preview_update(window):

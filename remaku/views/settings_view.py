@@ -60,7 +60,7 @@ class SettingsView(ScrollArea):
         )
 
         self.add_section(self.tr("Capture"))
-        self.add_text_input("capture.fps", "FPS", str(config_model.config.capture.fps))
+        self.add_text_input("capture.fps", self.tr("FPS"), str(config_model.config.capture.fps))
 
         self.add_section(self.tr("Input"))
         self.add_text_input("input.jitter_ms", self.tr("Jitter (ms)"), str(config_model.config.input.jitter_ms))

@@ -46,6 +46,7 @@
 
     <file>images/logo.png</file>
 
+    <file>locales/zh_CN.qm</file>
     <file>locales/zh_TW.qm</file>
   </qresource>
 </RCC>

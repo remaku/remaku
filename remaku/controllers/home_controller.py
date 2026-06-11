@@ -442,9 +442,7 @@ class HomeController(QObject):
             new_macro_label = dialog.value()
 
             if not new_macro_label:
-                show_message_dialog(
-                    self.view.window(), self.view.tr("New Macro"), self.view.tr("Macro name cannot be empty.")
-                )
+                show_message_dialog(self.view.window(), self.tr("New Macro"), self.tr("Macro name cannot be empty."))
                 continue
 
             new_macro_id = str(int(time.time()))
@@ -454,7 +452,7 @@ class HomeController(QObject):
 
             self.selected_macro_id = new_macro_id
             self.refresh_macro_list()
-            self.view.set_status_text(self.view.tr("Created macro: {name}").format(name=new_macro_label))
+            self.view.set_status_text(self.tr("Created macro: {name}").format(name=new_macro_label))
 
             return
 
@@ -475,7 +473,7 @@ class HomeController(QObject):
         macro = self.macro_model.load(macro_id)
 
         if macro is None:
-            self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_id))
+            self.view.set_status_text(self.tr("Failed to load macro: {name}").format(name=macro_id))
             return
 
         current_label = macro.meta.label or macro_id
@@ -490,9 +488,7 @@ class HomeController(QObject):
             new_label = dialog.value()
 
             if not new_label:
-                show_message_dialog(
-                    self.view.window(), self.view.tr("Rename Macro"), self.view.tr("Macro name cannot be empty.")
-                )
+                show_message_dialog(self.view.window(), self.tr("Rename Macro"), self.tr("Macro name cannot be empty."))
                 continue
 
             if new_label == current_label:
@@ -502,7 +498,7 @@ class HomeController(QObject):
             self.macro_model.save(macro)
 
             self.refresh_macro_list()
-            self.view.set_status_text(self.view.tr("Renamed macro: {name}").format(name=new_label))
+            self.view.set_status_text(self.tr("Renamed macro: {name}").format(name=new_label))
 
             return
 
@@ -512,18 +508,16 @@ class HomeController(QObject):
 
         confirmed = show_confirm_dialog(
             self.view.window(),
-            self.view.tr("Delete Macro"),
-            self.view.tr('Are you sure you want to delete "{name}"?').format(name=macro_label),
-            self.view.tr("Delete"),
+            self.tr("Delete Macro"),
+            self.tr('Are you sure you want to delete "{name}"?').format(name=macro_label),
+            self.tr("Delete"),
         )
 
         if not confirmed:
             return
 
         if not self.macro_model.delete(macro_id):
-            show_message_dialog(
-                self.view.window(), self.view.tr("Delete Macro"), self.view.tr("Unable to delete the macro.")
-            )
+            show_message_dialog(self.view.window(), self.tr("Delete Macro"), self.tr("Unable to delete the macro."))
             return
 
         template_dir = templates_dir(macro_id)
@@ -539,7 +533,7 @@ class HomeController(QObject):
             self.selected_macro_id = ""
 
         self.refresh_macro_list()
-        self.view.set_status_text(self.view.tr("Deleted macro: {name}").format(name=macro_label))
+        self.view.set_status_text(self.tr("Deleted macro: {name}").format(name=macro_label))
 
     def handle_macro_duplicate(self, macro_id: str) -> None:
         if self.selected_macro_id != macro_id:
@@ -680,7 +674,7 @@ class HomeController(QObject):
         self.selected_branch_key = ""
         self.show_macro_properties(None)
         self.refresh_step_tree()
-        self.view.set_status_text(self.view.tr("Failed to load macro: {name}").format(name=macro_id))
+        self.view.set_status_text(self.tr("Failed to load macro: {name}").format(name=macro_id))
 
     def show_loaded_macro(
         self,
@@ -789,11 +783,11 @@ class HomeController(QObject):
             return self.get_template_label(branch_key)
 
         labels = {
-            "steps": self.view.tr("Steps"),
-            "then": self.view.tr("Then"),
-            "else": self.view.tr("Else"),
-            "on_next_row": self.view.tr("On Next Row"),
-            "on_next_col": self.view.tr("On Next Column"),
+            "steps": self.tr("Steps"),
+            "then": self.tr("Then"),
+            "else": self.tr("Else"),
+            "on_next_row": self.tr("On Next Row"),
+            "on_next_col": self.tr("On Next Column"),
         }
 
         return labels.get(branch_key, branch_key.replace("_", " ").title())
@@ -835,29 +829,29 @@ class HomeController(QObject):
 
         match step_type:
             case "key":
-                label = self.view.tr("Press {key}").format(key=step.get("key", ""))
+                label = self.tr("Press {key}").format(key=step.get("key", ""))
             case "delay":
-                label = self.view.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
+                label = self.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
             case "wait_image":
-                label = self.view.tr("Wait for {template}").format(
+                label = self.tr("Wait for {template}").format(
                     template=self.get_template_label(step.get("template", ""))
                 )
             case "hold_key_until_gone":
-                label = self.view.tr("Hold {key} until {template} gone").format(
+                label = self.tr("Hold {key} until {template} gone").format(
                     key=step.get("key", ""),
                     template=self.get_template_label(step.get("template", "")),
                 )
             case "repeat":
-                label = self.view.tr("Repeat {count} times").format(count=step.get("count", 1))
+                label = self.tr("Repeat {count} times").format(count=step.get("count", 1))
             case "if_image":
-                label = self.view.tr("If image {template}").format(
+                label = self.tr("If image {template}").format(
                     template=self.get_template_label(step.get("template", ""))
                 )
             case "if_any_image":
                 templates = ", ".join([self.get_template_label(t) for t in step.get("templates", [])])
-                label = self.view.tr("If any image {templates}").format(templates=templates)
+                label = self.tr("If any image {templates}").format(templates=templates)
             case "grid_nav":
-                label = self.view.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
+                label = self.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
             case _:
                 label = step_type
 
@@ -902,7 +896,7 @@ class HomeController(QObject):
 
     def duplicate_current_macro(self) -> None:
         if self.current_macro is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         new_macro_id = str(int(time.time()))
@@ -913,7 +907,7 @@ class HomeController(QObject):
         path = macro_path(new_macro_id)
 
         if path.exists():
-            self.view.set_status_text(self.view.tr("Unable to duplicate macro. Please try again."))
+            self.view.set_status_text(self.tr("Unable to duplicate macro. Please try again."))
             return
 
         new_macro = copy.deepcopy(self.current_macro)
@@ -929,17 +923,17 @@ class HomeController(QObject):
 
         self.selected_macro_id = new_macro_id
         self.refresh_macro_list()
-        self.view.set_status_text(self.view.tr("Duplicated macro: {name}").format(name=new_macro_label))
+        self.view.set_status_text(self.tr("Duplicated macro: {name}").format(name=new_macro_label))
 
     def import_failed(self, content: str) -> None:
-        show_message_dialog(self.view.window(), self.view.tr("Import failed"), content)
+        show_message_dialog(self.view.window(), self.tr("Import failed"), content)
 
     def import_macro(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self.view,
-            self.view.tr("Import Macro"),
+            self.tr("Import Macro"),
             "",
-            self.view.tr("Macro ZIP (*.zip)"),
+            self.tr("Macro ZIP (*.zip)"),
         )
 
         if not file_path:
@@ -949,29 +943,27 @@ class HomeController(QObject):
             with zipfile.ZipFile(file_path, "r") as archive:
                 archive_names = set(archive.namelist())
                 if "macro.json" not in archive_names:
-                    self.import_failed(self.view.tr("macro.json is missing from the archive"))
+                    self.import_failed(self.tr("macro.json is missing from the archive"))
                     return
 
                 raw_macro = json.loads(archive.read("macro.json"))
                 if not isinstance(raw_macro, dict):
-                    self.import_failed(self.view.tr("Invalid macro data"))
+                    self.import_failed(self.tr("Invalid macro data"))
                     return
 
                 meta_data = raw_macro.get("meta")
                 if not isinstance(meta_data, dict) or not meta_data.get("name"):
-                    self.import_failed(self.view.tr("Macro metadata is invalid"))
+                    self.import_failed(self.tr("Macro metadata is invalid"))
                     return
 
                 if not isinstance(raw_macro.get("steps"), list):
-                    self.import_failed(self.view.tr("Macro steps are invalid"))
+                    self.import_failed(self.tr("Macro steps are invalid"))
                     return
 
                 refs = StepTree(raw_macro["steps"]).collect_template_refs()
                 missing_templates = sorted(name for name in refs if f"templates/{name}.png" not in archive_names)
                 if missing_templates:
-                    self.import_failed(
-                        self.view.tr("Missing templates: {names}").format(names=", ".join(missing_templates))
-                    )
+                    self.import_failed(self.tr("Missing templates: {names}").format(names=", ".join(missing_templates)))
                     return
 
                 imported_macro_id = str(meta_data["name"])
@@ -986,8 +978,8 @@ class HomeController(QObject):
                 if conflicts:
                     overwrite = show_confirm_dialog(
                         self.view.window(),
-                        self.view.tr("Template conflict"),
-                        self.view.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
+                        self.tr("Template conflict"),
+                        self.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
                     )
 
                 raw_templates = raw_macro.setdefault("templates", {})
@@ -1025,10 +1017,10 @@ class HomeController(QObject):
 
                     raw_templates[name] = entry
         except zipfile.BadZipFile:
-            self.import_failed(self.view.tr("Invalid zip file"))
+            self.import_failed(self.tr("Invalid zip file"))
             return
         except (OSError, json.JSONDecodeError, ValueError):
-            self.import_failed(self.view.tr("Failed to import macro"))
+            self.import_failed(self.tr("Failed to import macro"))
             return
 
         imported_macro = Macro.from_dict(raw_macro)
@@ -1044,7 +1036,7 @@ class HomeController(QObject):
 
         self.selected_macro_id = imported_macro_id
         self.refresh_macro_list()
-        self.view.set_status_text(self.view.tr("Imported macro: {name}").format(name=imported_macro.meta.label))
+        self.view.set_status_text(self.tr("Imported macro: {name}").format(name=imported_macro.meta.label))
 
     def find_template_conflicts(self, macro_name: str, refs: set[str]) -> list[str]:
         return sorted(name for name in refs if (template_path(macro_name, name)).exists())
@@ -1066,15 +1058,15 @@ class HomeController(QObject):
 
     def export_current_macro(self) -> None:
         if self.current_macro is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         suggested_path = macro_path(self.current_macro.meta.name).with_suffix(".zip")
         file_path, _ = QFileDialog.getSaveFileName(
             self.view,
-            self.view.tr("Export Macro"),
+            self.tr("Export Macro"),
             str(suggested_path),
-            self.view.tr("Macro ZIP (*.zip)"),
+            self.tr("Macro ZIP (*.zip)"),
         )
 
         if not file_path:
@@ -1096,10 +1088,10 @@ class HomeController(QObject):
                     if png_path.exists():
                         archive.write(png_path, f"templates/{name}.png")
         except OSError:
-            self.view.set_status_text(self.view.tr("Failed to export macro"))
+            self.view.set_status_text(self.tr("Failed to export macro"))
             return
 
-        self.view.set_status_text(self.view.tr("Exported macro: {name}").format(name=self.current_macro.meta.name))
+        self.view.set_status_text(self.tr("Exported macro: {name}").format(name=self.current_macro.meta.name))
 
     def open_settings(self) -> None:
         event_bus.switch_page_requested.emit("settings")
@@ -1128,13 +1120,13 @@ class HomeController(QObject):
 
     def add_step(self, step_type: str) -> None:
         if self.step_tree is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         new_step = self.add_step_factory(step_type)
 
         if new_step is None:
-            self.view.set_status_text(self.view.tr("Unknown step type"))
+            self.view.set_status_text(self.tr("Unknown step type"))
             return
 
         self.push_undo()
@@ -1143,7 +1135,7 @@ class HomeController(QObject):
             parent_node = self.step_tree.find_node(self.selected_branch_parent)
 
             if parent_node is None:
-                self.view.set_status_text(self.view.tr("Select a valid branch first"))
+                self.view.set_status_text(self.tr("Select a valid branch first"))
                 return
 
             new_node = self.step_tree.add_step_to_branch(parent_node, self.selected_branch_key, step_to_dict(new_step))
@@ -1165,12 +1157,12 @@ class HomeController(QObject):
 
     def duplicate_selected_step(self) -> None:
         if self.step_tree is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         selected = self.selected_step_nodes()
         if not selected:
-            self.view.set_status_text(self.view.tr("Select a step first"))
+            self.view.set_status_text(self.tr("Select a step first"))
             return
 
         self.push_undo()
@@ -1181,16 +1173,16 @@ class HomeController(QObject):
 
         self.mutate_current_macro()
         self.set_selected_step(duplicated[-1].step)
-        self.view.set_status_text(self.view.tr("Duplicated step"))
+        self.view.set_status_text(self.tr("Duplicated step"))
 
     def delete_selected_step(self) -> None:
         if self.step_tree is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         selected = self.selected_step_nodes()
         if not selected:
-            self.view.set_status_text(self.view.tr("Select a step first"))
+            self.view.set_status_text(self.tr("Select a step first"))
             return
 
         self.push_undo()
@@ -1208,16 +1200,16 @@ class HomeController(QObject):
         else:
             self.set_selected_step(None)
 
-        self.view.set_status_text(self.view.tr("Deleted step"))
+        self.view.set_status_text(self.tr("Deleted step"))
 
     def wrap_selected_step_in_repeat(self) -> None:
         if self.step_tree is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         selected = self.selected_step_nodes()
         if not selected:
-            self.view.set_status_text(self.view.tr("Select a step first"))
+            self.view.set_status_text(self.tr("Select a step first"))
             return
 
         top_level = self.step_tree.get_top_level(selected)
@@ -1228,16 +1220,16 @@ class HomeController(QObject):
         wrapped_node = self.step_tree.wrap_in_repeat(top_level)
         self.set_selected_step(wrapped_node.step)
         self.save_current_macro()
-        self.view.set_status_text(self.view.tr("Wrapped step in repeat"))
+        self.view.set_status_text(self.tr("Wrapped step in repeat"))
 
     def move_selected_step(self, direction: int) -> None:
         if self.step_tree is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         target_node = self.selected_step_node()
         if target_node is None:
-            self.view.set_status_text(self.view.tr("Select a step first"))
+            self.view.set_status_text(self.tr("Select a step first"))
             return
 
         self.push_undo()
@@ -1245,42 +1237,42 @@ class HomeController(QObject):
             if self.current_runner is not None and self.undo_stack:
                 self.undo_stack.pop()
             self.update_undo_redo_state()
-            self.view.set_status_text(self.view.tr("Cannot move selected step"))
+            self.view.set_status_text(self.tr("Cannot move selected step"))
             return
 
         self.set_selected_step(target_node.step)
         self.save_current_macro()
-        self.view.set_status_text(self.view.tr("Moved step"))
+        self.view.set_status_text(self.tr("Moved step"))
 
     def run_current_macro(self) -> None:
         if self.current_runner is None:
-            self.view.set_status_text(self.view.tr("Select a macro first"))
+            self.view.set_status_text(self.tr("Select a macro first"))
             return
 
         if self.current_runner.is_running():
             self.current_runner.stop()
             event_bus.macro_running_changed.emit(False)
-            self.view.set_status_text(self.view.tr("Stopping macro: {name}").format(name=self.current_runner.label))
+            self.view.set_status_text(self.tr("Stopping macro: {name}").format(name=self.current_runner.label))
             return
 
         self.current_runner.start()
         event_bus.macro_running_changed.emit(True)
-        self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
+        self.view.set_status_text(self.tr("Running macro: {name}").format(name=self.current_runner.label))
 
     def handle_macro_running_changed(self, is_running: bool) -> None:
         self.set_editing_locked(is_running)
 
         if is_running:
             if self.current_runner is not None:
-                self.view.set_status_text(self.view.tr("Running macro: {name}").format(name=self.current_runner.label))
+                self.view.set_status_text(self.tr("Running macro: {name}").format(name=self.current_runner.label))
             return
 
         if self.current_runner is not None:
             status = self.current_runner.get_status()
             if status.last_reason == "user_stopped":
-                self.view.set_status_text(self.view.tr("Stopped macro: {name}").format(name=self.current_runner.label))
+                self.view.set_status_text(self.tr("Stopped macro: {name}").format(name=self.current_runner.label))
             elif status.last_reason == "done":
-                self.view.set_status_text(self.view.tr("Done: {name}").format(name=self.current_runner.label))
+                self.view.set_status_text(self.tr("Done: {name}").format(name=self.current_runner.label))
             elif status.message:
                 self.view.set_status_text(f"{self.current_runner.label}: {status.message}")
 
@@ -1330,7 +1322,7 @@ class HomeController(QObject):
         if old_meta is not None and old_meta.label and not new_meta.label:
             new_meta.label = old_meta.label
         else:
-            new_meta.label = self.view.tr("Template {id}").format(id=new_template_id)
+            new_meta.label = self.tr("Template {id}").format(id=new_template_id)
 
         step_type = self.selected_step.get("type", "")
 
@@ -1362,7 +1354,7 @@ class HomeController(QObject):
         new_template_id = str(int(time.time()))
 
         file_path, _ = QFileDialog.getOpenFileName(
-            self.view, self.view.tr("Select Template Image"), "", self.view.tr("PNG Images (*.png)")
+            self.view, self.tr("Select Template Image"), "", self.tr("PNG Images (*.png)")
         )
 
         if not file_path:
@@ -1397,7 +1389,7 @@ class HomeController(QObject):
         if old_meta is not None and old_meta.label and not new_meta.label:
             new_meta.label = old_meta.label
         else:
-            new_meta.label = self.view.tr("Template {id}").format(id=new_template_id)
+            new_meta.label = self.tr("Template {id}").format(id=new_template_id)
 
         step_type = self.selected_step.get("type", "")
 

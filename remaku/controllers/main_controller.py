@@ -1,4 +1,4 @@
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QTimer
 
 from remaku.controllers.home_controller import HomeController
 from remaku.controllers.settings_controller import SettingsController
@@ -12,8 +12,10 @@ from remaku.views.components.update_dialog import UpdateDialog
 from remaku.views.main_window import MainWindow
 
 
-class MainController:
+class MainController(QObject):
     def __init__(self, main_window: MainWindow, macro_model: MacroModel):
+        super().__init__(main_window)
+
         self.main_window = main_window
         self.macro_model = macro_model
 
@@ -70,14 +72,14 @@ class MainController:
             elapsed = int(status.elapsed_s)
             elapsed_prefix = f"{elapsed // 60:02d}:{elapsed % 60:02d} | "
 
-        message = self.main_window.tr("Running: {label}").format(label=label)
+        message = self.tr("Running: {label}").format(label=label)
         message = f"{elapsed_prefix}{message}"
 
         if status.state and status.state not in ("-", "running"):
             message = f"{elapsed_prefix}{status.state}"
         else:
             if status.progress and status.repeat_total:
-                loop_progress = self.main_window.tr("Loop {progress}/{total}").format(
+                loop_progress = self.tr("Loop {progress}/{total}").format(
                     progress=status.progress,
                     total=status.repeat_total,
                 )
@@ -118,15 +120,15 @@ class MainController:
             if result.status == "up_to_date":
                 show_message_dialog(
                     self.main_window,
-                    self.main_window.tr("Up to date"),
-                    self.main_window.tr("You are already using the latest version."),
+                    self.tr("Up to date"),
+                    self.tr("You are already using the latest version."),
                 )
                 return
 
             show_message_dialog(
                 self.main_window,
-                self.main_window.tr("Update check failed"),
-                result.error or self.main_window.tr("Unable to check for updates."),
+                self.tr("Update check failed"),
+                result.error or self.tr("Unable to check for updates."),
             )
 
         check_async(self.main_window, callback)

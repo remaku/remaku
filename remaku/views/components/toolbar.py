@@ -71,7 +71,7 @@ class Toolbar(QWidget):
                 menu.addSeparator()
                 continue
 
-            action = Action(self.tr(item["label"]), self)
+            action = Action(item["label"], self)
 
             if "shortcut" in item:
                 action.setShortcut(QKeySequence(item["shortcut"]))
@@ -89,16 +89,16 @@ class Toolbar(QWidget):
         self.popup_menu(
             self.file_menu_button,
             [
-                {"id": "new_macro", "label": "New Macro", "shortcut": "Ctrl+N"},
-                {"id": "duplicate_macro", "label": "Duplicate Macro"},
+                {"id": "new_macro", "label": self.tr("New Macro"), "shortcut": "Ctrl+N"},
+                {"id": "duplicate_macro", "label": self.tr("Duplicate Macro")},
                 {"separator": True},
-                {"id": "import_macro", "label": "Import Macro"},
-                {"id": "export_macro", "label": "Export Macro"},
-                {"id": "open_macro_folder", "label": "Open Macro Folder"},
+                {"id": "import_macro", "label": self.tr("Import Macro")},
+                {"id": "export_macro", "label": self.tr("Export Macro")},
+                {"id": "open_macro_folder", "label": self.tr("Open Macro Folder")},
                 {"separator": True},
-                {"id": "settings", "label": "Settings", "shortcut": "Ctrl+,"},
+                {"id": "settings", "label": self.tr("Settings"), "shortcut": "Ctrl+,"},
                 {"separator": True},
-                {"id": "quit", "label": "Quit"},
+                {"id": "quit", "label": self.tr("Quit")},
             ],
         )
 
@@ -106,19 +106,19 @@ class Toolbar(QWidget):
         self.popup_menu(
             self.edit_menu_button,
             [
-                {"id": "undo", "label": "Undo", "shortcut": "Ctrl+Z"},
-                {"id": "redo", "label": "Redo", "shortcut": "Ctrl+Y"},
+                {"id": "undo", "label": self.tr("Undo"), "shortcut": "Ctrl+Z"},
+                {"id": "redo", "label": self.tr("Redo"), "shortcut": "Ctrl+Y"},
                 {"separator": True},
-                {"id": "cut", "label": "Cut", "shortcut": "Ctrl+X"},
-                {"id": "copy", "label": "Copy", "shortcut": "Ctrl+C"},
-                {"id": "paste", "label": "Paste", "shortcut": "Ctrl+V"},
+                {"id": "cut", "label": self.tr("Cut"), "shortcut": "Ctrl+X"},
+                {"id": "copy", "label": self.tr("Copy"), "shortcut": "Ctrl+C"},
+                {"id": "paste", "label": self.tr("Paste"), "shortcut": "Ctrl+V"},
                 {"separator": True},
-                {"id": "add_step", "label": "Add Step", "shortcut": "Ctrl+Shift+N"},
-                {"id": "duplicate_step", "label": "Duplicate Step", "shortcut": "Ctrl+D"},
-                {"id": "delete_step", "label": "Delete Step", "shortcut": "Del"},
+                {"id": "add_step", "label": self.tr("Add Step"), "shortcut": "Ctrl+Shift+N"},
+                {"id": "duplicate_step", "label": self.tr("Duplicate Step"), "shortcut": "Ctrl+D"},
+                {"id": "delete_step", "label": self.tr("Delete Step"), "shortcut": "Del"},
                 {"separator": True},
-                {"id": "move_up", "label": "Move Up", "shortcut": "Alt+Up"},
-                {"id": "move_down", "label": "Move Down", "shortcut": "Alt+Down"},
+                {"id": "move_up", "label": self.tr("Move Up"), "shortcut": "Alt+Up"},
+                {"id": "move_down", "label": self.tr("Move Down"), "shortcut": "Alt+Down"},
             ],
         )
 
@@ -126,11 +126,11 @@ class Toolbar(QWidget):
         self.popup_menu(
             self.help_menu_button,
             [
-                {"id": "about", "label": "About"},
-                {"id": "support_author", "label": "Support the Author"},
-                {"id": "check_updates", "label": "Check for Updates"},
+                {"id": "about", "label": self.tr("About")},
+                {"id": "support_author", "label": self.tr("Support the Author")},
+                {"id": "check_updates", "label": self.tr("Check for Updates")},
                 {"separator": True},
-                {"id": "open_logs", "label": "Open Logs"},
+                {"id": "open_logs", "label": self.tr("Open Logs")},
             ],
         )
 

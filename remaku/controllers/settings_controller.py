@@ -1,4 +1,7 @@
-from PySide6.QtCore import QObject, Qt
+import sys
+
+from PySide6.QtCore import QObject, QProcess, Qt
+from PySide6.QtWidgets import QApplication
 from qfluentwidgets import CheckBox, ComboBox, LineEdit
 
 from remaku.core.event_bus import event_bus
@@ -82,8 +85,17 @@ class SettingsController(QObject):
         attr_name = parts[1]
 
         section = getattr(config_model.config, section_name)
+        old_value = getattr(section, attr_name)
+
+        if old_value == value:
+            return
+
         setattr(section, attr_name, value)
         config_model.save()
+
+        if key == "general.language":
+            self.restart_application()
+            return
 
         if key == "general.always_on_top":
             self.main_window.set_always_on_top(bool(value))
@@ -93,3 +105,18 @@ class SettingsController(QObject):
 
         elif key == "general.overlay_enabled":
             event_bus.settings_changed.emit()
+
+    def restart_application(self) -> None:
+        app = QApplication.instance()
+        if app is None:
+            return
+
+        program = QApplication.applicationFilePath()
+        arguments = sys.argv[1:]
+
+        if not program:
+            program = sys.executable
+            arguments = sys.argv
+
+        if QProcess.startDetached(program, arguments):
+            app.quit()

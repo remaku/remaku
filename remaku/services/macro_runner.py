@@ -90,6 +90,7 @@ class MacroRunner(Engine):
         self.target_window = macro.meta.target_window or ""
         self.template_names = list(macro.templates.keys())
         self.macro = macro.to_dict()
+        self.current_step_path: tuple[tuple[str, int], ...] | None = None
         self.grid_counters: dict[int, int] = {}
         self.repeat_depth: int = 0
 
@@ -109,9 +110,11 @@ class MacroRunner(Engine):
             return
 
         self.current_step: dict | None = None
+        self.current_step_path = None
         self.update(state="running")
         self.exec_steps(steps)
         self.current_step = None
+        self.current_step_path = None
         if self.status.running:
             self.finish(StopReason.DONE, "done")
 
@@ -128,17 +131,27 @@ class MacroRunner(Engine):
 
         return result
 
-    def exec_steps(self, steps: list[dict]) -> None:
-        for step in steps:
+    def exec_steps(
+        self,
+        steps: list[dict],
+        parent_path: tuple[tuple[str, int], ...] = (),
+        branch_key: str = "steps",
+    ) -> None:
+        for index, step in enumerate(steps):
             if self.stop_event.is_set():
                 raise Stopped
             if not self.status.running:
                 return
+
+            step_path = (*parent_path, (branch_key, index))
+
             if step.get("type") not in ("repeat",):
                 self.current_step = step
-            self.exec_step(step)
+                self.current_step_path = step_path
 
-    def exec_step(self, step: dict) -> None:
+            self.exec_step(step, step_path)
+
+    def exec_step(self, step: dict, step_path: tuple[tuple[str, int], ...]) -> None:
         if step.get("skip"):
             return
 
@@ -189,7 +202,7 @@ class MacroRunner(Engine):
                 logger.info("{}: repeat {}/{}", self.name, i + 1, count)
 
                 self.repeat_depth += 1
-                self.exec_steps(sub_steps)
+                self.exec_steps(sub_steps, step_path, "steps")
                 self.repeat_depth -= 1
 
                 if not self.status.running:
@@ -203,9 +216,9 @@ class MacroRunner(Engine):
             found = self.wait_for_template(template, timeout, threshold=threshold)
 
             if found:
-                self.exec_steps(step.get("then", []))
+                self.exec_steps(step.get("then", []), step_path, "then")
             else:
-                self.exec_steps(step.get("else", []))
+                self.exec_steps(step.get("else", []), step_path, "else")
 
         elif action == "if_any_image":
             timeout = get_step_timeout(step)
@@ -225,7 +238,7 @@ class MacroRunner(Engine):
                 return
 
             if result in branches:
-                self.exec_steps(branches[result])
+                self.exec_steps(branches[result], step_path, result)
 
         elif action == "grid_nav":
             rows = get_step_rows(step)
@@ -236,9 +249,9 @@ class MacroRunner(Engine):
             self.grid_counters[step_id] = counter + 1
 
             if (position + 1) % rows == 0:
-                self.exec_steps(step.get("on_next_col", []))
+                self.exec_steps(step.get("on_next_col", []), step_path, "on_next_col")
             else:
-                self.exec_steps(step.get("on_next_row", []))
+                self.exec_steps(step.get("on_next_row", []), step_path, "on_next_row")
 
         elif action == "hold_key_until_gone":
             self.do_hold_key_until_gone(step)

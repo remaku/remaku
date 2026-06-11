@@ -1559,6 +1559,37 @@ class HomeController(QObject):
 
         self.view.center_panel.step_list.setDisabled(locked)
 
+    def highlight_current_step(self) -> None:
+        if self.current_runner is None or not self.current_runner.is_running():
+            return
+
+        current_path = getattr(self.current_runner, "current_step_path", None)
+        if current_path is None or self.step_tree is None:
+            return
+
+        target_node = self.step_tree.find_node_by_path(current_path)
+        if target_node is None:
+            return
+
+        center_panel = self.view.center_panel
+
+        target_item = None
+
+        for tree_item, step_dict in center_panel.item_to_step.items():
+            if step_dict is target_node.step:
+                target_item = tree_item
+                break
+
+        if target_item is None:
+            return
+
+        step_list = center_panel.step_list
+        step_list.blockSignals(True)
+        step_list.setCurrentItem(target_item)
+        step_list.expandItem(target_item)
+        step_list.scrollToItem(target_item)
+        step_list.blockSignals(False)
+
     def show_about_dialog(self) -> None:
         dialog = AboutDialog(self.view.window(), __version__)
         dialog.exec()

@@ -36,6 +36,28 @@ class StepTree:
                 return node
         return None
 
+    def find_node_by_path(self, path: tuple[tuple[str, int], ...]) -> StepNode | None:
+        if not path:
+            return None
+
+        if path[0][0] != "steps":
+            return None
+
+        nodes = self.root_nodes
+        node = None
+
+        for depth, (_, index) in enumerate(path):
+            if not 0 <= index < len(nodes):
+                return None
+
+            node = nodes[index]
+
+            if depth + 1 < len(path):
+                next_branch_key = path[depth + 1][0]
+                nodes = node.get_child_list(next_branch_key)
+
+        return node
+
     def node_at(self, flat_index: int) -> StepNode | None:
         flat = self.flatten()
         if 0 <= flat_index < len(flat):

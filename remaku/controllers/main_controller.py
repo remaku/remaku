@@ -62,6 +62,8 @@ class MainController:
             self.overlay.hide()
             return
 
+        self.home_controller.highlight_current_step()
+
         label = runner.label
         elapsed_prefix = ""
         if runner.start_time is not None:

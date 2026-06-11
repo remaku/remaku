@@ -120,6 +120,8 @@ class HomeController(QObject):
         event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
         event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
 
+        self.view.center_panel.step_list.itemSelectionChanged.connect(self.update_step_action_state)
+
         self.register_shortcuts()
         self.update_undo_redo_state()
         self.refresh_macro_list()

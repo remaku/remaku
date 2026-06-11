@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PySide6.QtCore import QObject, QProcess, Qt
@@ -111,12 +112,8 @@ class SettingsController(QObject):
         if app is None:
             return
 
-        program = QApplication.applicationFilePath()
-        arguments = sys.argv[1:]
-
-        if not program:
-            program = sys.executable
-            arguments = sys.argv
+        program = sys.executable
+        arguments = sys.argv[1:] if getattr(sys, "frozen", False) else [os.path.abspath(sys.argv[0]), *sys.argv[1:]]
 
         if QProcess.startDetached(program, arguments):
             app.quit()

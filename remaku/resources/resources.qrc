@@ -11,6 +11,22 @@
     <file>icons/chevron-down-white.svg</file>
     <file>icons/chevron-right-black.svg</file>
     <file>icons/chevron-right-white.svg</file>
+    <file>icons/clock-black.svg</file>
+    <file>icons/clock-white.svg</file>
+    <file>icons/corner-down-right-black.svg</file>
+    <file>icons/corner-down-right-white.svg</file>
+    <file>icons/git-branch-black.svg</file>
+    <file>icons/git-branch-white.svg</file>
+    <file>icons/grid-3x3-black.svg</file>
+    <file>icons/grid-3x3-white.svg</file>
+    <file>icons/hand-black.svg</file>
+    <file>icons/hand-white.svg</file>
+    <file>icons/image-black.svg</file>
+    <file>icons/image-white.svg</file>
+    <file>icons/images-black.svg</file>
+    <file>icons/images-white.svg</file>
+    <file>icons/keyboard-black.svg</file>
+    <file>icons/keyboard-white.svg</file>
     <file>icons/pause-black.svg</file>
     <file>icons/pause-white.svg</file>
     <file>icons/play-black.svg</file>
@@ -19,6 +35,10 @@
     <file>icons/plus-white.svg</file>
     <file>icons/redo-2-black.svg</file>
     <file>icons/redo-2-white.svg</file>
+    <file>icons/repeat-black.svg</file>
+    <file>icons/repeat-white.svg</file>
+    <file>icons/scan-search-black.svg</file>
+    <file>icons/scan-search-white.svg</file>
     <file>icons/trash-2-black.svg</file>
     <file>icons/trash-2-white.svg</file>
     <file>icons/undo-2-black.svg</file>

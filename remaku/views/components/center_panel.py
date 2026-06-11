@@ -1,11 +1,23 @@
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import QIcon, QKeySequence
 from PySide6.QtWidgets import QTreeWidgetItem, QVBoxLayout
 from qfluentwidgets import Action, BodyLabel, CardWidget, RoundMenu, TreeWidget
 
 from remaku.core.event_bus import event_bus
+from remaku.resources.icon import RemakuIcon
+
+STEP_TYPE_ICONS = {
+    "key": RemakuIcon.KEYBOARD,
+    "delay": RemakuIcon.CLOCK,
+    "wait_image": RemakuIcon.IMAGE,
+    "hold_key_until_gone": RemakuIcon.HAND,
+    "repeat": RemakuIcon.REPEAT,
+    "if_image": RemakuIcon.SCAN_SEARCH,
+    "if_any_image": RemakuIcon.IMAGES,
+    "grid_nav": RemakuIcon.GRID_3X3,
+}
 
 
 class CenterPanel(CardWidget):
@@ -112,10 +124,17 @@ class CenterPanel(CardWidget):
             self.item_to_state_key[item] = state_key
 
         if "branch" in item_data:
+            item.setIcon(0, QIcon(RemakuIcon.CORNER_DOWN_RIGHT.path()))
             parent_step, branch_key = item_data["branch"]
             self.item_to_branch[item] = (parent_step, branch_key)
         else:
             step = item_data["step"]
+            step_type = str(step.get("type", "")) if isinstance(step, dict) else ""
+            step_icon = STEP_TYPE_ICONS.get(step_type)
+
+            if step_icon is not None:
+                item.setIcon(0, QIcon(step_icon.path()))
+
             self.item_to_step[item] = step
 
         for child_data in item_data.get("children", []):

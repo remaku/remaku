@@ -339,14 +339,14 @@ class HomeController(QObject):
         refs = self.collect_template_refs_from_steps(steps)
 
         template_data = {
-            name: template_path(self.current_macro.meta.name, name).read_bytes()
-            for name in refs
-            if (template_path(self.current_macro.meta.name, name)).exists()
+            template_id: template_path(self.current_macro.meta.id, template_id).read_bytes()
+            for template_id in refs
+            if (template_path(self.current_macro.meta.id, template_id)).exists()
         }
         template_meta = {
-            name: copy.deepcopy(self.current_macro.to_dict().get("templates", {}).get(name, {}))
-            for name in refs
-            if name in self.current_macro.to_dict().get("templates", {})
+            template_id: copy.deepcopy(self.current_macro.to_dict().get("templates", {}).get(template_id, {}))
+            for template_id in refs
+            if template_id in self.current_macro.to_dict().get("templates", {})
         }
         self.step_clipboard = {
             "steps": steps,
@@ -373,22 +373,24 @@ class HomeController(QObject):
         target_node = self.selected_step_node()
         inserted_nodes = self.step_tree.insert_steps_after(target_node, clipboard_steps)
 
-        templates_dir(self.current_macro.meta.name).mkdir(parents=True, exist_ok=True)
+        templates_dir(self.current_macro.meta.id).mkdir(parents=True, exist_ok=True)
 
-        for name, data in self.step_clipboard.get("templates", {}).items():
-            destination = template_path(self.current_macro.meta.name, name)
+        for template_id, data in self.step_clipboard.get("templates", {}).items():
+            destination = template_path(self.current_macro.meta.id, template_id)
             if not destination.exists():
                 destination.write_bytes(data)
 
-        for name, meta in self.step_clipboard.get("template_meta", {}).items():
-            if name not in self.current_macro.templates:
-                self.current_macro.templates[name] = (
-                    self.current_macro.templates.get(name)
-                    or Macro.from_dict({"meta": {}, "templates": {name: meta}, "steps": []}).templates[name]
+        for template_id, meta in self.step_clipboard.get("template_meta", {}).items():
+            if template_id not in self.current_macro.templates:
+                self.current_macro.templates[template_id] = (
+                    self.current_macro.templates.get(template_id)
+                    or Macro.from_dict({"meta": {}, "templates": {template_id: meta}, "steps": []}).templates[
+                        template_id
+                    ]
                 )
                 continue
 
-            current_meta = self.current_macro.templates[name]
+            current_meta = self.current_macro.templates[template_id]
             if not current_meta.label and "label" in meta:
                 current_meta.label = str(meta["label"])
             if not current_meta.capture_width and "capture_width" in meta:
@@ -402,13 +404,13 @@ class HomeController(QObject):
     def refresh_macro_list(self) -> None:
         macro_items = self.macro_model.list_macros()
         ordered_macro_items = self.sort_macro_items(macro_items)
-        list_items = [(item.name, item.label) for item in ordered_macro_items]
+        list_items = [(item.id, item.label) for item in ordered_macro_items]
 
-        if self.selected_macro_id not in {item.name for item in ordered_macro_items}:
+        if self.selected_macro_id not in {item.id for item in ordered_macro_items}:
             self.selected_macro_id = ""
 
         if not self.selected_macro_id and ordered_macro_items:
-            self.selected_macro_id = ordered_macro_items[0].name
+            self.selected_macro_id = ordered_macro_items[0].id
 
         self.view.left_panel.set_macro_list(list_items, self.selected_macro_id)
 
@@ -420,14 +422,14 @@ class HomeController(QObject):
         self.register_hotkeys()
 
     def sort_macro_items(self, macro_items: list[MacroSummary]) -> list[MacroSummary]:
-        order_index = {name: index for index, name in enumerate(config_model.config.general.macro_order)}
+        order_index = {macro_id: index for index, macro_id in enumerate(config_model.config.general.macro_order)}
 
         return sorted(
             macro_items,
             key=lambda item: (
-                order_index.get(item.name, len(order_index)),
+                order_index.get(item.id, len(order_index)),
                 item.label.lower(),
-                item.name.lower(),
+                item.id.lower(),
             ),
         )
 
@@ -447,7 +449,7 @@ class HomeController(QObject):
 
             new_macro_id = str(int(time.time()))
 
-            macro = Macro(meta=MacroMeta(name=new_macro_id, label=new_macro_label))
+            macro = Macro(meta=MacroMeta(id=new_macro_id, label=new_macro_label))
             self.macro_model.save(macro)
 
             self.selected_macro_id = new_macro_id
@@ -525,7 +527,9 @@ class HomeController(QObject):
             shutil.rmtree(template_dir)
 
         config_model.config.general.macro_order = [
-            name for name in config_model.config.general.macro_order if name != macro_id
+            ordered_macro_id
+            for ordered_macro_id in config_model.config.general.macro_order
+            if ordered_macro_id != macro_id
         ]
         config_model.save()
 
@@ -549,9 +553,9 @@ class HomeController(QObject):
 
         for item in items:
             if item is not None:
-                name = item.data(Qt.ItemDataRole.UserRole)
-                if isinstance(name, str):
-                    new_order.append(name)
+                macro_id = item.data(Qt.ItemDataRole.UserRole)
+                if isinstance(macro_id, str):
+                    new_order.append(macro_id)
 
         config_model.config.general.macro_order = new_order
         config_model.save()
@@ -911,11 +915,11 @@ class HomeController(QObject):
             return
 
         new_macro = copy.deepcopy(self.current_macro)
-        new_macro.meta.name = new_macro_id
+        new_macro.meta.id = new_macro_id
         new_macro.meta.label = new_macro_label
         self.macro_model.save(new_macro)
 
-        source_templates = templates_dir(self.current_macro.meta.name)
+        source_templates = templates_dir(self.current_macro.meta.id)
         destination_templates = templates_dir(new_macro_id)
 
         if source_templates.exists():
@@ -952,7 +956,12 @@ class HomeController(QObject):
                     return
 
                 meta_data = raw_macro.get("meta")
-                if not isinstance(meta_data, dict) or not meta_data.get("name"):
+                if not isinstance(meta_data, dict):
+                    self.import_failed(self.tr("Macro metadata is invalid"))
+                    return
+
+                raw_macro_id = meta_data.get("id", meta_data.get("name"))
+                if not raw_macro_id:
                     self.import_failed(self.tr("Macro metadata is invalid"))
                     return
 
@@ -961,17 +970,20 @@ class HomeController(QObject):
                     return
 
                 refs = StepTree(raw_macro["steps"]).collect_template_refs()
-                missing_templates = sorted(name for name in refs if f"templates/{name}.png" not in archive_names)
+                missing_templates = sorted(
+                    template_id for template_id in refs if f"templates/{template_id}.png" not in archive_names
+                )
                 if missing_templates:
                     self.import_failed(self.tr("Missing templates: {names}").format(names=", ".join(missing_templates)))
                     return
 
-                imported_macro_id = str(meta_data["name"])
+                imported_macro_id = str(raw_macro_id)
                 destination = macro_path(imported_macro_id)
                 if destination.exists():
-                    imported_macro_id = self.resolve_timestamp_macro_name()
+                    imported_macro_id = self.resolve_timestamp_macro_id()
                     destination = macro_path(imported_macro_id)
-                    meta_data["name"] = imported_macro_id
+
+                meta_data["name"] = imported_macro_id
 
                 conflicts = self.find_template_conflicts(imported_macro_id, refs)
                 overwrite = False
@@ -990,12 +1002,12 @@ class HomeController(QObject):
                 template_dir = templates_dir(imported_macro_id)
                 template_dir.mkdir(parents=True, exist_ok=True)
 
-                for name in refs:
-                    png_destination = template_dir / f"{name}.png"
-                    if not png_destination.exists() or (overwrite and name in conflicts):
-                        png_destination.write_bytes(archive.read(f"templates/{name}.png"))
+                for template_id in refs:
+                    png_destination = template_dir / f"{template_id}.png"
+                    if not png_destination.exists() or (overwrite and template_id in conflicts):
+                        png_destination.write_bytes(archive.read(f"templates/{template_id}.png"))
 
-                    legacy_meta_path = f"templates/{name}.json"
+                    legacy_meta_path = f"templates/{template_id}.json"
                     if legacy_meta_path not in archive_names:
                         continue
 
@@ -1007,15 +1019,15 @@ class HomeController(QObject):
                     if not isinstance(legacy_meta, dict):
                         continue
 
-                    entry = raw_templates.get(name, {"label": name})
+                    entry = raw_templates.get(template_id, {"label": template_id})
                     if not isinstance(entry, dict):
-                        entry = {"label": name}
+                        entry = {"label": template_id}
 
                     for key in ("capture_width", "capture_height"):
                         if key in legacy_meta and key not in entry:
                             entry[key] = legacy_meta[key]
 
-                    raw_templates[name] = entry
+                    raw_templates[template_id] = entry
         except zipfile.BadZipFile:
             self.import_failed(self.tr("Invalid zip file"))
             return
@@ -1024,7 +1036,7 @@ class HomeController(QObject):
             return
 
         imported_macro = Macro.from_dict(raw_macro)
-        imported_macro.meta.name = imported_macro_id
+        imported_macro.meta.id = imported_macro_id
         if not imported_macro.meta.label:
             imported_macro.meta.label = imported_macro_id
 
@@ -1038,17 +1050,17 @@ class HomeController(QObject):
         self.refresh_macro_list()
         self.view.set_status_text(self.tr("Imported macro: {name}").format(name=imported_macro.meta.label))
 
-    def find_template_conflicts(self, macro_name: str, refs: set[str]) -> list[str]:
-        return sorted(name for name in refs if (template_path(macro_name, name)).exists())
+    def find_template_conflicts(self, macro_id: str, refs: set[str]) -> list[str]:
+        return sorted(template_id for template_id in refs if (template_path(macro_id, template_id)).exists())
 
-    def resolve_timestamp_macro_name(self) -> str:
-        existing_names = {item.name for item in self.macro_model.list_macros()}
+    def resolve_timestamp_macro_id(self) -> str:
+        existing_ids = {item.id for item in self.macro_model.list_macros()}
         base = int(time.time())
 
         offset = 0
         while True:
             candidate = str(base + offset)
-            if candidate not in existing_names:
+            if candidate not in existing_ids:
                 return candidate
             offset += 1
 
@@ -1061,7 +1073,7 @@ class HomeController(QObject):
             self.view.set_status_text(self.tr("Select a macro first"))
             return
 
-        suggested_path = macro_path(self.current_macro.meta.name).with_suffix(".zip")
+        suggested_path = macro_path(self.current_macro.meta.id).with_suffix(".zip")
         file_path, _ = QFileDialog.getSaveFileName(
             self.view,
             self.tr("Export Macro"),
@@ -1074,7 +1086,7 @@ class HomeController(QObject):
 
         self.sync_macro_steps_from_tree()
         template_refs = self.step_tree_refs_from_macro(self.current_macro)
-        template_root = templates_dir(self.current_macro.meta.name)
+        template_root = templates_dir(self.current_macro.meta.id)
 
         try:
             with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -1083,15 +1095,16 @@ class HomeController(QObject):
                     json.dumps(self.current_macro.to_dict(), indent=2, ensure_ascii=False),
                 )
 
-                for name in sorted(template_refs):
-                    png_path = template_root / f"{name}.png"
+                for template_id in sorted(template_refs):
+                    png_path = template_root / f"{template_id}.png"
                     if png_path.exists():
-                        archive.write(png_path, f"templates/{name}.png")
+                        archive.write(png_path, f"templates/{template_id}.png")
         except OSError:
             self.view.set_status_text(self.tr("Failed to export macro"))
             return
 
-        self.view.set_status_text(self.tr("Exported macro: {name}").format(name=self.current_macro.meta.name))
+        macro_label = self.current_macro.meta.label or self.current_macro.meta.id
+        self.view.set_status_text(self.tr("Exported macro: {name}").format(name=macro_label))
 
     def open_settings(self) -> None:
         event_bus.switch_page_requested.emit("settings")
@@ -1290,7 +1303,7 @@ class HomeController(QObject):
         if self.current_macro is None:
             return
 
-        selector = RegionSelector(self.current_macro.meta.name, parent=self.view)
+        selector = RegionSelector(self.current_macro.meta.id, parent=self.view)
         selector.region_selected.connect(
             lambda new_template_id, width, height: self.handle_region_captured(
                 template_id, new_template_id, width, height
@@ -1305,7 +1318,7 @@ class HomeController(QObject):
         if self.selected_step is None or self.current_macro is None:
             return
 
-        old_png = template_path(self.current_macro.meta.name, old_template_id)
+        old_png = template_path(self.current_macro.meta.id, old_template_id)
         if old_png.exists():
             old_png.unlink()
 
@@ -1360,7 +1373,7 @@ class HomeController(QObject):
         if not file_path:
             return
 
-        destination = template_path(self.current_macro.meta.name, new_template_id)
+        destination = template_path(self.current_macro.meta.id, new_template_id)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(file_path, destination)
 
@@ -1372,7 +1385,7 @@ class HomeController(QObject):
         capture_width = pixmap.width()
         capture_height = pixmap.height()
 
-        old_png = template_path(self.current_macro.meta.name, template_id)
+        old_png = template_path(self.current_macro.meta.id, template_id)
         if old_png.exists():
             old_png.unlink()
 
@@ -1410,7 +1423,7 @@ class HomeController(QObject):
         if self.current_macro is None or self.step_tree is None:
             return
 
-        png_path = template_path(self.current_macro.meta.name, template_id)
+        png_path = template_path(self.current_macro.meta.id, template_id)
         if png_path.exists():
             png_path.unlink()
 
@@ -1470,7 +1483,7 @@ class HomeController(QObject):
         self.hotkey_map = {}
 
         for i, summary in enumerate(self.macro_model.list_macros()):
-            macro = self.macro_model.load(summary.name)
+            macro = self.macro_model.load(summary.id)
             if macro is None or not macro.meta.enabled or not macro.meta.hotkey:
                 continue
 
@@ -1482,7 +1495,7 @@ class HomeController(QObject):
 
             if user32.RegisterHotKey(int(self.view.window().winId()), hid, mods, vk):
                 self.hotkey_ids.append(hid)
-                self.hotkey_map[hid] = summary.name
+                self.hotkey_map[hid] = summary.id
                 logger.info("Registered hotkey: %s -> %s", macro.meta.hotkey, summary.label)
             else:
                 logger.warning("Hotkey registration failed: %s", macro.meta.hotkey)

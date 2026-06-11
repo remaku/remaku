@@ -188,9 +188,9 @@ class StepTree:
         parent_node.clear_caches()
         return StepNode(step, parent=parent_node)
 
-    def add_step_to_any_branch(self, parent_node: StepNode, template_name: str, step: StepDict) -> StepNode:
+    def add_step_to_any_branch(self, parent_node: StepNode, template_id: str, step: StepDict) -> StepNode:
         branches = get_step_branches(parent_node.step)
-        branches.setdefault(template_name, []).append(step)
+        branches.setdefault(template_id, []).append(step)
         parent_node.clear_caches()
         return StepNode(step, parent=parent_node)
 
@@ -220,10 +220,10 @@ class StepTree:
     def collect_template_refs(self) -> set[str]:
         refs: set[str] = set()
         for node in self.flatten():
-            if name := get_step_str(node.step, "template"):
-                refs.add(name)
-            for name in get_step_str_list(node.step, "templates"):
-                refs.add(name)
+            if template_id := get_step_str(node.step, "template"):
+                refs.add(template_id)
+            for template_id in get_step_str_list(node.step, "templates"):
+                refs.add(template_id)
         return refs
 
     def flatten_with_depth(self) -> list[tuple[StepNode, int]]:

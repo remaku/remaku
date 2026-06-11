@@ -91,7 +91,7 @@ class MainController(QObject):
                 message += f" | {summary}"
 
             if status.score > 0:
-                match_label = runner.template_label(status.match_name) if status.match_name else ""
+                match_label = runner.template_label(status.match_id) if status.match_id else ""
                 score_text = f"{int(status.score * 100)}%"
                 message += f" | {match_label} {score_text}" if match_label else f" | {score_text}"
 

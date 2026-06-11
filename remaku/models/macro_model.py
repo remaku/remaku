@@ -23,7 +23,7 @@ DEFAULT_STEP_NOTE = ""
 
 @dataclass(slots=True)
 class MacroMeta:
-    name: str = ""
+    id: str = ""
     label: str = ""
     target_window: str = ""
     hotkey: str = ""
@@ -312,7 +312,7 @@ class Macro:
         default_meta = MacroMeta()
 
         meta = MacroMeta(
-            name=str(meta_data.get("name", default_meta.name)),
+            id=str(meta_data.get("id", meta_data.get("name", default_meta.id))),
             label=str(meta_data.get("label", default_meta.label)),
             target_window=str(meta_data.get("target_window", default_meta.target_window)),
             hotkey=str(meta_data.get("hotkey", default_meta.hotkey)),
@@ -335,7 +335,7 @@ class Macro:
     def to_dict(self) -> dict[str, Any]:
         return {
             "meta": {
-                "name": self.meta.name,
+                "name": self.meta.id,
                 "label": self.meta.label,
                 "target_window": self.meta.target_window,
                 "hotkey": self.meta.hotkey,
@@ -355,7 +355,7 @@ class Macro:
 
 @dataclass(slots=True)
 class MacroSummary:
-    name: str = ""
+    id: str = ""
     label: str = ""
     path: str = ""
 
@@ -375,13 +375,13 @@ class MacroModel:
 
             meta = data.get("meta", {})
             label = str(meta.get("label", file.stem))
-            name = file.stem
-            result.append(MacroSummary(name=name, label=label, path=str(file)))
+            macro_id = file.stem
+            result.append(MacroSummary(id=macro_id, label=label, path=str(file)))
 
         return result
 
-    def load(self, name: str) -> Macro | None:
-        path = macro_path(name)
+    def load(self, macro_id: str) -> Macro | None:
+        path = macro_path(macro_id)
 
         if not path.exists():
             return None
@@ -395,19 +395,21 @@ class MacroModel:
         if not isinstance(raw_data, dict):
             return None
 
-        return Macro.from_dict(raw_data)
+        macro = Macro.from_dict(raw_data)
+        macro.meta.id = macro_id
+        return macro
 
     def save(self, macro: Macro) -> None:
         macros_dir().mkdir(parents=True, exist_ok=True)
 
-        path = macros_dir() / f"{macro.meta.name}.json"
+        path = macros_dir() / f"{macro.meta.id}.json"
 
         with path.open("w", encoding="utf-8") as f:
             json.dump(macro.to_dict(), f, indent=2, ensure_ascii=False)
             f.write("\n")
 
-    def delete(self, name: str) -> bool:
-        path = macros_dir() / f"{name}.json"
+    def delete(self, macro_id: str) -> bool:
+        path = macros_dir() / f"{macro_id}.json"
 
         if not path.exists():
             return False

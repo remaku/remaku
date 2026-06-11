@@ -11,7 +11,7 @@ def migrate_legacy_templates(macro_model: MacroModel) -> tuple[int, int]:
     files_migrated = 0
 
     for summary in macro_model.list_macros():
-        macro_dir = templates_dir(summary.name)
+        macro_dir = templates_dir(summary.id)
 
         if not macro_dir.exists():
             continue
@@ -21,7 +21,7 @@ def migrate_legacy_templates(macro_model: MacroModel) -> tuple[int, int]:
         if not legacy_files:
             continue
 
-        macro = macro_model.load(summary.name)
+        macro = macro_model.load(summary.id)
 
         if macro is None:
             continue

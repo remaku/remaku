@@ -30,7 +30,7 @@ class Status:
     running: bool = False
     state: str = "-"
     score: float = 0.0
-    match_name: str = ""
+    match_id: str = ""
     progress: int = 0
     repeat_total: int = 0
     last_reason: str = ""
@@ -39,12 +39,12 @@ class Status:
 
 
 class Engine:
-    name: str = "step"
+    engine_id: str = "step"
     label: str = "Step"
     target_window: str = ""
 
     def __init__(self) -> None:
-        self.template_names: list[str] = []
+        self.template_ids: list[str] = []
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
         self.status = Status()
@@ -61,7 +61,7 @@ class Engine:
         with self.lock:
             self.status = Status(running=True)
 
-        self.thread = threading.Thread(target=self.run_safe, name=f"step-{self.name}", daemon=True)
+        self.thread = threading.Thread(target=self.run_safe, name=f"step-{self.engine_id}", daemon=True)
         self.thread.start()
 
     def stop(self) -> None:
@@ -104,11 +104,11 @@ class Engine:
         capture_rect = window.client_rect(found_window)
         logger.info("Target window found: {}x{}", capture_rect.width, capture_rect.height)
 
-        if self.template_names:
-            templates = vision.load_templates(self.template_names, self.name)
+        if self.template_ids:
+            templates = vision.load_templates(self.template_ids, self.engine_id)
 
-            if len(templates) != len(self.template_names):
-                missing = set(self.template_names) - set(templates)
+            if len(templates) != len(self.template_ids):
+                missing = set(self.template_ids) - set(templates)
                 self.finish(StopReason.STALE, f"missing_templates: {', '.join(sorted(missing))}")
                 return
         else:
@@ -136,7 +136,7 @@ class Engine:
         except Stopped:
             self.finish_user_stopped()
         except Exception as error:
-            logger.exception("{} unexpected error", self.name)
+            logger.exception("{} unexpected error", self.engine_id)
             self.finish(StopReason.ERROR, f"Error: {error}")
 
     def update(self, **fields) -> None:
@@ -145,7 +145,7 @@ class Engine:
                 setattr(self.status, key, value)
 
     def finish(self, reason: StopReason, message: str) -> None:
-        logger.info("{} finished: {} ({})", self.name, reason.value, message)
+        logger.info("{} finished: {} ({})", self.engine_id, reason.value, message)
 
         with self.lock:
             self.status.running = False
@@ -199,17 +199,17 @@ class Engine:
 
         return vision.to_gray(frame)
 
-    def scale_template(self, name: str, template: np.ndarray, frame: np.ndarray) -> np.ndarray:
-        capture_size = self.template_capture_sizes.get(name)
+    def scale_template(self, template_id: str, template: np.ndarray, frame: np.ndarray) -> np.ndarray:
+        capture_size = self.template_capture_sizes.get(template_id)
 
         if capture_size is None:
             return template
 
         return vision.scale_template(template, frame.shape, capture_size)
 
-    def wait_for_template(self, name: str, timeout_ms: int, threshold: float) -> bool:
+    def wait_for_template(self, template_id: str, timeout_ms: int, threshold: float) -> bool:
         period = 1.0 / max(1, config_model.config.capture.fps)
-        template = self.templates[name]
+        template = self.templates[template_id]
         deadline = time.monotonic() + timeout_ms / 1000.0
         scaled_template: np.ndarray | None = None
 
@@ -226,19 +226,19 @@ class Engine:
                 continue
 
             if scaled_template is None:
-                scaled_template = self.scale_template(name, template, frame)
+                scaled_template = self.scale_template(template_id, template, frame)
 
             score, _ = vision.match_template(frame, scaled_template)
-            self.update(score=score, match_name=name)
+            self.update(score=score, match_id=template_id)
 
             if score >= threshold:
                 return True
 
             self.sleep_remaining(tick_start, period)
 
-    def wait_for_any(self, names: list[str], timeout_ms: int, threshold: float) -> str | None:
+    def wait_for_any(self, template_ids: list[str], timeout_ms: int, threshold: float) -> str | None:
         period = 1.0 / max(1, config_model.config.capture.fps)
-        template_list = [(name, self.templates[name]) for name in names]
+        template_list = [(template_id, self.templates[template_id]) for template_id in template_ids]
         deadline = time.monotonic() + timeout_ms / 1000.0
         scaled_list: list[tuple[str, np.ndarray]] | None = None
 
@@ -255,19 +255,22 @@ class Engine:
                 continue
 
             if scaled_list is None:
-                scaled_list = [(name, self.scale_template(name, template, frame)) for name, template in template_list]
+                scaled_list = [
+                    (template_id, self.scale_template(template_id, template, frame))
+                    for template_id, template in template_list
+                ]
 
-            best_name, best_score = names[0], -1.0
-            for name, scaled_template in scaled_list:
+            best_template_id, best_score = template_ids[0], -1.0
+            for template_id, scaled_template in scaled_list:
                 score, _ = vision.match_template(frame, scaled_template)
                 if score > best_score:
                     best_score = score
-                    best_name = name
+                    best_template_id = template_id
 
-            self.update(score=best_score, match_name=best_name)
+            self.update(score=best_score, match_id=best_template_id)
 
             if best_score >= threshold:
-                return best_name
+                return best_template_id
 
             self.sleep_remaining(tick_start, period)
 

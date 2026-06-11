@@ -13,10 +13,10 @@ class RegionSelector(QWidget):
     region_selected = Signal(str, int, int)
     cancelled = Signal()
 
-    def __init__(self, macro_name: str = "", parent=None) -> None:
+    def __init__(self, macro_id: str = "", parent=None) -> None:
         super().__init__(parent)
 
-        self.macro_name = macro_name
+        self.macro_id = macro_id
         self.setWindowFlags(
             Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
@@ -100,7 +100,7 @@ class RegionSelector(QWidget):
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
         template_id = str(int(time.time()))
-        template_dir = templates_dir(self.macro_name)
+        template_dir = templates_dir(self.macro_id)
         template_dir.mkdir(parents=True, exist_ok=True)
         path = template_dir / f"{template_id}.png"
         cv2.imencode(".png", gray)[1].tofile(str(path))

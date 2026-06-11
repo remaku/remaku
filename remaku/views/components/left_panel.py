@@ -48,17 +48,17 @@ class LeftPanel(CardWidget):
         self.empty_label.setWordWrap(True)
         layout.addWidget(self.empty_label, 1)
 
-    def set_macro_list(self, items: list[tuple[str, str]], selected_name: str = "") -> None:
+    def set_macro_list(self, items: list[tuple[str, str]], selected_macro_id: str = "") -> None:
         self.macro_list.clear()
 
         selected_item: QListWidgetItem | None = None
 
-        for name, label in items:
+        for macro_id, label in items:
             item = QListWidgetItem(label)
-            item.setData(Qt.ItemDataRole.UserRole, name)
+            item.setData(Qt.ItemDataRole.UserRole, macro_id)
             self.macro_list.addItem(item)
 
-            if name == selected_name:
+            if macro_id == selected_macro_id:
                 selected_item = item
 
         if selected_item is not None:
@@ -84,10 +84,10 @@ class LeftPanel(CardWidget):
         if item is None:
             return
 
-        name = item.data(Qt.ItemDataRole.UserRole)
+        macro_id = item.data(Qt.ItemDataRole.UserRole)
 
-        if isinstance(name, str):
-            event_bus.macro_selected.emit(name)
+        if isinstance(macro_id, str):
+            event_bus.macro_selected.emit(macro_id)
 
     def handle_context_menu(self, pos) -> None:
         item = self.macro_list.itemAt(pos)
@@ -119,10 +119,10 @@ class LeftPanel(CardWidget):
         if item is None:
             return
 
-        name = item.data(Qt.ItemDataRole.UserRole)
+        macro_id = item.data(Qt.ItemDataRole.UserRole)
 
-        if isinstance(name, str):
-            event_bus.macro_rename_requested.emit(name)
+        if isinstance(macro_id, str):
+            event_bus.macro_rename_requested.emit(macro_id)
 
     def handle_macro_duplicate(self) -> None:
         item = self.macro_list.currentItem()
@@ -130,10 +130,10 @@ class LeftPanel(CardWidget):
         if item is None:
             return
 
-        name = item.data(Qt.ItemDataRole.UserRole)
+        macro_id = item.data(Qt.ItemDataRole.UserRole)
 
-        if isinstance(name, str):
-            event_bus.macro_duplicate_requested.emit(name)
+        if isinstance(macro_id, str):
+            event_bus.macro_duplicate_requested.emit(macro_id)
 
     def handle_macro_delete(self) -> None:
         item = self.macro_list.currentItem()
@@ -141,10 +141,10 @@ class LeftPanel(CardWidget):
         if item is None:
             return
 
-        name = item.data(Qt.ItemDataRole.UserRole)
+        macro_id = item.data(Qt.ItemDataRole.UserRole)
 
-        if isinstance(name, str):
-            event_bus.macro_delete_requested.emit(name)
+        if isinstance(macro_id, str):
+            event_bus.macro_delete_requested.emit(macro_id)
 
     def handle_order_changed(self) -> None:
         event_bus.macro_order_changed.emit()

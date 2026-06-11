@@ -71,7 +71,7 @@ class TemplateEditor(QWidget):
         self.content_layout.addWidget(edit)
 
     def add_template_preview(self, template_id: str) -> None:
-        self.original_pixmap = QPixmap(template_path(self.macro.meta.name, template_id)) if template_id else QPixmap()
+        self.original_pixmap = QPixmap(template_path(self.macro.meta.id, template_id)) if template_id else QPixmap()
 
         self.preview_label = BodyLabel(self)
         self.preview_label.setMinimumWidth(1)

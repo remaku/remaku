@@ -5,7 +5,7 @@ class NewMacroDialog(MessageBoxBase):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
-        self.name_edit: LineEdit | None = None
+        self.label_edit: LineEdit | None = None
         self.init_ui()
 
     def init_ui(self) -> None:
@@ -20,14 +20,14 @@ class NewMacroDialog(MessageBoxBase):
         label = BodyLabel(self.tr("Name"), self)
         self.viewLayout.addWidget(label)
 
-        self.name_edit = LineEdit(self)
-        self.name_edit.setClearButtonEnabled(True)
-        self.viewLayout.addWidget(self.name_edit)
-        self.name_edit.setFocus()
-        self.name_edit.selectAll()
+        self.label_edit = LineEdit(self)
+        self.label_edit.setClearButtonEnabled(True)
+        self.viewLayout.addWidget(self.label_edit)
+        self.label_edit.setFocus()
+        self.label_edit.selectAll()
 
     def value(self) -> str:
-        if self.name_edit is None:
+        if self.label_edit is None:
             return ""
 
-        return self.name_edit.text().strip()
+        return self.label_edit.text().strip()

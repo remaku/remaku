@@ -5,14 +5,14 @@ from loguru import logger
 from remaku.paths import template_path
 
 
-def load_templates(names: list[str], macro_name: str = "") -> dict[str, np.ndarray]:
+def load_templates(template_ids: list[str], macro_id: str = "") -> dict[str, np.ndarray]:
     out: dict[str, np.ndarray] = {}
 
-    for name in names:
-        path = template_path(macro_name, name)
+    for template_id in template_ids:
+        path = template_path(macro_id, template_id)
 
         if not path.exists():
-            logger.warning("vision: template file not found: {}", name)
+            logger.warning("vision: template file not found: {}", template_id)
             continue
 
         image = cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
@@ -21,7 +21,7 @@ def load_templates(names: list[str], macro_name: str = "") -> dict[str, np.ndarr
             logger.warning("vision: failed to read template: {}", path)
             continue
 
-        out[name] = image
+        out[template_id] = image
 
     return out
 

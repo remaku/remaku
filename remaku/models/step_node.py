@@ -168,10 +168,10 @@ class StepNode:
 
     def branches_map(self) -> dict[str, list["StepNode"]]:
         branches = get_step_branches(self.step)
-        template_names = self.step.get("templates", [])
-        for name in template_names:
-            branches.setdefault(name, [])
-        all_names = list(dict.fromkeys([*template_names, *branches.keys()]))
+        template_ids = self.step.get("templates", [])
+        for template_id in template_ids:
+            branches.setdefault(template_id, [])
+        all_names = list(dict.fromkeys([*template_ids, *branches.keys()]))
         cached = getattr(self, "cached_branches", None)
         if (
             cached is not None

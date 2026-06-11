@@ -68,9 +68,9 @@ def validate_steps(steps: list[dict], template_root: Path | None = None, offset:
             elif field == "templates" and not value:
                 errors.append(f"Step {index} ({step_type}): empty templates")
             elif field == "templates" and template_root is not None:
-                for name in value:
-                    if not (template_root / f"{name}.png").exists():
-                        errors.append(f"Step {index} ({step_type}): template '{name}' not found on disk")
+                for template_id in value:
+                    if not (template_root / f"{template_id}.png").exists():
+                        errors.append(f"Step {index} ({step_type}): template '{template_id}' not found on disk")
 
         for key in ("steps", "then", "else"):
             if sub := step.get(key):
@@ -85,17 +85,18 @@ class MacroRunner(Engine):
 
         self.macro_path = macro_path
 
-        self.name = macro.meta.name or "macro"
+        self.macro_id = macro.meta.id or "macro"
+        self.engine_id = self.macro_id
         self.label = macro.meta.label or "Macro"
         self.target_window = macro.meta.target_window or ""
-        self.template_names = list(macro.templates.keys())
+        self.template_ids = list(macro.templates.keys())
         self.macro = macro.to_dict()
         self.current_step_path: tuple[tuple[str, int], ...] | None = None
         self.grid_counters: dict[int, int] = {}
         self.repeat_depth: int = 0
 
-    def template_label(self, name: str) -> str:
-        return self.macro.get("templates", {}).get(name, {}).get("label", name)
+    def template_label(self, template_id: str) -> str:
+        return self.macro.get("templates", {}).get(template_id, {}).get("label", template_id)
 
     def loop(self) -> None:
         from remaku.paths import templates_dir
@@ -104,7 +105,7 @@ class MacroRunner(Engine):
         self.grid_counters = {}
         steps = self.macro.get("steps", [])
 
-        errors = validate_steps(steps, template_root=templates_dir(self.name))
+        errors = validate_steps(steps, template_root=templates_dir(self.macro_id))
         if errors:
             self.finish(StopReason.STALE, f"macro_format: {';'.join(errors)}")
             return
@@ -123,11 +124,11 @@ class MacroRunner(Engine):
         templates_meta = self.macro.get("templates", {})
         result: dict[str, tuple[int, int] | None] = {}
 
-        for name in self.templates:
-            info = templates_meta.get(name, {})
+        for template_id in self.templates:
+            info = templates_meta.get(template_id, {})
             width = info.get("capture_width") or screen_width
             height = info.get("capture_height") or screen_height
-            result[name] = (width, height)
+            result[template_id] = (width, height)
 
         return result
 
@@ -170,7 +171,7 @@ class MacroRunner(Engine):
         elif action == "grid_nav":
             counter = self.grid_counters.get(id(step), 0)
             details = f"pos={counter + get_step_start(step)}"
-        logger.info("{}: {} {}", self.name, action, details)
+        logger.info("{}: {} {}", self.engine_id, action, details)
 
         if action == "key":
             self.tap(get_step_key(step), hold_ms=get_step_hold_ms(step))
@@ -180,14 +181,14 @@ class MacroRunner(Engine):
 
         elif action == "wait_image":
             timeout = get_step_timeout(step)
-            template = get_step_template(step)
+            template_id = get_step_template(step)
             threshold = get_step_threshold(step)
 
-            if not self.wait_for_template(template, timeout, threshold):
+            if not self.wait_for_template(template_id, timeout, threshold):
                 on_timeout = get_step_on_timeout(step)
 
                 if on_timeout == "stop":
-                    self.finish(StopReason.STALE, f"wait_timeout: {self.template_label(template)}")
+                    self.finish(StopReason.STALE, f"wait_timeout: {self.template_label(template_id)}")
 
                 return
 
@@ -199,7 +200,7 @@ class MacroRunner(Engine):
                 if self.repeat_depth == 0:
                     self.update(progress=i + 1, repeat_total=count)
 
-                logger.info("{}: repeat {}/{}", self.name, i + 1, count)
+                logger.info("{}: repeat {}/{}", self.engine_id, i + 1, count)
 
                 self.repeat_depth += 1
                 self.exec_steps(sub_steps, step_path, "steps")
@@ -210,10 +211,10 @@ class MacroRunner(Engine):
 
         elif action == "if_image":
             timeout = get_step_timeout(step)
-            template = get_step_template(step)
+            template_id = get_step_template(step)
             threshold = get_step_threshold(step)
 
-            found = self.wait_for_template(template, timeout, threshold=threshold)
+            found = self.wait_for_template(template_id, timeout, threshold=threshold)
 
             if found:
                 self.exec_steps(step.get("then", []), step_path, "then")
@@ -222,23 +223,23 @@ class MacroRunner(Engine):
 
         elif action == "if_any_image":
             timeout = get_step_timeout(step)
-            templates = get_step_templates(step)
+            template_ids = get_step_templates(step)
 
-            result = self.wait_for_any(templates, timeout, threshold=get_step_threshold(step))
+            matched_template_id = self.wait_for_any(template_ids, timeout, threshold=get_step_threshold(step))
 
             branches = step.get("branches", {})
 
-            if result is None:
+            if matched_template_id is None:
                 on_timeout = get_step_on_timeout(step)
 
                 if on_timeout == "stop":
-                    labels = [self.template_label(template) for template in templates]
+                    labels = [self.template_label(template_id) for template_id in template_ids]
                     self.finish(StopReason.STALE, f"wait_any_timeout: {labels}")
 
                 return
 
-            if result in branches:
-                self.exec_steps(branches[result], step_path, result)
+            if matched_template_id in branches:
+                self.exec_steps(branches[matched_template_id], step_path, matched_template_id)
 
         elif action == "grid_nav":
             rows = get_step_rows(step)
@@ -261,14 +262,14 @@ class MacroRunner(Engine):
 
     def do_hold_key_until_gone(self, step: dict) -> None:
         key = get_step_key(step)
-        template_name = get_step_template(step)
+        template_id = get_step_template(step)
         load_delay_ms = get_step_load_delay(step)
         find_timeout_ms = get_step_find_timeout(step)
         gone_grace_ms = get_step_gone_grace(step)
         hard_timeout_ms = get_step_hard_timeout(step)
 
         period = 1.0 / max(1, config_model.config.capture.fps)
-        template = self.templates[template_name]
+        template = self.templates[template_id]
         threshold = get_step_threshold(step)
         scaled_template: np.ndarray | None = None
 
@@ -277,7 +278,9 @@ class MacroRunner(Engine):
         drive_start = time.monotonic()
         last_seen_at: float | None = None
 
-        logger.info("{}: holding {}, waiting for {} to disappear", self.name, key, self.template_label(template_name))
+        logger.info(
+            "{}: holding {}, waiting for {} to disappear", self.engine_id, key, self.template_label(template_id)
+        )
 
         with keys.held(key):
             while True:
@@ -287,7 +290,7 @@ class MacroRunner(Engine):
                 tick_start = time.monotonic()
 
                 if not window.is_foreground(self.found_window):
-                    logger.warning("{}: window lost foreground, releasing {}", self.name, key)
+                    logger.warning("{}: window lost foreground, releasing {}", self.engine_id, key)
                     return
 
                 frame = self.grabber.grab(self.capture_rect)
@@ -298,14 +301,14 @@ class MacroRunner(Engine):
                 frame = vision.to_gray(frame)
 
                 if scaled_template is None:
-                    capture_size = self.template_capture_sizes.get(template_name)
+                    capture_size = self.template_capture_sizes.get(template_id)
                     if capture_size is not None:
                         scaled_template = vision.scale_template(template, frame.shape, capture_size)
                     else:
                         scaled_template = template
 
                 score, _ = vision.match_template(frame, scaled_template)
-                self.update(score=score, match_name=template_name)
+                self.update(score=score, match_id=template_id)
 
                 now = time.monotonic()
                 elapsed_ms = (now - drive_start) * 1000
@@ -317,9 +320,9 @@ class MacroRunner(Engine):
                         if elapsed_ms >= find_timeout_ms:
                             logger.warning(
                                 "{}: waited {} ms but never saw {}, releasing {}",
-                                self.name,
+                                self.engine_id,
                                 int(elapsed_ms),
-                                self.template_label(template_name),
+                                self.template_label(template_id),
                                 key,
                             )
                             return
@@ -328,8 +331,8 @@ class MacroRunner(Engine):
                         if gone_ms >= gone_grace_ms:
                             logger.info(
                                 "{}: {} gone for {} ms, releasing {}",
-                                self.name,
-                                self.template_label(template_name),
+                                self.engine_id,
+                                self.template_label(template_id),
                                 int(gone_ms),
                                 key,
                             )
@@ -338,7 +341,7 @@ class MacroRunner(Engine):
                 if elapsed_ms >= hard_timeout_ms:
                     logger.warning(
                         "{}: hard timeout {} ms exceeded, releasing {}",
-                        self.name,
+                        self.engine_id,
                         int(elapsed_ms),
                         key,
                     )

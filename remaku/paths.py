@@ -23,18 +23,18 @@ def macros_dir() -> Path:
     return data_dir() / "macros"
 
 
-def macro_path(macro_name: str) -> Path:
-    return macros_dir() / f"{macro_name}.json"
+def macro_path(macro_id: str) -> Path:
+    return macros_dir() / f"{macro_id}.json"
 
 
-def templates_dir(macro_name: str = "") -> Path:
+def templates_dir(macro_id: str = "") -> Path:
     base_dir = data_dir() / "templates"
 
-    if macro_name:
-        return base_dir / macro_name
+    if macro_id:
+        return base_dir / macro_id
 
     return base_dir
 
 
-def template_path(macro_name: str, template_id: str) -> Path:
-    return templates_dir(macro_name) / f"{template_id}.png"
+def template_path(macro_id: str, template_id: str) -> Path:
+    return templates_dir(macro_id) / f"{template_id}.png"

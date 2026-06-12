@@ -322,6 +322,41 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert user32.register_calls == []
 
 
+def test_set_editing_locked_disables_editing_controls() -> None:
+    controller = make_controller()
+    shortcuts = [FakeShortcut("ctrl+z", controller.view), FakeShortcut("delete", controller.view)]
+    cast(Any, controller).editing_shortcuts = shortcuts
+    view = cast(Any, controller.view)
+
+    controller.set_editing_locked(True)
+
+    assert controller.editing_locked is True
+    assert [shortcut.enabled_values for shortcut in shortcuts] == [[False], [False]]
+    assert view.toolbar.add_button.disabled is True
+    assert view.toolbar.delete_button.disabled is True
+    assert view.toolbar.move_up_button.disabled is True
+    assert view.toolbar.move_down_button.disabled is True
+    assert view.toolbar.undo_button.disabled is True
+    assert view.toolbar.redo_button.disabled is True
+    assert view.left_panel.macro_list.disabled is True
+    assert view.left_panel.new_macro_button.disabled is True
+    assert view.center_panel.step_list.disabled is True
+
+    controller.set_editing_locked(False)
+
+    assert controller.editing_locked is False
+    assert [shortcut.enabled_values for shortcut in shortcuts] == [[False, True], [False, True]]
+    assert view.toolbar.add_button.disabled is False
+    assert view.toolbar.delete_button.disabled is False
+    assert view.toolbar.move_up_button.disabled is False
+    assert view.toolbar.move_down_button.disabled is False
+    assert view.toolbar.undo_button.disabled is False
+    assert view.toolbar.redo_button.disabled is False
+    assert view.left_panel.macro_list.disabled is False
+    assert view.left_panel.new_macro_button.disabled is False
+    assert view.center_panel.step_list.disabled is False
+
+
 def test_sort_macro_items_uses_configured_order_then_label(monkeypatch) -> None:
     fake_config = FakeConfigModel()
     fake_config.config.general.macro_order = ["beta"]

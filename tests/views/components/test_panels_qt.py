@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, cast
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QModelIndex, QPoint, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QWidget
 from qfluentwidgets import BodyLabel, ComboBox, LineEdit
@@ -148,6 +148,27 @@ def test_right_panel_clear_content_removes_widgets(qtbot) -> None:
     panel.clear_content()
 
     assert panel.content_layout.count() == 0
+
+
+def test_right_panel_clear_content_ignores_empty_layout_item(qtbot) -> None:
+    class FakeLayout:
+        def __init__(self) -> None:
+            self.items = [None]
+
+        def count(self) -> int:
+            return len(self.items)
+
+        def takeAt(self, index: int):
+            return self.items.pop(index)
+
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    fake_layout = FakeLayout()
+    cast(Any, panel).content_layout = fake_layout
+
+    panel.clear_content()
+
+    assert fake_layout.count() == 0
 
 
 def test_left_panel_context_menu_ignores_empty_position(qtbot) -> None:
@@ -323,6 +344,26 @@ def test_center_panel_mouse_press_empty_area_clears_selection(qtbot) -> None:
 
     assert panel.step_list.currentItem() is None
     assert steps[-1] is None
+
+
+def test_center_panel_mouse_press_item_keeps_default_handling(qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    panel.set_step_tree([{"label": "Press enter", "step": {"type": "key"}}])
+    item = panel.step_list.topLevelItem(0)
+    assert item is not None
+    item_rect = panel.step_list.visualItemRect(item)
+    event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        item_rect.center(),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    panel.step_list.mousePressEvent(event)
+
+    assert panel.step_list.currentIndex() != QModelIndex()
 
 
 def test_center_panel_context_menu_ignores_branch_item(qtbot) -> None:
@@ -508,6 +549,20 @@ def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
 
     assert edit.text() == "ctrl+alt+f1"
     assert blocker.args == ["hotkey", "ctrl+alt+f1"]
+
+
+def test_right_panel_capture_hotkey_includes_shift_modifier(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    edit = LineEdit()
+    qtbot.addWidget(edit)
+    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_F2, Qt.KeyboardModifier.ShiftModifier)
+
+    with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
+        panel.capture_hotkey(event, edit)
+
+    assert edit.text() == "shift+f2"
+    assert blocker.args == ["hotkey", "shift+f2"]
 
 
 def test_right_panel_capture_hotkey_ignores_modifier_only_key(qtbot) -> None:

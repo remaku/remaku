@@ -1,5 +1,5 @@
 from PySide6.QtCore import QPoint, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QPaintEvent
 
 from remaku.core.event_bus import event_bus
 from remaku.views.components import overlay
@@ -143,12 +143,37 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
     assert calls == [("get", hwnd, GWL_EXSTYLE), ("set", hwnd, GWL_EXSTYLE, 4 | WS_EX_NOACTIVATE)]
 
 
-def test_overlay_paint_event_draws_without_error(qtbot) -> None:
+def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> None:
     widget = OverlayWidget()
     qtbot.addWidget(widget)
-    widget.show()
+    calls = []
 
-    qtbot.waitExposed(widget)
-    widget.repaint()
+    class FakeRenderHint:
+        Antialiasing = object()
 
-    assert widget.isVisible()
+    class FakePainter:
+        RenderHint = FakeRenderHint
+
+        def __init__(self, target) -> None:
+            calls.append(("init", target))
+
+        def setRenderHint(self, hint) -> None:
+            calls.append(("hint", hint))
+
+        def setBrush(self, color) -> None:
+            calls.append(("brush", color.getRgb()))
+
+        def setPen(self, pen) -> None:
+            calls.append(("pen", pen))
+
+        def drawRoundedRect(self, rect, x_radius: int, y_radius: int) -> None:
+            calls.append(("rounded", rect, x_radius, y_radius))
+
+    monkeypatch.setattr(overlay, "QPainter", FakePainter)
+
+    widget.paintEvent(QPaintEvent(widget.rect()))
+
+    assert calls[0] == ("init", widget)
+    assert ("brush", (0, 0, 0, 180)) in calls
+    assert ("pen", Qt.PenStyle.NoPen) in calls
+    assert calls[-1] == ("rounded", widget.rect(), 8, 8)

@@ -9,6 +9,7 @@
 - Clicking empty space in the step tree now shows the macro properties panel
 - Numeric input fields now show a red error border when empty or invalid, and only save valid numbers instead of silently falling back to zero
 - File menu now includes an "Open Macro Folder" option for quick access to macro files
+- Step branches now have their own details panel with an add button, so steps can be added directly inside then/else, template, and grid navigation branches
 
 ### Changed
 
@@ -17,6 +18,7 @@
 - Settings are now saved automatically as you change them, removing the need to click a save button
 - Dialog windows have been visually improved with clearer descriptions and better layout
 - Templates in if-any-image steps are now grouped inside cards for better visibility and organization
+- Icons and translated text now follow the selected theme and language more consistently throughout the app
 
 ### Fixed
 
@@ -36,6 +38,7 @@
 - 點擊步驟樹的空白區域現在會顯示巨集屬性面板
 - 數字輸入欄位現在在空白或無效時會顯示紅色錯誤邊框，僅儲存有效數字，不再默默回退為零
 - 檔案選單現在包含「開啟巨集資料夾」選項，可快速存取巨集檔案
+- 步驟分支現在有自己的詳細面板和新增按鈕，可直接在 then/else、模板及網格導航分支內加入步驟
 
 ### 變更
 
@@ -44,6 +47,7 @@
 - 設定現在會隨變更自動儲存，不再需要點擊儲存按鈕
 - 對話框視覺改進，加入更清晰的說明文字與更好的版面配置
 - if-any-image 步驟中的模板現在以卡片方式分組顯示，提升可視性與組織性
+- 圖示與翻譯文字現在會更一致地跟隨所選主題與語言顯示
 
 ### 修正
 
@@ -63,6 +67,7 @@
 - 点击步骤树的空白区域现在会显示宏属性面板
 - 数字输入字段现在在空白或无效时会显示红色错误边框，仅保存有效数字，不再静默回退为零
 - 文件菜单现在包含「打开宏文件夹」选项，可快速访问宏文件
+- 步骤分支现在有自己的详情面板和新增按钮，可直接在 then/else、模板及网格导航分支内加入步骤
 
 ### 变更
 
@@ -71,6 +76,7 @@
 - 设置现在会随变更自动保存，不再需要点击保存按钮
 - 对话框视觉改进，加入更清晰的说明文字与更好的版面配置
 - if-any-image 步骤中的模板现在以卡片方式分组显示，提升可见性与组织性
+- 图标与翻译文字现在会更一致地跟随所选主题与语言显示
 
 ### 修复
 

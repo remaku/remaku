@@ -24,6 +24,26 @@ def make_installer_asset(tag: str) -> dict:
     }
 
 
+class FakeGeneralConfig:
+    def __init__(self, *, update_channel: str = "stable", skipped_version: str = "") -> None:
+        self.update_channel = update_channel
+        self.skipped_version = skipped_version
+
+
+class FakeAppConfig:
+    def __init__(self, general: FakeGeneralConfig) -> None:
+        self.general = general
+
+
+class FakeUpdaterConfigModel:
+    def __init__(self, *, update_channel: str = "stable", skipped_version: str = "") -> None:
+        self.config = FakeAppConfig(FakeGeneralConfig(update_channel=update_channel, skipped_version=skipped_version))
+        self.save_calls: list[str] = []
+
+    def save(self) -> None:
+        self.save_calls.append("save")
+
+
 def test_parse_version_handles_stable_and_prerelease_tags() -> None:
     assert updater.parse_version("v1.2.3") == (1, 2, 3, 999999)
     assert updater.parse_version("1.2.3-beta.4") == (1, 2, 3, 4)
@@ -100,19 +120,10 @@ def test_check_beta_reports_error_when_no_valid_releases(monkeypatch) -> None:
 
 
 def test_check_converts_network_error_to_error_result(monkeypatch) -> None:
-    class FakeGeneral:
-        update_channel = "stable"
-
-    class FakeConfig:
-        general = FakeGeneral()
-
-    class FakeConfigModel:
-        config = FakeConfig()
-
     def raise_url_error(current):
         raise URLError("offline")
 
-    monkeypatch.setattr(updater, "config_model", FakeConfigModel())
+    monkeypatch.setattr(updater, "config_model", FakeUpdaterConfigModel())
     monkeypatch.setattr(updater, "parse_version", lambda tag: (1, 0, 0, 999999))
     monkeypatch.setattr(updater, "check_stable", raise_url_error)
 
@@ -131,19 +142,10 @@ def test_check_reports_error_when_current_version_is_invalid(monkeypatch) -> Non
 
 
 def test_check_converts_response_errors_to_error_result(monkeypatch) -> None:
-    class FakeGeneral:
-        update_channel = "stable"
-
-    class FakeConfig:
-        general = FakeGeneral()
-
-    class FakeConfigModel:
-        config = FakeConfig()
-
     def raise_value_error(current):
         raise ValueError("bad json")
 
-    monkeypatch.setattr(updater, "config_model", FakeConfigModel())
+    monkeypatch.setattr(updater, "config_model", FakeUpdaterConfigModel())
     monkeypatch.setattr(updater, "parse_version", lambda tag: (1, 0, 0, 999999))
     monkeypatch.setattr(updater, "check_stable", raise_value_error)
 
@@ -153,27 +155,13 @@ def test_check_converts_response_errors_to_error_result(monkeypatch) -> None:
 
 
 def test_remember_skip_persists_config(monkeypatch) -> None:
-    calls = []
-
-    class FakeGeneral:
-        skipped_version = ""
-
-    class FakeConfig:
-        general = FakeGeneral()
-
-    class FakeConfigModel:
-        config = FakeConfig()
-
-        def save(self) -> None:
-            calls.append("save")
-
-    fake_config_model = FakeConfigModel()
+    fake_config_model = FakeUpdaterConfigModel()
     monkeypatch.setattr(updater, "config_model", fake_config_model)
 
     updater.remember_skip("v2.0.0")
 
     assert fake_config_model.config.general.skipped_version == "v2.0.0"
-    assert calls == ["save"]
+    assert fake_config_model.save_calls == ["save"]
 
 
 def test_launch_installer_and_quit_uses_silent_flags(monkeypatch) -> None:
@@ -384,17 +372,8 @@ def test_check_stable_accepts_list_response(monkeypatch) -> None:
 
 
 def test_check_uses_beta_channel(monkeypatch) -> None:
-    class FakeGeneral:
-        update_channel = "beta"
-
-    class FakeConfig:
-        general = FakeGeneral()
-
-    class FakeConfigModel:
-        config = FakeConfig()
-
     calls = []
-    monkeypatch.setattr(updater, "config_model", FakeConfigModel())
+    monkeypatch.setattr(updater, "config_model", FakeUpdaterConfigModel(update_channel="beta"))
     monkeypatch.setattr(updater, "parse_version", lambda tag: (1, 0, 0, 999999))
     monkeypatch.setattr(
         updater, "check_beta", lambda current: calls.append(current) or CheckResult(status="up_to_date")

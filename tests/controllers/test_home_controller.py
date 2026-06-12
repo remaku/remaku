@@ -2247,8 +2247,6 @@ def test_show_about_dialog_executes(monkeypatch) -> None:
 
     assert calls == [("init", cast(Any, controller.view).fake_window, home_controller.__version__), ("exec",)]
 
-    assert calls == [("init", cast(Any, controller.view).fake_window, home_controller.__version__), ("exec",)]
-
 
 def test_select_after_undo_redo_handles_equal_empty_flat_lists() -> None:
     controller = make_controller()

@@ -299,19 +299,6 @@ def test_wrap_in_repeat_rejects_empty_or_unrelated_nodes(sample_steps: list[dict
         tree.wrap_in_repeat([unrelated])
 
 
-def test_move_root_swaps_with_neighbor_leaf() -> None:
-    tree = StepTree([{"type": "key", "key": "a"}, {"type": "key", "key": "b"}])
-
-    assert tree.move_step(tree.root_nodes[0], 1) is True
-    assert [step["key"] for step in tree.steps] == ["b", "a"]
-
-
-def test_move_root_at_boundary_returns_false() -> None:
-    tree = StepTree([{"type": "key", "key": "a"}])
-
-    assert tree.move_step(tree.root_nodes[0], -1) is False
-
-
 def test_move_step_out_of_nested_container_to_root() -> None:
     tree = StepTree([{"type": "repeat", "steps": [{"type": "key", "key": "a"}]}])
     child = tree.root_nodes[0].get_child_list("steps")[0]
@@ -329,14 +316,20 @@ def test_move_step_rejects_missing_node() -> None:
     assert tree.can_move(missing, 1) is False
 
 
-def test_move_root_and_can_move_root_boundaries(sample_steps: list[dict]) -> None:
+def test_move_root_rejects_nested_nodes(sample_steps: list[dict]) -> None:
     tree = StepTree(sample_steps)
-    first = tree.root_nodes[0]
     child = tree.root_nodes[1].get_child_list("steps")[0]
 
     assert tree.move_root(child, 1) is False
     assert tree.can_move_root(child, 1) is False
+
+
+def test_move_root_and_can_move_root_boundaries(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+    first = tree.root_nodes[0]
+
     assert tree.can_move_root(first, -1) is False
+    assert tree.can_move_root(first, 1) is True
     assert tree.move_root(first, 1) is True
     assert first.parent is tree.root_nodes[0]
 

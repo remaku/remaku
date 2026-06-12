@@ -169,7 +169,7 @@ class CenterPanel(CardWidget):
         original_mouse_press = self.step_list.mousePressEvent
 
         def custom_mouse_press(event):
-            item = self.step_list.itemAt(event.pos())
+            item = self.step_list.itemAt(event.position().toPoint())
             if item is None:
                 self.step_list.clearSelection()
                 self.step_list.setCurrentIndex(QModelIndex())

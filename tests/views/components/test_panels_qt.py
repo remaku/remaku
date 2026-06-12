@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, cast
 
-from PySide6.QtCore import QModelIndex, QPoint, Qt
+from PySide6.QtCore import QModelIndex, QPointF, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QWidget
 from qfluentwidgets import BodyLabel, ComboBox, LineEdit
@@ -332,9 +332,11 @@ def test_center_panel_mouse_press_empty_area_clears_selection(qtbot) -> None:
     steps = []
     event_bus.step_selected.connect(steps.append)
     panel.set_step_tree([{"label": "Press enter", "step": {"type": "key"}}])
+    position = QPointF(1000, 1000)
     event = QMouseEvent(
         QMouseEvent.Type.MouseButtonPress,
-        QPoint(1000, 1000),
+        position,
+        position,
         Qt.MouseButton.LeftButton,
         Qt.MouseButton.LeftButton,
         Qt.KeyboardModifier.NoModifier,
@@ -353,9 +355,11 @@ def test_center_panel_mouse_press_item_keeps_default_handling(qtbot) -> None:
     item = panel.step_list.topLevelItem(0)
     assert item is not None
     item_rect = panel.step_list.visualItemRect(item)
+    position = QPointF(item_rect.center())
     event = QMouseEvent(
         QMouseEvent.Type.MouseButtonPress,
-        item_rect.center(),
+        position,
+        position,
         Qt.MouseButton.LeftButton,
         Qt.MouseButton.LeftButton,
         Qt.KeyboardModifier.NoModifier,

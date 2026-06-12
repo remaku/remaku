@@ -40,3 +40,27 @@ def test_main_window_always_on_top_flag(monkeypatch, qtbot) -> None:
     window.set_always_on_top(True)
 
     assert bool(window.windowFlags() & main_window.Qt.WindowType.WindowStaysOnTopHint)
+
+
+def test_main_window_can_clear_always_on_top_flag(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(main_window, "HomeView", FakeHomeView)
+    monkeypatch.setattr(main_window, "SettingsView", FakeSettingsView)
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    window.set_always_on_top(True)
+    window.set_always_on_top(False)
+
+    assert not bool(window.windowFlags() & main_window.Qt.WindowType.WindowStaysOnTopHint)
+
+
+def test_main_window_registers_home_and_settings_views(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(main_window, "HomeView", FakeHomeView)
+    monkeypatch.setattr(main_window, "SettingsView", FakeSettingsView)
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    assert window.stackedWidget.indexOf(window.home_view) >= 0
+    assert window.stackedWidget.indexOf(window.settings_view) >= 0

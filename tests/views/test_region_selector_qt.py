@@ -1,6 +1,6 @@
 import numpy as np
-from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QImage, QKeyEvent, QPixmap
+from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPixmap
 
 from remaku.views import region_selector
 from remaku.views.region_selector import RegionSelector
@@ -58,5 +58,41 @@ def test_region_selector_escape_emits_cancelled(monkeypatch, qtbot) -> None:
 
     with qtbot.waitSignal(selector.cancelled, timeout=100):
         selector.keyPressEvent(event)
+
+    assert selector.selecting is False
+
+
+def make_mouse_event(event_type: QMouseEvent.Type, point: QPoint) -> QMouseEvent:
+    return QMouseEvent(
+        event_type,
+        point,
+        point,
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
+def test_region_selector_mouse_drag_saves_large_region(monkeypatch, qtbot) -> None:
+    selector = make_selector(monkeypatch, qtbot)
+    saved_rects = []
+    selector.save_region = lambda rect: saved_rects.append(rect)
+
+    selector.mousePressEvent(make_mouse_event(QMouseEvent.Type.MouseButtonPress, QPoint(0, 0)))
+    selector.mouseMoveEvent(make_mouse_event(QMouseEvent.Type.MouseMove, QPoint(6, 6)))
+    selector.mouseReleaseEvent(make_mouse_event(QMouseEvent.Type.MouseButtonRelease, QPoint(6, 6)))
+
+    assert selector.selecting is False
+    assert saved_rects == [QRect(0, 0, 7, 7)]
+
+
+def test_region_selector_mouse_drag_cancels_small_region(monkeypatch, qtbot) -> None:
+    selector = make_selector(monkeypatch, qtbot)
+    selector.save_region = lambda rect: None
+
+    selector.mousePressEvent(make_mouse_event(QMouseEvent.Type.MouseButtonPress, QPoint(0, 0)))
+
+    with qtbot.waitSignal(selector.cancelled, timeout=100):
+        selector.mouseReleaseEvent(make_mouse_event(QMouseEvent.Type.MouseButtonRelease, QPoint(5, 5)))
 
     assert selector.selecting is False

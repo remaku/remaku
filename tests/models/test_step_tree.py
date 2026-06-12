@@ -115,3 +115,77 @@ def test_move_root_into_neighbor_container(sample_steps: list[dict]) -> None:
     assert moved is True
     assert first.parent is tree.root_nodes[0]
     assert tree.steps[0]["steps"][0]["type"] == "key"
+
+
+def test_from_macro_uses_macro_steps_list() -> None:
+    macro = {"steps": [{"type": "key", "key": "enter"}]}
+
+    tree = StepTree.from_macro(macro)
+
+    assert tree.steps == macro["steps"]
+    assert tree.root_nodes[0].step["key"] == "enter"
+
+
+def test_insert_steps_after_preserves_insert_order(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+    target = tree.root_nodes[0]
+
+    inserted = tree.insert_steps_after(target, [{"type": "delay", "ms": 1}, {"type": "key", "key": "tab"}])
+
+    assert [node.step["type"] for node in inserted] == ["delay", "key"]
+    assert [step["type"] for step in tree.steps[:3]] == ["key", "delay", "key"]
+
+
+def test_steps_property_reflects_reordered_root_nodes(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+    tree.root_nodes[0], tree.root_nodes[1] = tree.root_nodes[1], tree.root_nodes[0]
+
+    assert [step["type"] for step in tree.steps[:2]] == ["repeat", "key"]
+
+
+def test_steps_property_reflects_child_node_order() -> None:
+    steps = [{"type": "repeat", "steps": [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}]}]
+    tree = StepTree(steps)
+    repeat_node = tree.root_nodes[0]
+    children = repeat_node.get_child_list("steps")
+    children[0], children[1] = children[1], children[0]
+
+    assert [step["key"] for step in tree.steps[0]["steps"]] == ["b", "a"]
+
+
+def test_can_move_reports_root_and_nested_boundaries(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+    first = tree.root_nodes[0]
+    repeat_child = tree.root_nodes[1].get_child_list("steps")[0]
+
+    assert tree.can_move(first, -1) is False
+    assert tree.can_move(first, 1) is True
+    assert tree.can_move(repeat_child, -1) is True
+
+
+def test_move_between_if_image_branches() -> None:
+    step = {
+        "type": "if_image",
+        "then": [{"type": "key", "key": "enter"}],
+        "else": [{"type": "key", "key": "esc"}],
+    }
+    tree = StepTree([step])
+    then_node = tree.root_nodes[0].get_child_list("then")[0]
+
+    moved = tree.move_step(then_node, 1)
+
+    serialized = tree.steps[0]
+
+    assert moved is True
+    assert serialized["then"] == []
+    assert [child["key"] for child in serialized["else"]] == ["enter", "esc"]
+
+
+def test_steps_property_writes_cached_if_any_branches() -> None:
+    step = {"type": "if_any_image", "templates": ["one"], "branches": {"one": [{"type": "key", "key": "a"}]}}
+    tree = StepTree([step])
+    parent = tree.root_nodes[0]
+    child = parent.get_child_list("one")[0]
+    child.step["key"] = "b"
+
+    assert tree.steps[0]["branches"]["one"][0]["key"] == "b"

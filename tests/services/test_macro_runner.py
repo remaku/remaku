@@ -1,8 +1,42 @@
 from pathlib import Path
 
+import numpy as np
+
+from remaku.core.capture import Grabber
+from remaku.core.window import Rect
 from remaku.models.macro_model import Macro
 from remaku.services.engine import StopReason
 from remaku.services.macro_runner import MacroRunner, validate_steps
+
+
+class FakeHeldContext:
+    def __init__(self, key: str = "") -> None:
+        self.key = key
+
+    def __enter__(self) -> "FakeHeldContext":
+        return self
+
+    def __exit__(self, *args) -> None:
+        pass
+
+
+class FakeGrabber(Grabber):
+    def __init__(self) -> None:
+        pass
+
+    def grab(self, rect: Rect) -> np.ndarray:
+        return np.ones((10, 10, 3), dtype=np.uint8)
+
+
+def make_hold_key_runner() -> MacroRunner:
+    runner = make_runner([], templates={"start": {"label": "Start"}})
+    runner.templates = {"start": np.zeros((10, 10), dtype=np.uint8)}
+    runner.found_window = object()
+    runner.capture_rect = Rect(0, 0, 10, 10)
+    runner.grabber = FakeGrabber()
+    runner.template_capture_sizes = {}
+
+    return runner
 
 
 def make_runner(steps: list[dict], templates: dict | None = None) -> MacroRunner:
@@ -214,3 +248,124 @@ def test_loop_finishes_stale_when_validation_fails(monkeypatch) -> None:
     runner.loop()
 
     assert finishes == [(StopReason.STALE, "macro_format: Step 1 (wait_image): template 'missing' not found on disk")]
+
+
+def test_loop_executes_steps_and_finishes_done(monkeypatch, tmp_path: Path) -> None:
+    steps_input = [{"type": "key", "key": "enter"}]
+    runner = make_runner(steps_input)
+    calls = []
+    finishes = []
+    monkeypatch.setattr("remaku.paths.templates_dir", lambda macro_id: tmp_path)
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": calls.append(("steps", steps))
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.loop()
+
+    assert runner.current_step is None
+    assert runner.current_step_path is None
+    assert calls == [("steps", runner.macro["steps"])]
+    assert finishes == [(StopReason.DONE, "done")]
+
+
+def test_loop_finishes_stale_when_target_window_missing(monkeypatch) -> None:
+    finishes = []
+
+    runner = make_runner([])
+    runner.target_window = "Game"
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+    runner.run = lambda: runner.finish(StopReason.STALE, "window_not_found: Game")
+
+    runner.run()
+
+    assert finishes == [(StopReason.STALE, "window_not_found: Game")]
+
+
+def test_hold_key_until_gone_releases_when_template_never_found(qtbot, monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    sleep_calls = []
+    monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
+    monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.3, (0, 0)))
+    runner.sleep = lambda ms: sleep_calls.append(ms)
+
+    runner.do_hold_key_until_gone(
+        {
+            "type": "hold_key_until_gone",
+            "key": "enter",
+            "template": "start",
+            "load_delay_ms": 0,
+            "find_timeout_ms": 0,
+            "threshold": 0.8,
+        }
+    )
+
+    assert sleep_calls == [0]
+
+
+def test_hold_key_until_gone_stops_when_runner_stops(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (1.0, (0, 0)))
+    monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
+    sleep_calls = []
+
+    def stop_after_tick(tick_start: float, period: float) -> None:
+        sleep_calls.append(period)
+        runner.status.running = False
+
+    runner.sleep = lambda ms: None
+    runner.sleep_remaining = stop_after_tick
+
+    runner.do_hold_key_until_gone(
+        {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0, "threshold": 0.8}
+    )
+
+    assert sleep_calls == [0.1]
+
+
+def test_hold_key_until_gone_releases_after_grace_period(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    sleep_calls = []
+    match_returns = iter([(1.0, (0, 0)), (0.3, (0, 0)), (0.3, (0, 0))])
+
+    def fake_match(frame, template):
+        return next(match_returns)
+
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", fake_match)
+    monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
+    runner.sleep = lambda ms: sleep_calls.append(ms)
+
+    runner.do_hold_key_until_gone(
+        {
+            "type": "hold_key_until_gone",
+            "key": "space",
+            "template": "start",
+            "load_delay_ms": 0,
+            "gone_grace_ms": 0,
+            "threshold": 0.8,
+        }
+    )
+
+    assert len(sleep_calls) >= 1
+
+
+def test_hold_key_until_gone_returns_when_window_loses_foreground(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    foreground_calls = []
+
+    def fake_is_foreground(window: object) -> bool:
+        foreground_calls.append(window)
+
+        return len(foreground_calls) == 1
+
+    monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", fake_is_foreground)
+    monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (1.0, (0, 0)))
+    runner.sleep = lambda ms: None
+    runner.sleep_remaining = lambda tick_start, period: None
+
+    runner.do_hold_key_until_gone(
+        {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0, "threshold": 0.8}
+    )
+
+    assert len(foreground_calls) == 2

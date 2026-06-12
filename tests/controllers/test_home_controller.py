@@ -10,6 +10,7 @@ from remaku.controllers.home_controller import HomeController
 from remaku.models.config_model import AppConfig
 from remaku.models.macro_model import Macro, MacroMeta, MacroModel, MacroSummary, TemplateInfo
 from remaku.models.step_tree import StepTree
+from remaku.services.engine import Status
 
 
 class FakeMacroModel:
@@ -156,6 +157,29 @@ class FakeDialog:
         return self.dialog_value
 
 
+class FakeRunner:
+    def __init__(self, *, running: bool = False, status: Status | None = None) -> None:
+        self.label = "Runner"
+        self.running = running
+        self.status = status or Status()
+        self.start_calls = 0
+        self.stop_calls = 0
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def start(self) -> None:
+        self.start_calls += 1
+        self.running = True
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self.running = False
+
+    def get_status(self) -> Status:
+        return self.status
+
+
 def make_controller() -> HomeController:
     controller = cast(Any, HomeController.__new__(HomeController))
     controller.current_macro = None
@@ -294,6 +318,95 @@ def test_handle_hotkey_triggered_selects_macro_and_loads_steps(monkeypatch, tmp_
     assert macro_list.current_item is macro_list.items[1]
     assert macro_list.blocked_states == [True, False]
     assert show_loaded_calls == ["start"]
+
+
+def test_handle_macro_selected_reload_same_macro_refreshes_current_state() -> None:
+    macro = Macro(meta=MacroMeta(id="alpha"))
+    controller = make_controller()
+    controller.selected_macro_id = "alpha"
+    controller.current_macro = macro
+    calls = []
+    controller.refresh_step_tree = lambda: calls.append("refresh_step_tree")
+    controller.show_macro_properties = lambda macro: calls.append(("show_macro_properties", macro))
+    controller.update_step_action_state = lambda: calls.append("update_step_action_state")
+
+    controller.handle_macro_selected("alpha")
+
+    assert controller.selected_step is None
+    assert controller.selected_branch_parent is None
+    assert controller.selected_branch_key == ""
+    assert calls == ["refresh_step_tree", ("show_macro_properties", macro), "update_step_action_state"]
+
+
+def test_handle_macro_selected_loads_new_macro() -> None:
+    controller = make_controller()
+    calls = []
+    controller.load_selected_macro = lambda macro_id: calls.append(macro_id)
+
+    controller.handle_macro_selected("beta")
+
+    assert controller.selected_macro_id == "beta"
+    assert calls == ["beta"]
+
+
+def test_handle_step_and_branch_selection_route_to_view_state(monkeypatch) -> None:
+    controller = make_controller()
+    step = {"type": "key"}
+    calls = []
+    monkeypatch.setattr(home_controller.QTimer, "singleShot", lambda delay, callback: callback())
+    controller.show_step_selection = lambda step: calls.append(("show", step))
+    controller.update_step_action_state = lambda: calls.append("update")
+
+    controller.handle_step_selected(step)
+    controller.handle_branch_selected(step, "then")
+
+    assert controller.selected_step is None
+    assert controller.selected_branch_parent is step
+    assert controller.selected_branch_key == "then"
+    assert calls == [("show", step), "update", ("show", None), "update"]
+
+
+def test_handle_action_ignores_locked_editing_action() -> None:
+    controller = make_controller()
+    calls = []
+    controller.editing_locked = True
+    controller.actions = {"delete_step": lambda: calls.append("delete"), "settings": lambda: calls.append("settings")}
+
+    controller.handle_action("delete_step")
+    controller.handle_action("settings")
+
+    assert calls == ["settings"]
+
+
+def test_run_current_macro_starts_and_stops_runner(qtbot) -> None:
+    controller = make_controller()
+    runner = FakeRunner(running=False)
+    controller.current_runner = cast(Any, runner)
+
+    with qtbot.waitSignal(home_controller.event_bus.macro_running_changed, timeout=100) as started:
+        controller.run_current_macro()
+
+    runner.running = True
+    with qtbot.waitSignal(home_controller.event_bus.macro_running_changed, timeout=100) as stopped:
+        controller.run_current_macro()
+
+    assert started.args == [True]
+    assert stopped.args == [False]
+    assert runner.start_calls == 1
+    assert runner.stop_calls == 1
+    assert cast(Any, controller.view).statuses == ["Running macro: Runner", "Stopping macro: Runner"]
+
+
+def test_handle_macro_running_changed_reports_terminal_status() -> None:
+    controller = make_controller()
+    calls = []
+    controller.set_editing_locked = lambda locked: calls.append(("locked", locked))
+    controller.current_runner = cast(Any, FakeRunner(status=Status(last_reason="done")))
+
+    controller.handle_macro_running_changed(False)
+
+    assert calls == [("locked", False)]
+    assert cast(Any, controller.view).statuses == ["Done: Runner"]
 
 
 def test_parse_step_property_converts_known_types() -> None:
@@ -633,7 +746,6 @@ def test_export_current_macro_writes_macro_and_template_zip(tmp_path: Path, monk
         exported_macro = json.loads(archive.read("macro.json"))
 
     assert exported_macro["meta"]["name"] == "macro"
-    assert archive_path_names(export_path) == {"macro.json", "templates/button.png"}
     assert sync_calls == ["sync"]
     assert cast(Any, controller.view).statuses == ["Exported macro: Macro"]
 

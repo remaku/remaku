@@ -14,6 +14,11 @@ class SampleEngine(Engine):
     def loop(self) -> None:
         self.finish(StopReason.DONE, "done")
 
+    def capture_once(self):
+        if self.capture_rect is None:
+            return None
+        return self.grabber.grab(self.capture_rect)
+
 
 class FakeGrabber:
     def __init__(self, frame) -> None:
@@ -76,17 +81,18 @@ def test_tap_delegates_to_keys_with_configured_jitter(monkeypatch) -> None:
     assert calls == [("enter", 120, 7)]
 
 
-def test_foreground_tick_waits_until_foreground(monkeypatch) -> None:
+def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     runner.found_window = object()
-    states = iter([False, False, True])
+    foreground_states = iter([False, False, True])
+    monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: next(foreground_states))
     sleeps = []
-    monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: next(states))
     runner.sleep = lambda ms: sleeps.append(ms)
 
     runner.foreground_tick()
 
     assert runner.status.state == "running"
+    assert runner.status.message == ""
     assert sleeps == [250]
 
 
@@ -104,9 +110,10 @@ def test_capture_tick_returns_gray_frame_when_foreground(monkeypatch) -> None:
     assert runner.status.state == "running"
 
 
-def test_capture_tick_waits_when_window_not_foreground(monkeypatch) -> None:
+def test_capture_tick_returns_none_when_window_not_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     runner.found_window = object()
+    runner.capture_rect = Rect(0, 0, 2, 2)
     runner.grabber = cast(Grabber, FakeGrabber(None))
     sleeps = []
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: False)
@@ -127,3 +134,114 @@ def test_start_does_not_create_second_thread_when_running(monkeypatch) -> None:
     runner.start()
 
     assert created == []
+
+
+class FakeThread:
+    def __init__(self, target, name: str, daemon: bool) -> None:
+        self.target = target
+        self.name = name
+        self.daemon = daemon
+        self.start_calls = 0
+
+    def is_alive(self) -> bool:
+        return False
+
+    def start(self) -> None:
+        self.start_calls += 1
+
+
+def test_start_creates_daemon_thread(monkeypatch) -> None:
+    runner = SampleEngine()
+    threads = []
+
+    def make_thread(target, name: str, daemon: bool) -> FakeThread:
+        thread = FakeThread(target, name, daemon)
+        threads.append(thread)
+        return thread
+
+    monkeypatch.setattr(engine.threading, "Thread", make_thread)
+
+    runner.start()
+
+    assert runner.status.running is True
+    assert runner.thread is threads[0]
+    assert threads[0].target == runner.run_safe
+    assert threads[0].daemon is True
+    assert threads[0].start_calls == 1
+
+
+def test_run_safe_finishes_with_exception_message() -> None:
+    class FailingEngine(Engine):
+        def loop(self) -> None:
+            raise RuntimeError("boom")
+
+    runner = FailingEngine()
+    runner.status.running = True
+
+    runner.run_safe()
+
+    assert runner.status.running is False
+    assert runner.status.last_reason == StopReason.ERROR.value
+    assert runner.status.message == "Error: boom"
+
+
+def test_run_safe_preserves_stopped_reason() -> None:
+    class StoppingEngine(Engine):
+        def loop(self) -> None:
+            raise Stopped
+
+    runner = StoppingEngine()
+    runner.status.running = True
+
+    runner.run_safe()
+
+    assert runner.status.running is False
+    assert runner.status.last_reason == StopReason.USER.value
+    assert runner.status.message == "user_stopped"
+
+
+def test_stop_sets_event() -> None:
+    runner = SampleEngine()
+
+    runner.stop()
+
+    assert runner.stop_event.is_set()
+
+
+def test_foreground_tick_does_nothing_without_window(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.found_window = None
+    foreground_calls = []
+    sleep_calls = []
+
+    def is_foreground_side_effect(window):
+        foreground_calls.append(window)
+        return True
+
+    monkeypatch.setattr(engine.window, "is_foreground", is_foreground_side_effect)
+    runner.sleep = lambda ms: sleep_calls.append(ms)
+
+    runner.foreground_tick()
+
+    assert foreground_calls == [None, None]
+    assert runner.status.state == "running"
+    assert sleep_calls == []
+
+
+def test_capture_once_grabs_current_rect() -> None:
+    frame = np.ones((2, 2, 3), dtype=np.uint8)
+    runner = SampleEngine()
+    runner.capture_rect = Rect(0, 0, 2, 2)
+    runner.grabber = cast(Grabber, FakeGrabber(frame))
+
+    assert runner.capture_once() is frame
+
+
+def test_capture_tick_returns_none_when_grabber_has_no_frame(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.found_window = object()
+    runner.capture_rect = Rect(0, 0, 2, 2)
+    runner.grabber = cast(Grabber, FakeGrabber(None))
+    monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: True)
+
+    assert runner.capture_tick() is None

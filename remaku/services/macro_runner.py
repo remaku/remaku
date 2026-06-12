@@ -287,6 +287,9 @@ class MacroRunner(Engine):
                 if self.stop_event.is_set():
                     raise Stopped
 
+                if not self.status.running:
+                    return
+
                 tick_start = time.monotonic()
 
                 if not window.is_foreground(self.found_window):

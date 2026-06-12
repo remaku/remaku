@@ -45,8 +45,8 @@ def test_update_and_get_status_return_copy() -> None:
     status = runner.get_status()
     status.state = "mutated"
 
-    assert runner.status.running is True
-    assert runner.status.state == "waiting"
+    assert runner.status.running is True, "status copy mutation should not change the engine running state"
+    assert runner.status.state == "waiting", "status copy mutation should not change the engine state"
 
 
 def test_finish_sets_reason_and_message(qtbot) -> None:
@@ -56,7 +56,7 @@ def test_finish_sets_reason_and_message(qtbot) -> None:
     with qtbot.waitSignal(engine.event_bus.macro_running_changed, timeout=100) as blocker:
         runner.finish(StopReason.DONE, "done")
 
-    assert runner.status.running is False
+    assert runner.status.running is False, "finish should mark the engine as stopped"
     assert runner.status.last_reason == "done"
     assert runner.status.message == "done"
     assert blocker.args == [False]
@@ -163,7 +163,7 @@ def test_start_creates_daemon_thread(monkeypatch) -> None:
 
     runner.start()
 
-    assert runner.status.running is True
+    assert runner.status.running is True, "start should mark the engine as running before launching the thread"
     assert runner.thread is threads[0]
     assert threads[0].target == runner.run_safe
     assert threads[0].daemon is True
@@ -180,7 +180,7 @@ def test_run_safe_finishes_with_exception_message() -> None:
 
     runner.run_safe()
 
-    assert runner.status.running is False
+    assert runner.status.running is False, "run_safe should stop the engine after an unexpected error"
     assert runner.status.last_reason == StopReason.ERROR.value
     assert runner.status.message == "Error: boom"
 

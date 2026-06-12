@@ -75,10 +75,10 @@ def test_template_editor_update_preview_displays_pixmap(monkeypatch, qtbot) -> N
     editor = TemplateEditor(make_macro(), "button")
     qtbot.addWidget(editor)
 
-    assert editor.original_pixmap is not None
-    assert editor.original_pixmap.isNull()
-    assert editor.preview_label is not None
-    assert editor.preview_label.text() == "No template available"
+    assert editor.original_pixmap is not None, "should keep an empty pixmap when preview image is missing"
+    assert editor.original_pixmap.isNull(), "missing preview image should be represented by a null pixmap"
+    assert editor.preview_label is not None, "preview label should remain available after preview refresh"
+    assert editor.preview_label.text() == "No template available", "preview label should explain that no image exists"
 
 
 def test_template_editor_capture_size_inputs_emit_meta_changes(monkeypatch, qtbot) -> None:

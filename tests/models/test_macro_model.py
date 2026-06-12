@@ -4,13 +4,44 @@ import json
 import pytest
 
 from remaku.models.macro_model import (
+    DEFAULT_DELAY_MS,
+    DEFAULT_FIND_TIMEOUT_MS,
+    DEFAULT_GONE_GRACE_MS,
+    DEFAULT_HARD_TIMEOUT_MS,
+    DEFAULT_IMAGE_TIMEOUT,
+    DEFAULT_KEY,
+    DEFAULT_KEY_HOLD_MS,
+    DEFAULT_LOAD_DELAY_MS,
+    DEFAULT_ON_TIMEOUT,
+    DEFAULT_REPEAT_COUNT,
+    DEFAULT_GRID_ROWS,
+    DEFAULT_GRID_START,
+    DEFAULT_THRESHOLD,
+    DelayStep,
     GridNavStep,
+    HoldKeyUntilGoneStep,
+    IfAnyImageStep,
     IfImageStep,
     KeyStep,
     Macro,
     MacroModel,
     RepeatStep,
     WaitImageStep,
+    get_step_count,
+    get_step_find_timeout,
+    get_step_gone_grace,
+    get_step_hard_timeout,
+    get_step_hold_ms,
+    get_step_key,
+    get_step_load_delay,
+    get_step_ms,
+    get_step_on_timeout,
+    get_step_rows,
+    get_step_start,
+    get_step_template,
+    get_step_templates,
+    get_step_threshold,
+    get_step_timeout,
     parse_step,
     parse_steps,
 )
@@ -75,6 +106,74 @@ def test_grid_nav_parses_nested_branches() -> None:
     assert col_step.key == "right"
 
 
+def test_if_any_image_ignores_non_dict_branches() -> None:
+    step = parse_step({"type": "if_any_image", "templates": [1, "two"], "branches": "bad"})
+
+    assert isinstance(step, IfAnyImageStep)
+    assert step.templates == ["1", "two"]
+    assert step.branches == {}
+
+
+def test_hold_key_until_gone_parses_string_values() -> None:
+    step = parse_step(
+        {
+            "type": "hold_key_until_gone",
+            "key": "space",
+            "template": "loading",
+            "load_delay_ms": "10",
+            "find_timeout_ms": "20",
+            "gone_grace_ms": "30",
+            "hard_timeout_ms": "40",
+            "threshold": "0.7",
+        }
+    )
+
+    assert isinstance(step, HoldKeyUntilGoneStep)
+    assert step.key == "space"
+    assert step.template == "loading"
+    assert step.load_delay_ms == 10
+    assert step.find_timeout_ms == 20
+    assert step.gone_grace_ms == 30
+    assert step.hard_timeout_ms == 40
+    assert step.threshold == 0.7
+
+
+def test_step_getters_return_defaults_for_missing_values() -> None:
+    step = {}
+
+    assert get_step_threshold(step) == DEFAULT_THRESHOLD
+    assert get_step_timeout(step) == DEFAULT_IMAGE_TIMEOUT
+    assert get_step_key(step) == DEFAULT_KEY
+    assert get_step_hold_ms(step) == DEFAULT_KEY_HOLD_MS
+    assert get_step_ms(step) == DEFAULT_DELAY_MS
+    assert get_step_load_delay(step) == DEFAULT_LOAD_DELAY_MS
+    assert get_step_find_timeout(step) == DEFAULT_FIND_TIMEOUT_MS
+    assert get_step_gone_grace(step) == DEFAULT_GONE_GRACE_MS
+    assert get_step_hard_timeout(step) == DEFAULT_HARD_TIMEOUT_MS
+    assert get_step_count(step) == DEFAULT_REPEAT_COUNT
+    assert get_step_rows(step) == DEFAULT_GRID_ROWS
+    assert get_step_start(step) == DEFAULT_GRID_START
+    assert get_step_on_timeout(step) == DEFAULT_ON_TIMEOUT
+    assert get_step_template(step) == ""
+    assert get_step_templates(step) == []
+
+
+def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
+    steps = [
+        KeyStep(key="enter"),
+        DelayStep(ms=10),
+        WaitImageStep(template="start"),
+        HoldKeyUntilGoneStep(key="space", template="loading"),
+        RepeatStep(steps=[KeyStep(key="tab")]),
+        IfImageStep(then=[KeyStep(key="a")], else_=[DelayStep(ms=1)]),
+        IfAnyImageStep(templates=["one"], branches={"one": [KeyStep(key="b")]}),
+        GridNavStep(on_next_row=[KeyStep(key="down")], on_next_col=[KeyStep(key="right")]),
+    ]
+
+    for step in steps:
+        assert step.to_dict()["type"] == step.type
+
+
 def test_macro_model_round_trips_macro(isolated_data_dir, sample_macro_dict: dict) -> None:
     model = MacroModel()
     macro = Macro.from_dict(copy.deepcopy(sample_macro_dict))
@@ -99,3 +198,24 @@ def test_macro_model_ignores_invalid_macro_file(isolated_data_dir) -> None:
 
     assert MacroModel().list_macros() == []
     assert MacroModel().load("broken") is None
+
+
+def test_macro_model_returns_none_for_missing_or_non_dict_macro(isolated_data_dir) -> None:
+    macro_dir = isolated_data_dir / "macros"
+    macro_dir.mkdir(parents=True)
+    (macro_dir / "list.json").write_text("[]", encoding="utf-8")
+
+    model = MacroModel()
+
+    assert model.load("missing") is None
+    assert model.load("list") is None
+
+
+def test_macro_model_delete_reports_missing_and_deleted_macro(isolated_data_dir, sample_macro_dict: dict) -> None:
+    model = MacroModel()
+    macro = Macro.from_dict(sample_macro_dict)
+    model.save(macro)
+
+    assert model.delete("missing") is False
+    assert model.delete("sample") is True
+    assert model.load("sample") is None

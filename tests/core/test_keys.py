@@ -38,6 +38,21 @@ def test_tap_stops_when_key_down_fails(monkeypatch) -> None:
     assert calls == []
 
 
+def test_tap_logs_key_up_failure(monkeypatch) -> None:
+    calls = []
+
+    def raise_key_up(key: str) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms, jitter_ms=0: calls.append(("sleep", ms, jitter_ms)))
+    monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))
+    monkeypatch.setattr(keys.pdi, "keyUp", raise_key_up)
+
+    keys.tap("enter", hold_ms=120, jitter_ms=10)
+
+    assert calls == [("down", "enter"), ("sleep", 120, 10)]
+
+
 def test_held_releases_key_after_context(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))
@@ -57,6 +72,21 @@ def test_held_reraises_key_down_failure(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="blocked"), keys.held("space"):
         pass
+
+
+def test_held_suppresses_key_up_failure(monkeypatch) -> None:
+    calls = []
+
+    def raise_key_up(key: str) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))
+    monkeypatch.setattr(keys.pdi, "keyUp", raise_key_up)
+
+    with keys.held("space"):
+        calls.append(("inside", "space"))
+
+    assert calls == [("down", "space"), ("inside", "space")]
 
 
 def test_is_valid_key_delegates_to_pydirectinput(monkeypatch) -> None:

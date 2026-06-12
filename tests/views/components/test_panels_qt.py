@@ -1,8 +1,9 @@
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeyEvent
-from qfluentwidgets import ComboBox, LineEdit
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QKeyEvent, QMouseEvent
+from PySide6.QtWidgets import QWidget
+from qfluentwidgets import BodyLabel, ComboBox, LineEdit
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
@@ -16,7 +17,7 @@ from remaku.models.macro_model import (
     TemplateInfo,
     WaitImageStep,
 )
-from remaku.views.components import left_panel, right_panel
+from remaku.views.components import center_panel, left_panel, right_panel
 from remaku.views.components.center_panel import CenterPanel
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
@@ -28,11 +29,15 @@ class FakeRoundMenu:
     def __init__(self, parent) -> None:
         self.parent = parent
         self.actions = []
+        self.separators = 0
         self.exec_position = None
         FakeRoundMenu.instances.append(self)
 
     def addAction(self, action) -> None:
         self.actions.append(action)
+
+    def addSeparator(self) -> None:
+        self.separators += 1
 
     def exec(self, position) -> None:
         self.exec_position = position
@@ -133,6 +138,16 @@ def test_left_panel_handlers_ignore_missing_current_item(qtbot) -> None:
     panel.handle_order_changed()
 
     assert panel.macro_list.currentItem() is None
+
+
+def test_right_panel_clear_content_removes_widgets(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.content_layout.addWidget(QWidget(panel.content_widget))
+
+    panel.clear_content()
+
+    assert panel.content_layout.count() == 0
 
 
 def test_left_panel_context_menu_ignores_empty_position(qtbot) -> None:
@@ -238,6 +253,158 @@ def test_center_panel_clear_selection_emits_empty_selection(qtbot) -> None:
     assert steps[-1] is None
 
 
+def test_center_panel_selects_branch_from_set_step_tree(qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    parent_step = {"type": "repeat"}
+    selected_branch = (parent_step, "body")
+
+    with qtbot.waitSignal(event_bus.branch_selected, timeout=100) as blocker:
+        panel.set_step_tree(
+            [
+                {
+                    "label": "Repeat",
+                    "step": parent_step,
+                    "children": [{"label": "Body", "branch": selected_branch}],
+                }
+            ],
+            selected_branch=selected_branch,
+        )
+
+    assert blocker.args == [parent_step, "body"]
+
+
+def test_center_panel_preserves_collapsed_state_and_expands_selected_ancestor(qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    parent_step = {"type": "repeat"}
+    child_step = {"type": "delay"}
+    items = [
+        {
+            "label": "Repeat",
+            "step": parent_step,
+            "state_key": "parent",
+            "children": [{"label": "Delay", "step": child_step, "state_key": "child"}],
+        }
+    ]
+    panel.set_step_tree(items)
+    root_item = panel.step_list.topLevelItem(0)
+    assert root_item is not None
+    root_item.setExpanded(False)
+
+    panel.set_step_tree(items)
+    root_item = panel.step_list.topLevelItem(0)
+    assert root_item is not None
+
+    assert not root_item.isExpanded()
+
+    panel.set_step_tree(items, selected_step=child_step)
+    root_item = panel.step_list.topLevelItem(0)
+    assert root_item is not None
+
+    assert root_item.isExpanded()
+
+
+def test_center_panel_mouse_press_empty_area_clears_selection(qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    steps = []
+    event_bus.step_selected.connect(steps.append)
+    panel.set_step_tree([{"label": "Press enter", "step": {"type": "key"}}])
+    event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        QPoint(1000, 1000),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    panel.step_list.mousePressEvent(event)
+
+    assert panel.step_list.currentItem() is None
+    assert steps[-1] is None
+
+
+def test_center_panel_context_menu_ignores_branch_item(qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    parent_step = {"type": "if_image"}
+    panel.set_step_tree(
+        [
+            {
+                "label": "If image",
+                "step": parent_step,
+                "children": [{"label": "Then", "branch": (parent_step, "then")}],
+            }
+        ]
+    )
+    root_item = panel.step_list.topLevelItem(0)
+    assert root_item is not None
+    branch_item = root_item.child(0)
+    assert branch_item is not None
+    branch_rect = panel.step_list.visualItemRect(branch_item)
+    FakeRoundMenu.instances.clear()
+
+    panel.handle_context_menu(branch_rect.center())
+
+    assert FakeRoundMenu.instances == []
+
+
+def test_center_panel_context_menu_builds_actions_and_emits(monkeypatch, qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    step = {"type": "key"}
+    panel.set_step_tree([{"label": "Press enter", "step": step}])
+    panel.set_has_clipboard(True)
+    FakeRoundMenu.instances.clear()
+    monkeypatch.setattr(center_panel, "RoundMenu", FakeRoundMenu)
+    item = panel.step_list.topLevelItem(0)
+    assert item is not None
+    panel.step_list.setCurrentItem(item)
+    rect = panel.step_list.visualItemRect(item)
+
+    panel.handle_context_menu(rect.center())
+
+    menu = FakeRoundMenu.instances[0]
+    assert menu.parent is panel
+    assert menu.separators == 2
+    assert menu.exec_position is not None
+    assert [action.text() for action in menu.actions] == [
+        "Copy",
+        "Cut",
+        "Paste",
+        "Duplicate Step",
+        "Delete Step",
+        "Wrap in Repeat",
+    ]
+    assert all(action.isEnabled() for action in menu.actions)
+
+    expected_actions = ["copy", "cut", "paste", "duplicate_step", "delete_step", "wrap_in_repeat"]
+
+    for action, expected in zip(menu.actions, expected_actions, strict=True):
+        with qtbot.waitSignal(event_bus.action_triggered, timeout=100) as blocker:
+            action.trigger()
+
+        assert blocker.args == [expected]
+
+
+def test_center_panel_context_menu_disables_selection_actions_without_selection(monkeypatch, qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    panel.set_step_tree([{"label": "Press enter", "step": {"type": "key"}}])
+    FakeRoundMenu.instances.clear()
+    monkeypatch.setattr(center_panel, "RoundMenu", FakeRoundMenu)
+    item = panel.step_list.topLevelItem(0)
+    assert item is not None
+    rect = panel.step_list.visualItemRect(item)
+    panel.step_list.clearSelection()
+
+    panel.handle_context_menu(rect.center())
+
+    menu = FakeRoundMenu.instances[0]
+    assert [action.isEnabled() for action in menu.actions] == [False, False, False, False, False, False]
+
+
 def test_right_panel_commit_numeric_field_emits_valid_value(qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)
@@ -262,6 +429,17 @@ def test_right_panel_commit_numeric_field_marks_invalid_value(qtbot) -> None:
     assert field.isError()
 
 
+def test_right_panel_commit_numeric_field_marks_empty_value(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    field = LineEdit()
+    field.setText("   ")
+
+    panel.commit_numeric_field("ms", field)
+
+    assert field.isError()
+
+
 def test_right_panel_refresh_target_windows_preserves_unknown_selection(monkeypatch, qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)
@@ -273,6 +451,18 @@ def test_right_panel_refresh_target_windows_preserves_unknown_selection(monkeypa
 
     assert [combo.itemData(index) for index in range(combo.count())] == ["", "Alpha", "Beta", "Missing"]
     assert combo.currentData() == "Missing"
+
+
+def test_right_panel_refresh_target_windows_selects_foreground_default(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    combo = ComboBox()
+    qtbot.addWidget(combo)
+    monkeypatch.setattr(right_panel.window, "list_visible_windows", lambda: ["Alpha"])
+
+    panel.refresh_target_windows(combo, "")
+
+    assert combo.currentData() == ""
 
 
 def test_right_panel_capture_key_normalizes_supported_key(monkeypatch, qtbot) -> None:
@@ -389,31 +579,16 @@ def test_right_panel_dropdown_emits_current_data(qtbot) -> None:
     assert blocker.args == ["on_timeout", "continue"]
 
 
-def test_right_panel_slider_updates_label_and_emits_after_timer(monkeypatch, qtbot) -> None:
+def test_right_panel_slider_updates_label_and_emits_after_timer(qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)
-    starts = []
-
-    class FakeTimer:
-        def __init__(self, parent=None) -> None:
-            self.timeout = event_bus.step_property_changed
-
-        def setSingleShot(self, value: bool) -> None:
-            pass
-
-        def setInterval(self, value: int) -> None:
-            pass
-
-        def start(self) -> None:
-            starts.append("start")
-
-    monkeypatch.setattr(right_panel, "QTimer", FakeTimer)
     panel.add_slider("Threshold", 0.5, property_key="threshold")
     slider = panel.findChildren(right_panel.Slider)[-1]
 
-    slider.setValue(75)
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=500) as blocker:
+        slider.setValue(75)
 
-    assert starts == ["start"]
+    assert blocker.args == ["threshold", "75"]
 
 
 def test_right_panel_template_list_editor_add_button_emits(monkeypatch, qtbot) -> None:
@@ -443,3 +618,121 @@ def test_right_panel_enabled_checkbox_emits_macro_meta(qtbot) -> None:
         qtbot.mouseClick(checkbox, Qt.MouseButton.LeftButton)
 
     assert blocker.args == ["enabled", "True"]
+
+
+def test_right_panel_show_step_properties_for_remaining_step_types(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(label="Button")})
+    monkeypatch.setattr(right_panel, "TemplateEditor", lambda macro, template_id, parent=None: LineEdit(parent))
+
+    for step in [
+        right_panel.HoldKeyUntilGoneStep(template="button"),
+        right_panel.IfImageStep(template="button"),
+    ]:
+        panel.show_step_properties(macro, "Step", step)
+        assert panel.content_layout.count() > 0
+
+
+def test_right_panel_show_branch_properties_add_button_emits(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    calls = []
+    monkeypatch.setattr(
+        right_panel,
+        "show_step_menu",
+        lambda parent, button, callback: calls.append((parent, button)) or callback("delay"),
+    )
+    macro = Macro(meta=MacroMeta(id="macro"))
+
+    panel.show_branch_properties(macro, "Parent Step", "Then", [])
+    button = panel.findChildren(right_panel.PushButton)[-1]
+
+    with qtbot.waitSignal(event_bus.step_add_requested, timeout=100) as blocker:
+        qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+
+    assert calls == [(panel, button)]
+    assert blocker.args == ["delay"]
+
+
+def test_right_panel_handle_add_step_requested_emits(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+
+    with qtbot.waitSignal(event_bus.step_add_requested, timeout=100) as blocker:
+        panel.handle_add_step_requested("key")
+
+    assert blocker.args == ["key"]
+
+
+def test_right_panel_non_numeric_text_input_emits_on_editing_finished(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.add_text_input("Mode", "old", "on_timeout")
+    field = panel.findChildren(LineEdit)[-1]
+    field.setText("continue")
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        field.editingFinished.emit()
+
+    assert blocker.args == ["on_timeout", "continue"]
+
+
+def test_right_panel_hotkey_text_clear_emits_empty_value(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(hotkey="ctrl+f1"))
+    panel.add_hotkey_text_input(macro)
+    edit = panel.findChildren(LineEdit)[-1]
+
+    with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
+        edit.setText("")
+
+    assert blocker.args == ["hotkey", ""]
+
+
+def test_right_panel_capture_key_ignores_unsupported_key(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    edit = LineEdit()
+    qtbot.addWidget(edit)
+    monkeypatch.setattr(right_panel.pdi, "KEYBOARD_MAPPING", {})
+    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier)
+
+    panel.capture_key(event, edit)
+
+    assert edit.text() == ""
+
+
+def test_right_panel_template_card_toggles_visibility(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(label="Button")})
+    monkeypatch.setattr(right_panel, "TemplateEditor", lambda macro, template_id, parent=None: LineEdit(parent))
+
+    panel.add_template_card(macro, "button")
+    panel.show()
+    qtbot.waitExposed(panel)
+    trigger = panel.content_layout.itemAt(panel.content_layout.count() - 2).widget()
+    card = panel.content_layout.itemAt(panel.content_layout.count() - 1).widget()
+    assert trigger is not None
+    assert card is not None
+    assert not card.isVisible()
+
+    trigger.mousePressEvent(None)
+    assert not card.isHidden()
+
+    trigger.mousePressEvent(None)
+    assert card.isHidden()
+
+
+def test_right_panel_template_card_uses_template_id_when_label_missing(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(id="macro"), templates={})
+    monkeypatch.setattr(right_panel, "TemplateEditor", lambda macro, template_id, parent=None: LineEdit(parent))
+
+    panel.add_template_card(macro, "missing")
+    labels = panel.findChildren(BodyLabel)
+
+    assert any(label.text() == "missing" for label in labels)

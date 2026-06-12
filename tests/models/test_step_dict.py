@@ -1,5 +1,6 @@
 from remaku.models.step_dict import (
     get_step_branches,
+    get_step_branch_names,
     get_step_in_list_index,
     get_step_list,
     get_step_str,
@@ -49,3 +50,11 @@ def test_move_step_in_list_moves_item() -> None:
     move_step_in_list(steps, 0, 2)
 
     assert [step["id"] for step in steps] == ["b", "c", "a"]
+
+
+def test_get_step_branch_names_returns_branch_keys() -> None:
+    assert get_step_branch_names({"branches": {"one": [], "two": []}}) == ["one", "two"]
+
+
+def test_get_step_str_list_returns_empty_for_non_list() -> None:
+    assert get_step_str_list({"items": "bad"}, "items") == []

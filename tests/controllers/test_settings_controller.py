@@ -27,6 +27,29 @@ class FakeMainWindow:
         self.always_on_top_values.append(value)
 
 
+class FakeSignal:
+    def __init__(self) -> None:
+        self.callbacks = []
+
+    def connect(self, callback) -> None:
+        self.callbacks.append(callback)
+
+
+class FakeCheckBox:
+    def __init__(self) -> None:
+        self.checkStateChanged = FakeSignal()
+
+
+class FakeComboBox:
+    def __init__(self) -> None:
+        self.currentIndexChanged = FakeSignal()
+
+
+class FakeLineEdit:
+    def __init__(self) -> None:
+        self.editingFinished = FakeSignal()
+
+
 class FakeView:
     def __init__(self) -> None:
         self.widgets: dict = {}
@@ -40,6 +63,41 @@ def make_controller(monkeypatch) -> tuple[SettingsController, FakeConfigModel, F
     controller.view = FakeView()
     controller.main_window = main_window
     return cast(SettingsController, controller), fake_config, main_window
+
+
+def test_init_connects_supported_widgets(monkeypatch) -> None:
+    check_box = FakeCheckBox()
+    combo = FakeComboBox()
+    line_edit = FakeLineEdit()
+    view = FakeView()
+    view.widgets = {
+        "general.always_on_top": check_box,
+        "general.theme": combo,
+        "capture.fps": line_edit,
+        "ignored": object(),
+    }
+    main_window = FakeMainWindow()
+    calls = []
+    monkeypatch.setattr(settings_controller, "CheckBox", FakeCheckBox)
+    monkeypatch.setattr(settings_controller, "ComboBox", FakeComboBox)
+    monkeypatch.setattr(settings_controller, "LineEdit", FakeLineEdit)
+    monkeypatch.setattr(SettingsController, "on_checkbox_changed", lambda self, key, state: calls.append((key, state)))
+    monkeypatch.setattr(SettingsController, "on_combo_changed", lambda self, key: calls.append((key, "combo")))
+    monkeypatch.setattr(SettingsController, "on_text_changed", lambda self, key: calls.append((key, "text")))
+
+    SettingsController(cast(Any, view), cast(Any, main_window))
+    check_box.checkStateChanged.callbacks[0](Qt.CheckState.Checked)
+    combo.currentIndexChanged.callbacks[0](0)
+    line_edit.editingFinished.callbacks[0]()
+
+    assert len(check_box.checkStateChanged.callbacks) == 1
+    assert len(combo.currentIndexChanged.callbacks) == 1
+    assert len(line_edit.editingFinished.callbacks) == 1
+    assert calls == [
+        ("general.always_on_top", Qt.CheckState.Checked),
+        ("general.theme", "combo"),
+        ("capture.fps", "text"),
+    ]
 
 
 def test_validate_int_accepts_positive_capture_fps(monkeypatch) -> None:
@@ -125,6 +183,15 @@ def test_on_combo_changed_applies_current_data(monkeypatch, qtbot) -> None:
     assert fake_config.save_calls == 1
 
 
+def test_on_combo_changed_ignores_missing_widget(monkeypatch) -> None:
+    controller, fake_config, _main_window = make_controller(monkeypatch)
+
+    controller.on_combo_changed("general.theme")
+
+    assert fake_config.config.general.theme == "system"
+    assert fake_config.save_calls == 0
+
+
 def test_on_text_changed_applies_valid_integer(monkeypatch, qtbot) -> None:
     controller, fake_config, _main_window = make_controller(monkeypatch)
     edit = LineEdit()
@@ -136,6 +203,15 @@ def test_on_text_changed_applies_valid_integer(monkeypatch, qtbot) -> None:
 
     assert fake_config.config.capture.fps == 45
     assert fake_config.save_calls == 1
+
+
+def test_on_text_changed_ignores_missing_widget(monkeypatch) -> None:
+    controller, fake_config, _main_window = make_controller(monkeypatch)
+
+    controller.on_text_changed("capture.fps")
+
+    assert fake_config.config.capture.fps == 10
+    assert fake_config.save_calls == 0
 
 
 def test_on_text_changed_restores_invalid_integer(monkeypatch, qtbot) -> None:
@@ -182,3 +258,14 @@ def test_restart_application_starts_current_program_and_quits(monkeypatch, qtbot
 
     assert starts == [("python.exe", [settings_controller.os.path.abspath("main.py"), "--flag"])]
     assert quits == ["quit"]
+
+
+def test_restart_application_returns_without_application(monkeypatch) -> None:
+    controller, _fake_config, _main_window = make_controller(monkeypatch)
+    starts = []
+    monkeypatch.setattr(settings_controller.QApplication, "instance", lambda: None)
+    monkeypatch.setattr(settings_controller.QProcess, "startDetached", lambda program, args: starts.append((program, args)))
+
+    controller.restart_application()
+
+    assert starts == []

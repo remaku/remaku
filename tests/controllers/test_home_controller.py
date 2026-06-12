@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from PySide6.QtCore import Qt
 
 from remaku.controllers import home_controller
@@ -45,9 +46,13 @@ class FakeMacroModel:
 class FakeWindow:
     def __init__(self) -> None:
         self.show_normal_calls = 0
+        self.show_minimized_calls = 0
 
     def showNormal(self) -> None:
         self.show_normal_calls += 1
+
+    def showMinimized(self) -> None:
+        self.show_minimized_calls += 1
 
     def winId(self) -> int:
         return 99
@@ -205,6 +210,7 @@ class FakeRunner:
         self.status = status or Status()
         self.macro: dict[str, Any] = {"steps": []}
         self.macro_path = Path("macro.json")
+        self.current_step_path: Any = None
         self.start_calls = 0
         self.stop_calls = 0
 
@@ -1130,3 +1136,1347 @@ def test_handle_region_captured_updates_template_refs(tmp_path: Path, monkeypatc
     assert selected_step["branches"] == {"new": [{"type": "key"}]}
     assert mutate_calls == ["mutate"]
     assert cast(Any, controller.view).fake_window.show_normal_calls == 1
+
+
+def test_handle_new_macro_retries_empty_name_then_creates(monkeypatch) -> None:
+    model = FakeMacroModel()
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    dialogs = [FakeDialog(True, ""), FakeDialog(True, "Created")]
+    messages = []
+    refresh_calls = []
+    controller.refresh_macro_list = lambda: refresh_calls.append("refresh")
+    monkeypatch.setattr(home_controller, "NewMacroDialog", lambda parent: dialogs.pop(0))
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+    monkeypatch.setattr(home_controller.time, "time", lambda: 300.0)
+
+    controller.handle_new_macro()
+
+    assert messages == [("New Macro", "Macro name cannot be empty.")]
+    assert model.saved[0].meta.id == "300"
+    assert model.saved[0].meta.label == "Created"
+    assert controller.selected_macro_id == "300"
+    assert refresh_calls == ["refresh"]
+    assert cast(Any, controller.view).statuses == ["Created macro: Created"]
+
+
+def test_handle_new_macro_cancel_does_not_save(monkeypatch) -> None:
+    model = FakeMacroModel()
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    monkeypatch.setattr(home_controller, "NewMacroDialog", lambda parent: FakeDialog(False, "Ignored"))
+
+    controller.handle_new_macro()
+
+    assert model.saved == []
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_handle_macro_rename_retries_empty_and_ignores_unchanged(monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="alpha", label="Old"))
+    model = FakeMacroModel(macros={"alpha": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    dialogs = [FakeDialog(True, ""), FakeDialog(True, "Old")]
+    messages = []
+    refresh_calls = []
+    controller.refresh_macro_list = lambda: refresh_calls.append("refresh")
+    monkeypatch.setattr(home_controller, "RenameMacroDialog", lambda parent, current_label: dialogs.pop(0))
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+
+    controller.handle_macro_rename("alpha")
+
+    assert messages == [("Rename Macro", "Macro name cannot be empty.")]
+    assert macro.meta.label == "Old"
+    assert model.saved == []
+    assert refresh_calls == []
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_describe_step_formats_template_branch_and_unknown_types() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(
+        meta=MacroMeta(id="macro"),
+        templates={"start": TemplateInfo(label="Start Button"), "empty": TemplateInfo(label="")},
+    )
+
+    assert controller.describe_step({"type": "hold_key_until_gone", "key": "a", "template": "start"}) == (
+        "Hold a until Start Button gone"
+    )
+    assert controller.describe_step({"type": "if_image", "template": "start"}) == "If image Start Button"
+    assert controller.describe_step({"type": "if_any_image", "templates": ["start", "missing"]}) == (
+        "If any image Start Button, missing"
+    )
+    assert controller.describe_step({"type": "custom", "note": "later"}) == "custom (later)"
+    assert controller.get_template_label("empty") == "empty"
+    controller.current_macro = None
+    assert controller.get_template_label("start") == "start"
+
+
+def test_show_step_selection_handles_empty_macro_branch_and_skipped_child() -> None:
+    controller = make_controller()
+
+    controller.show_step_selection({"type": "key"})
+
+    assert cast(Any, controller.view).right_panel.step_properties is None
+
+    parent_step = {"type": "if_image", "template": "start", "then": [{"type": "key", "key": "enter"}]}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"start": TemplateInfo(label="Start Button")})
+    controller.current_macro = macro
+    controller.step_tree = StepTree([parent_step])
+    controller.selected_branch_parent = parent_step
+    controller.selected_branch_key = "then"
+
+    controller.show_step_selection(None)
+
+    branch_properties = cast(Any, controller.view).right_panel.branch_properties
+    assert branch_properties[0] is macro
+    assert branch_properties[1] == "If image Start Button"
+    assert branch_properties[2] == "Then"
+    assert [step.type for step in branch_properties[3]] == ["key"]
+
+    child_step = {"type": "key", "key": "a"}
+    controller.selected_branch_parent = None
+    controller.selected_branch_key = ""
+    controller.step_tree = StepTree([{"type": "repeat", "skip": True, "steps": [child_step]}])
+
+    controller.show_step_selection(child_step)
+
+    step_properties = cast(Any, controller.view).right_panel.step_properties
+    assert step_properties[1] == "Press a"
+    assert step_properties[3] is False
+
+
+def test_handle_macro_running_changed_reports_running_stopped_and_message() -> None:
+    controller = make_controller()
+    calls = []
+    controller.set_editing_locked = lambda locked: calls.append(locked)
+    controller.current_runner = cast(Any, FakeRunner(status=Status(last_reason="user_stopped")))
+
+    controller.handle_macro_running_changed(True)
+    controller.handle_macro_running_changed(False)
+    controller.current_runner = cast(Any, FakeRunner(status=Status(message="failed")))
+    controller.handle_macro_running_changed(False)
+    controller.current_runner = None
+    controller.handle_macro_running_changed(False)
+
+    assert calls == [True, False, False, False]
+    assert cast(Any, controller.view).statuses == ["Running macro: Runner", "Stopped macro: Runner", "Runner: failed"]
+
+
+def test_handle_hotkey_triggered_ignores_missing_disabled_and_stops_running(qtbot) -> None:
+    macro = Macro(meta=MacroMeta(id="macro", enabled=False))
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.hotkey_map = {1: "missing", 2: "macro", 3: "running"}
+
+    controller.handle_hotkey_triggered(99)
+    controller.handle_hotkey_triggered(1)
+    controller.handle_hotkey_triggered(2)
+
+    running_runner = FakeRunner(running=True)
+    controller.selected_macro_id = "running"
+    controller.current_runner = cast(Any, running_runner)
+    model.macros["running"] = Macro(meta=MacroMeta(id="running", enabled=True))
+
+    with qtbot.waitSignal(home_controller.event_bus.macro_running_changed, timeout=100) as stopped:
+        controller.handle_hotkey_triggered(3)
+
+    assert stopped.args == [False]
+    assert running_runner.stop_calls == 1
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_import_macro_returns_when_no_file_selected(monkeypatch) -> None:
+    controller = make_controller()
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: ("", ""))
+
+    controller.import_macro()
+
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_import_macro_reports_bad_zip_and_missing_macro_json(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    messages = []
+    controller = make_controller()
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+
+    archive_path.write_bytes(b"not a zip")
+    controller.import_macro()
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("other.json", "{}")
+    controller.import_macro()
+
+    assert messages == [
+        ("Import failed", "Invalid zip file"),
+        ("Import failed", "macro.json is missing from the archive"),
+    ]
+
+
+def test_duplicate_current_macro_reports_missing_macro_and_existing_destination(tmp_path: Path, monkeypatch) -> None:
+    controller = make_controller()
+
+    controller.duplicate_current_macro()
+
+    controller.current_macro = Macro(meta=MacroMeta(id="alpha", label="Alpha"))
+    existing_path = tmp_path / "300.json"
+    existing_path.write_text("{}")
+    monkeypatch.setattr(home_controller.time, "time", lambda: 300.0)
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: existing_path)
+
+    controller.duplicate_current_macro()
+
+    assert cast(Any, controller.view).statuses == [
+        "Select a macro first",
+        "Unable to duplicate macro. Please try again.",
+    ]
+
+
+def test_update_undo_redo_and_current_macro_helpers() -> None:
+    controller = make_controller()
+    controller.editing_locked = True
+
+    controller.set_current_macro(Macro(meta=MacroMeta(id="macro")))
+
+    toolbar = cast(Any, controller.view).toolbar
+    assert toolbar.undo_button.enabled is False
+    assert toolbar.redo_button.enabled is False
+
+    controller.editing_locked = False
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_macro_id = "macro"
+    controller.undo_stack.append({"undo": True})
+    controller.redo_stack.append({"redo": True})
+
+    controller.update_undo_redo_state()
+
+    assert toolbar.undo_button.enabled is True
+    assert toolbar.redo_button.enabled is True
+    assert controller.current_macro_dict() == {"steps": []}
+
+    controller.current_runner = None
+    assert controller.current_macro_dict() is None
+
+
+def test_sync_runner_macro_from_current_replaces_runner() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+
+    controller.sync_runner_macro_from_current()
+
+    assert controller.current_runner is not None
+    assert controller.current_runner.macro_path == Path("macro.json")
+    assert controller.current_runner.macro["meta"]["name"] == "macro"
+
+
+def test_restore_macro_state_rebuilds_runner_and_saves(tmp_path: Path, monkeypatch) -> None:
+    old_macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [{"type": "key", "key": "old"}]})
+    model = FakeMacroModel(macros={"macro": old_macro})
+    controller = make_controller()
+    controller.current_macro = old_macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    selected = []
+    controller.select_after_undo_redo = lambda old_steps, new_steps, selection_index=None: selected.append(
+        (old_steps, new_steps, selection_index)
+    )
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / f"{macro_id}.json")
+
+    controller.restore_macro_state({"meta": {"name": "macro"}, "steps": [{"type": "delay", "ms": 5}]}, 0)
+
+    assert controller.current_macro is not None
+    assert controller.current_macro.steps[0].type == "delay"
+    assert selected[0][2] == 0
+    assert model.saved[-1].steps[0].type == "delay"
+
+
+def test_restore_macro_state_returns_without_runner() -> None:
+    controller = make_controller()
+
+    controller.restore_macro_state({"meta": {}, "steps": []})
+
+    assert controller.current_macro is None
+
+
+def test_update_step_action_state_handles_locked_multi_and_single_selection() -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.step_tree = StepTree([step, {"type": "delay", "ms": 1}])
+    selected_items = [object()]
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: selected_items
+    center.item_to_step = {selected_items[0]: step}
+
+    controller.update_step_action_state()
+
+    toolbar = cast(Any, controller.view).toolbar
+    assert toolbar.delete_button.enabled is True
+    assert toolbar.move_up_button.enabled is False
+    assert toolbar.move_down_button.enabled is True
+
+    controller.editing_locked = True
+    toolbar.delete_button.enabled = False
+    controller.update_step_action_state()
+
+    assert toolbar.delete_button.enabled is False
+
+
+def test_selected_step_nodes_ignores_missing_or_non_dict_items() -> None:
+    controller = make_controller()
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    items = [object(), object()]
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: items
+    center.item_to_step = {items[0]: "not-step", items[1]: {"type": "missing"}}
+
+    assert controller.selected_step_nodes() == []
+
+
+def test_clipboard_copy_cut_and_paste_steps(tmp_path: Path, monkeypatch, qtbot) -> None:
+    step = {"type": "wait_image", "template": "button"}
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "macro"},
+            "templates": {"button": {"label": "Button", "capture_width": 320}},
+            "steps": [step],
+        }
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([step])
+    controller.selected_macro_id = "macro"
+    item = object()
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: [item]
+    center.item_to_step = {item: step}
+    template_file = tmp_path / "templates" / "macro" / "button.png"
+    template_file.parent.mkdir(parents=True)
+    template_file.write_bytes(b"png")
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+
+    with qtbot.waitSignal(home_controller.event_bus.clipboard_changed, timeout=100) as clipboard_changed:
+        controller.copy_selected_steps()
+
+    assert clipboard_changed.args == [True]
+    assert controller.step_clipboard is not None
+    assert controller.step_clipboard["templates"] == {"button": b"png"}
+
+    controller.cut_selected_steps()
+
+    assert controller.step_tree.steps == []
+    assert cast(Any, controller.view).statuses[-1] == "Deleted step"
+
+    controller.paste_steps()
+
+    assert controller.step_tree.steps[0]["template"] == "button"
+    assert controller.selected_step == controller.step_tree.steps[0]
+
+
+def test_copy_cut_and_paste_return_without_required_state() -> None:
+    controller = make_controller()
+
+    controller.copy_selected_steps()
+    controller.cut_selected_steps()
+    controller.paste_steps()
+
+    assert controller.step_clipboard is None
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_paste_steps_returns_for_empty_clipboard_steps() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([])
+    controller.step_clipboard = {"steps": [], "templates": {}, "template_meta": {}}
+
+    controller.paste_steps()
+
+    assert controller.step_tree.steps == []
+
+
+def test_add_step_to_branch_repeat_and_invalid_branch() -> None:
+    parent = {"type": "if_image", "then": []}
+    repeat = {"type": "repeat", "steps": []}
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [parent, repeat]})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([parent, repeat])
+    controller.selected_branch_parent = {"type": "missing"}
+    controller.selected_branch_key = "then"
+
+    controller.add_step("key")
+
+    assert cast(Any, controller.view).statuses == ["Select a valid branch first"]
+
+    controller.selected_branch_parent = parent
+    controller.selected_branch_key = "then"
+    controller.add_step("delay")
+
+    assert parent["then"][0]["type"] == "delay"
+
+    controller.selected_branch_parent = None
+    controller.selected_branch_key = ""
+    controller.selected_step = repeat
+    controller.add_step("key")
+
+    assert repeat["steps"][0]["type"] == "key"
+
+
+def test_duplicate_delete_wrap_and_move_selected_step_paths() -> None:
+    first = {"type": "key", "key": "a"}
+    second = {"type": "delay", "ms": 1}
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [first, second]})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([first, second])
+    controller.selected_macro_id = "macro"
+    item = object()
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: [item]
+    center.item_to_step = {item: first}
+
+    controller.duplicate_selected_step()
+
+    assert controller.step_tree.steps[1]["type"] == "key"
+    assert cast(Any, controller.view).statuses[-1] == "Duplicated step"
+
+    center.item_to_step = {item: controller.step_tree.steps[1]}
+    controller.wrap_selected_step_in_repeat()
+
+    assert controller.step_tree.steps[1]["type"] == "repeat"
+    assert cast(Any, controller.view).statuses[-1] == "Wrapped step in repeat"
+
+    controller.move_selected_step(1)
+
+    assert cast(Any, controller.view).statuses[-1] == "Moved step"
+
+    moved_step = controller.selected_step
+    center.item_to_step = {item: moved_step}
+    controller.delete_selected_step()
+
+    assert cast(Any, controller.view).statuses[-1] == "Deleted step"
+
+
+def test_step_actions_report_missing_macro_or_step() -> None:
+    controller = make_controller()
+
+    controller.duplicate_selected_step()
+    controller.delete_selected_step()
+    controller.wrap_selected_step_in_repeat()
+    controller.move_selected_step(1)
+
+    controller.step_tree = StepTree([])
+    controller.duplicate_selected_step()
+    controller.delete_selected_step()
+    controller.wrap_selected_step_in_repeat()
+    controller.move_selected_step(1)
+
+    assert cast(Any, controller.view).statuses == [
+        "Select a macro first",
+        "Select a macro first",
+        "Select a macro first",
+        "Select a macro first",
+        "Select a step first",
+        "Select a step first",
+        "Select a step first",
+        "Select a step first",
+    ]
+
+
+def test_move_selected_step_reports_failed_move() -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_macro_id = "macro"
+    controller.step_tree = StepTree([step])
+    controller.selected_step = step
+
+    controller.move_selected_step(-1)
+
+    assert controller.undo_stack == []
+    assert cast(Any, controller.view).statuses == ["Cannot move selected step"]
+
+
+def test_run_current_macro_reports_missing_runner() -> None:
+    controller = make_controller()
+
+    controller.run_current_macro()
+
+    assert cast(Any, controller.view).statuses == ["Select a macro first"]
+
+
+def test_open_folders_settings_and_quit_emit_or_call(tmp_path: Path, monkeypatch, qtbot) -> None:
+    controller = make_controller()
+    opened = []
+    closed = []
+    cast(Any, controller.view).fake_window.close = lambda: closed.append("close")
+    monkeypatch.setattr(home_controller, "log_dir", lambda: tmp_path / "logs")
+    monkeypatch.setattr(home_controller, "macros_dir", lambda: tmp_path / "macros")
+    monkeypatch.setattr(home_controller.os, "startfile", lambda path: opened.append(path), raising=False)
+
+    controller.open_logs_folder()
+    controller.open_macro_folder()
+
+    with qtbot.waitSignal(home_controller.event_bus.switch_page_requested, timeout=100) as page:
+        controller.open_settings()
+
+    controller.quit_application()
+
+    assert opened == [tmp_path / "logs", tmp_path / "macros"]
+    assert page.args == ["settings"]
+    assert closed == ["close"]
+
+
+def test_template_capture_add_delete_and_meta_changes(tmp_path: Path, monkeypatch) -> None:
+    wait_step = {"type": "wait_image", "template": "old"}
+    any_step = {"type": "if_any_image", "templates": ["old", "keep"], "branches": {"old": [{"type": "key"}]}}
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        templates={"old": TemplateInfo(label="Old"), "keep": TemplateInfo(label="Keep")},
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_step = wait_step
+    controller.step_tree = StepTree([wait_step, any_step])
+    calls = []
+    controller.mutate_current_macro = lambda: calls.append("mutate")
+    controller.save_current_macro = lambda: calls.append("save")
+    controller.sync_macro_steps_from_tree = lambda: calls.append("sync")
+    controller.refresh_step_tree = lambda: calls.append("refresh")
+    old_file = tmp_path / "templates" / "macro" / "old.png"
+    old_file.parent.mkdir(parents=True)
+    old_file.write_bytes(b"png")
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller.time, "time", lambda: 400.0)
+    monkeypatch.setattr(home_controller.QTimer, "singleShot", lambda delay, callback: callback())
+    launches = []
+    controller.launch_region_selector = lambda template_id: launches.append(template_id)
+
+    controller.handle_template_capture("old")
+    controller.selected_step = any_step
+    controller.handle_template_add()
+    controller.handle_template_delete("old")
+    controller.handle_template_meta_changed("keep", "label", "Kept")
+    controller.handle_template_meta_changed("keep", "capture_width", "bad")
+    controller.handle_template_meta_changed("missing", "label", "Nope")
+
+    assert cast(Any, controller.view).fake_window.show_minimized_calls == 1
+    assert launches == ["old"]
+    assert "400" in any_step["templates"]
+    assert not old_file.exists()
+    assert wait_step["template"] == ""
+    assert any_step["templates"] == ["keep", "400"]
+    assert "old" not in any_step["branches"]
+    assert macro.templates["keep"].label == "Kept"
+    assert calls == ["mutate", "mutate", "sync", "save", "refresh"]
+
+
+def test_template_add_and_capture_return_without_required_state() -> None:
+    controller = make_controller()
+
+    controller.handle_template_capture("old")
+    controller.handle_template_add()
+    controller.handle_template_delete("old")
+    controller.handle_template_meta_changed("old", "label", "Old")
+
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_handle_region_captured_falls_back_to_generated_label(tmp_path: Path, monkeypatch) -> None:
+    selected_step = {"type": "wait_image", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="")})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.selected_step = selected_step
+    calls = []
+    controller.mutate_current_macro = lambda: calls.append("mutate")
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.handle_region_captured("old", "new", 1, 2)
+
+    assert selected_step["template"] == "new"
+    assert macro.templates["new"].label == "Template new"
+    assert calls == ["mutate"]
+
+
+def test_handle_region_captured_returns_without_selection_or_macro() -> None:
+    controller = make_controller()
+
+    controller.handle_region_captured("old", "new", 1, 2)
+
+    assert cast(Any, controller.view).fake_window.show_normal_calls == 1
+
+
+def test_state_helpers_return_when_runner_or_selection_missing() -> None:
+    controller = make_controller()
+
+    controller.sync_runner_macro_from_current()
+    controller.push_undo()
+    controller.save_current_macro()
+    controller.undo()
+    controller.redo()
+
+    assert controller.current_runner is None
+    assert controller.undo_stack == []
+    assert controller.redo_stack == []
+
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    controller.selected_step = {"type": "missing"}
+
+    assert controller.selected_step_flat_index() is None
+
+
+def test_update_step_action_state_disables_move_buttons_for_multi_selection() -> None:
+    steps = [{"type": "key", "key": "a"}, {"type": "delay", "ms": 1}]
+    controller = make_controller()
+    controller.step_tree = StepTree(steps)
+    items = [object(), object()]
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: items
+    center.item_to_step = {items[0]: steps[0], items[1]: steps[1]}
+
+    controller.update_step_action_state()
+
+    toolbar = cast(Any, controller.view).toolbar
+    assert toolbar.delete_button.enabled is True
+    assert toolbar.move_up_button.enabled is False
+    assert toolbar.move_down_button.enabled is False
+
+
+def test_select_after_undo_redo_selects_previous_when_new_steps_shorter() -> None:
+    controller = make_controller()
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    calls = []
+    old_steps = Macro.from_dict({"meta": {}, "steps": [{"type": "key", "key": "a"}, {"type": "delay", "ms": 1}]}).steps
+    controller.refresh_step_tree = lambda: calls.append("refresh")
+    controller.show_step_selection = lambda step: calls.append(("show", step))
+
+    controller.select_after_undo_redo(old_steps, [])
+
+    assert controller.selected_step == {"type": "key", "key": "a"}
+    assert calls == ["refresh", ("show", controller.selected_step)]
+
+
+def test_step_selection_helpers_return_for_missing_nodes() -> None:
+    controller = make_controller()
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+
+    assert controller.branch_steps({"type": "missing"}, "then") == []
+    assert controller.is_child_of_skipped_repeat({"type": "missing"}) is False
+    controller.set_descendant_skip({"type": "missing"}, True)
+
+    assert controller.step_tree.steps == [{"type": "key", "key": "a"}]
+
+
+def test_handle_macro_duplicate_loads_requested_macro_before_copy() -> None:
+    controller = make_controller()
+    calls = []
+    controller.selected_macro_id = "old"
+    controller.load_selected_macro = lambda macro_id: calls.append(("load", macro_id))
+    controller.duplicate_current_macro = lambda: calls.append(("duplicate", controller.selected_macro_id))
+
+    controller.handle_macro_duplicate("new")
+
+    assert calls == [("load", "new"), ("duplicate", "new")]
+
+
+def test_handle_macro_delete_reports_failed_delete(monkeypatch) -> None:
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, FakeMacroModel())
+    messages = []
+    monkeypatch.setattr(home_controller, "show_confirm_dialog", lambda *args: True)
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+
+    controller.handle_macro_delete("missing")
+
+    assert messages == [("Delete Macro", "Unable to delete the macro.")]
+
+
+def test_copy_selected_steps_returns_when_top_level_empty(monkeypatch) -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.step_tree = StepTree([step])
+    step_tree = cast(Any, controller.step_tree)
+    controller.selected_step_nodes = lambda: [step_tree.root_nodes[0]]
+    monkeypatch.setattr(step_tree, "get_top_level", lambda selected: [])
+
+    controller.copy_selected_steps()
+
+    assert controller.step_clipboard is None
+
+
+def test_paste_steps_merges_existing_template_metadata(tmp_path: Path, monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([])
+    controller.step_clipboard = {
+        "steps": [{"type": "wait_image", "template": "button"}],
+        "templates": {"button": b"png"},
+        "template_meta": {"button": {"label": "Button", "capture_width": 320, "capture_height": 180}},
+    }
+    calls = []
+    controller.mutate_current_macro = lambda: calls.append("mutate")
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.paste_steps()
+
+    assert (tmp_path / "templates" / "macro" / "button.png").read_bytes() == b"png"
+    assert macro.templates["button"].label == "Button"
+    assert macro.templates["button"].capture_width == 320
+    assert macro.templates["button"].capture_height == 180
+    assert calls == ["mutate"]
+
+
+def test_import_macro_validation_errors(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    messages = []
+    controller = make_controller()
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("macro.json", json.dumps([]))
+    controller.import_macro()
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("macro.json", json.dumps({"steps": []}))
+    controller.import_macro()
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("macro.json", json.dumps({"meta": {}, "steps": []}))
+    controller.import_macro()
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("macro.json", json.dumps({"meta": {"name": "macro"}, "steps": {}}))
+    controller.import_macro()
+
+    assert messages == [
+        ("Import failed", "Invalid macro data"),
+        ("Import failed", "Macro metadata is invalid"),
+        ("Import failed", "Macro metadata is invalid"),
+        ("Import failed", "Macro steps are invalid"),
+    ]
+
+
+def test_import_macro_handles_duplicate_id_legacy_meta_and_existing_order(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    write_macro_zip(
+        archive_path,
+        {
+            "meta": {"name": "imported", "label": ""},
+            "templates": {"button": "legacy"},
+            "steps": [{"type": "wait_image", "template": "button"}],
+        },
+        {
+            "templates/button.png": b"new",
+            "templates/button.json": json.dumps({"capture_width": 640, "capture_height": 360}).encode(),
+        },
+    )
+    existing_file = tmp_path / "macros" / "imported.json"
+    existing_file.parent.mkdir(parents=True)
+    existing_file.write_text("{}")
+    fake_config = FakeConfigModel()
+    fake_config.config.general.macro_order = ["501"]
+    model = FakeMacroModel(existing_ids={"500"})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    refresh_calls = []
+    controller.refresh_macro_list = lambda: refresh_calls.append("refresh")
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(home_controller.time, "time", lambda: 500.0)
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller, "config_model", fake_config)
+
+    controller.import_macro()
+
+    assert model.saved[0].meta.id == "501"
+    assert model.saved[0].meta.label == "501"
+    assert model.saved[0].templates["button"].label == "button"
+    assert model.saved[0].templates["button"].capture_width == 640
+    assert (tmp_path / "templates" / "501" / "button.png").read_bytes() == b"new"
+    assert fake_config.config.general.macro_order == ["501"]
+    assert fake_config.save_calls == 0
+    assert refresh_calls == ["refresh"]
+
+
+def test_import_macro_skips_invalid_legacy_metadata(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    write_macro_zip(
+        archive_path,
+        {
+            "meta": {"name": "macro"},
+            "templates": [],
+            "steps": [
+                {"type": "wait_image", "template": "bad_json"},
+                {"type": "wait_image", "template": "bad_type"},
+            ],
+        },
+        {
+            "templates/bad_json.png": b"png",
+            "templates/bad_json.json": b"{bad",
+            "templates/bad_type.png": b"png",
+            "templates/bad_type.json": json.dumps([]).encode(),
+        },
+    )
+    model = FakeMacroModel()
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.refresh_macro_list = lambda: None
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.import_macro()
+
+    assert model.saved[0].templates == {}
+
+
+def test_export_current_macro_returns_or_reports_errors(tmp_path: Path, monkeypatch) -> None:
+    controller = make_controller()
+
+    controller.export_current_macro()
+
+    macro = Macro(meta=MacroMeta(id="macro", label="Macro"))
+    controller.current_macro = macro
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / f"{macro_id}.json")
+    monkeypatch.setattr(home_controller.QFileDialog, "getSaveFileName", lambda *args: ("", ""))
+    controller.export_current_macro()
+
+    monkeypatch.setattr(
+        home_controller.QFileDialog, "getSaveFileName", lambda *args: (str(tmp_path / "missing" / "out.zip"), "")
+    )
+    controller.export_current_macro()
+
+    assert cast(Any, controller.view).statuses == ["Select a macro first", "Failed to export macro"]
+
+
+def test_launch_region_selector_returns_without_macro_and_starts_with_macro(monkeypatch) -> None:
+    controller = make_controller()
+    starts = []
+
+    class FakeRegionSelector:
+        def __init__(self, macro_id: str, parent) -> None:
+            self.macro_id = macro_id
+            self.parent = parent
+            self.region_selected = FakeSignal()
+            self.cancelled = FakeSignal()
+
+        def start(self) -> None:
+            starts.append(
+                (self.macro_id, self.parent, len(self.region_selected.connected), len(self.cancelled.connected))
+            )
+
+    monkeypatch.setattr(home_controller, "RegionSelector", FakeRegionSelector)
+
+    controller.launch_region_selector("old")
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.launch_region_selector("old")
+
+    assert starts == [("macro", controller.view, 1, 1)]
+
+
+def test_handle_template_pick_updates_if_any_image_refs(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    old_file = tmp_path / "templates" / "macro" / "old.png"
+    old_file.parent.mkdir(parents=True)
+    old_file.write_bytes(b"old")
+    selected_step = {"type": "if_any_image", "templates": ["old"], "branches": {"old": [{"type": "key"}]}}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="Old")})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.selected_step = selected_step
+    calls = []
+    controller.mutate_current_macro = lambda: calls.append("mutate")
+
+    class FakePixmap:
+        def width(self) -> int:
+            return 800
+
+        def height(self) -> int:
+            return 600
+
+    class FakeScreen:
+        def grabWindow(self, window_id: int) -> FakePixmap:
+            assert window_id == 0
+            return FakePixmap()
+
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
+    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: FakeScreen())
+    monkeypatch.setattr(home_controller.time, "time", lambda: 700.0)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.handle_template_pick("old")
+
+    assert not old_file.exists()
+    assert (tmp_path / "templates" / "macro" / "700.png").read_bytes() == b"png"
+    assert selected_step["templates"] == ["700"]
+    assert selected_step["branches"] == {"700": [{"type": "key"}]}
+    assert macro.templates["700"].label == "Old"
+    assert macro.templates["700"].capture_width == 800
+    assert macro.templates["700"].capture_height == 600
+    assert calls == ["mutate"]
+
+
+def test_handle_template_pick_returns_for_missing_state_cancel_and_no_screen(tmp_path: Path, monkeypatch) -> None:
+    controller = make_controller()
+
+    controller.handle_template_pick("old")
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.selected_step = {"type": "wait_image", "template": "old"}
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: ("", ""))
+    controller.handle_template_pick("old")
+
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
+    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: None)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    with pytest.raises(RuntimeError, match="No primary screen is available"):
+        controller.handle_template_pick("old")
+
+
+def test_handle_template_pick_updates_single_template_with_generated_label(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    selected_step = {"type": "wait_image", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="")})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.selected_step = selected_step
+    controller.mutate_current_macro = lambda: None
+
+    class FakePixmap:
+        def width(self) -> int:
+            return 1
+
+        def height(self) -> int:
+            return 2
+
+    class FakeScreen:
+        def grabWindow(self, window_id: int) -> FakePixmap:
+            return FakePixmap()
+
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
+    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: FakeScreen())
+    monkeypatch.setattr(home_controller.time, "time", lambda: 800.0)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.handle_template_pick("old")
+
+    assert selected_step["template"] == "800"
+    assert macro.templates["800"].label == "Template 800"
+
+
+def test_handle_template_add_ignores_non_if_any_image() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.selected_step = {"type": "wait_image", "template": "old"}
+
+    controller.handle_template_add()
+
+    assert controller.current_macro.templates == {}
+
+
+def test_highlight_current_step_selects_visible_item() -> None:
+    step = {"type": "key", "key": "a"}
+    runner = FakeRunner(running=True)
+    runner.current_step_path = (("steps", 0),)
+    controller = make_controller()
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([step])
+    tree_item = object()
+    calls = []
+    center = cast(Any, controller.view).center_panel
+    center.item_to_step = {object(): {"type": "other"}, tree_item: step}
+    center.step_list.blockSignals = lambda blocked: calls.append(("block", blocked))
+    center.step_list.setCurrentItem = lambda item: calls.append(("current", item))
+    center.step_list.expandItem = lambda item: calls.append(("expand", item))
+    center.step_list.scrollToItem = lambda item: calls.append(("scroll", item))
+
+    controller.highlight_current_step()
+
+    assert calls == [
+        ("block", True),
+        ("current", tree_item),
+        ("expand", tree_item),
+        ("scroll", tree_item),
+        ("block", False),
+    ]
+
+
+def test_highlight_current_step_returns_for_missing_state() -> None:
+    controller = make_controller()
+    controller.highlight_current_step()
+
+    controller.current_runner = cast(Any, FakeRunner(running=False))
+    controller.highlight_current_step()
+
+    running_runner = FakeRunner(running=True)
+    controller.current_runner = cast(Any, running_runner)
+    controller.highlight_current_step()
+
+    running_runner.current_step_path = (("steps", 99),)
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    controller.highlight_current_step()
+
+    running_runner.current_step_path = (("steps", 0),)
+    controller.highlight_current_step()
+
+    assert cast(Any, controller.view).center_panel.step_list.disabled is False
+
+
+def test_show_about_dialog_executes(monkeypatch) -> None:
+    controller = make_controller()
+    calls = []
+
+    class FakeAboutDialog:
+        def __init__(self, parent, version: str) -> None:
+            calls.append(("init", parent, version))
+
+        def exec(self) -> None:
+            calls.append(("exec",))
+
+    monkeypatch.setattr(home_controller, "AboutDialog", FakeAboutDialog)
+
+    controller.show_about_dialog()
+
+    assert calls == [("init", cast(Any, controller.view).fake_window, home_controller.__version__), ("exec",)]
+
+    assert calls == [("init", cast(Any, controller.view).fake_window, home_controller.__version__), ("exec",)]
+
+
+def test_select_after_undo_redo_handles_equal_empty_flat_lists() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.step_tree = StepTree([])
+    calls = []
+    controller.show_macro_properties = lambda macro: calls.append(macro)
+
+    controller.select_after_undo_redo([], [])
+
+    assert controller.selected_step is None
+    assert calls == [controller.current_macro]
+
+
+def test_copy_selected_steps_returns_when_no_selected_nodes() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.step_tree = StepTree([])
+
+    controller.copy_selected_steps()
+
+    assert controller.step_clipboard is None
+
+
+def test_paste_steps_adds_missing_template_metadata(tmp_path: Path, monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([])
+    controller.step_clipboard = {
+        "steps": [{"type": "wait_image", "template": "button"}],
+        "templates": {},
+        "template_meta": {"button": {"label": "Button", "capture_width": 320}},
+    }
+    controller.mutate_current_macro = lambda: None
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+
+    controller.paste_steps()
+
+    assert macro.templates["button"].label == "Button"
+    assert macro.templates["button"].capture_width == 320
+
+
+def test_handle_macro_rename_cancel_does_not_save(monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="alpha", label="Alpha"))
+    model = FakeMacroModel(macros={"alpha": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    monkeypatch.setattr(
+        home_controller, "RenameMacroDialog", lambda parent, current_label: FakeDialog(False, "Ignored")
+    )
+
+    controller.handle_macro_rename("alpha")
+
+    assert model.saved == []
+
+
+def test_handle_step_property_changed_returns_without_selected_step() -> None:
+    controller = make_controller()
+
+    controller.handle_step_property_changed("skip", "true")
+
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_selected_step_flat_index_returns_none_for_missing_step_tree() -> None:
+    controller = make_controller()
+    controller.selected_step = {"type": "key"}
+
+    assert controller.selected_step_flat_index() is None
+
+
+def test_sync_macro_steps_from_tree_returns_without_required_state() -> None:
+    controller = make_controller()
+    controller.sync_macro_steps_from_tree()
+
+    controller.step_tree = StepTree([])
+    controller.sync_macro_steps_from_tree()
+
+    assert controller.current_macro is None
+
+
+def test_refresh_step_tree_marks_selected_branch() -> None:
+    parent = {"type": "if_image", "then": []}
+    controller = make_controller()
+    controller.step_tree = StepTree([parent])
+    controller.selected_branch_parent = parent
+    controller.selected_branch_key = "then"
+
+    controller.refresh_step_tree()
+
+    assert cast(Any, controller.view).center_panel.selected_branch == (parent, "then")
+
+
+def test_import_macro_reports_json_decode_error(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    messages = []
+    controller = make_controller()
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(
+        home_controller, "show_message_dialog", lambda parent, title, content: messages.append((title, content))
+    )
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("macro.json", "{bad")
+
+    controller.import_macro()
+
+    assert messages == [("Import failed", "Failed to import macro")]
+
+
+def test_import_macro_confirms_and_overwrites_existing_template(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "macro.zip"
+    write_macro_zip(
+        archive_path,
+        {
+            "meta": {"name": "macro"},
+            "templates": {},
+            "steps": [{"type": "wait_image", "template": "button"}],
+        },
+        {"templates/button.png": b"new"},
+    )
+    existing_template = tmp_path / "templates" / "macro" / "button.png"
+    existing_template.parent.mkdir(parents=True)
+    existing_template.write_bytes(b"old")
+    model = FakeMacroModel()
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.refresh_macro_list = lambda: None
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller, "show_confirm_dialog", lambda *args: True)
+
+    controller.import_macro()
+
+    assert existing_template.read_bytes() == b"new"
+    assert model.saved[0].meta.id == "macro"
+
+
+def test_duplicate_selected_step_returns_when_duplicate_fails(monkeypatch) -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([step])
+    step_tree = cast(Any, controller.step_tree)
+    controller.selected_step_nodes = lambda: [step_tree.root_nodes[0]]
+    monkeypatch.setattr(step_tree, "duplicate_nodes", lambda selected: [])
+
+    controller.duplicate_selected_step()
+
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_wrap_selected_step_returns_when_top_level_empty(monkeypatch) -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([step])
+    step_tree = cast(Any, controller.step_tree)
+    controller.selected_step_nodes = lambda: [step_tree.root_nodes[0]]
+    monkeypatch.setattr(step_tree, "get_top_level", lambda selected: [])
+
+    controller.wrap_selected_step_in_repeat()
+
+    assert cast(Any, controller.view).statuses == []
+
+
+def test_select_macro_list_item_skips_none_items() -> None:
+    controller = make_controller()
+    macro_list = cast(Any, controller.view).left_panel.macro_list
+    macro_list.items = [None, FakeMacroListItem("target")]
+
+    controller.select_macro_list_item("target")
+
+    assert macro_list.current_item is macro_list.items[1]
+
+
+def test_select_after_undo_redo_uses_previous_fake_flat_node(monkeypatch) -> None:
+    controller = make_controller()
+    target_node = cast(Any, type("FakeNode", (), {"step": {"type": "key", "key": "a"}})())
+
+    class FakeCurrentTree:
+        def __init__(self) -> None:
+            self.steps = [{"type": "placeholder"}]
+
+        def flatten(self):
+            return [target_node]
+
+    class FakeOldTree:
+        def flatten(self):
+            return [target_node]
+
+    monkeypatch.setattr(home_controller, "StepTree", lambda steps: FakeOldTree())
+    controller.step_tree = cast(Any, FakeCurrentTree())
+    calls = []
+    controller.refresh_step_tree = lambda: calls.append("refresh")
+    controller.show_step_selection = lambda step: calls.append(("show", step))
+
+    controller.select_after_undo_redo([], [])
+
+    assert controller.selected_step == target_node.step
+    assert calls == ["refresh", ("show", target_node.step)]
+
+
+def test_select_after_undo_redo_handles_fake_empty_flatten(monkeypatch) -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+
+    class FakeCurrentTree:
+        def __init__(self) -> None:
+            self.steps = [{"type": "placeholder"}]
+
+        def flatten(self):
+            return []
+
+    class FakeOldTree:
+        def flatten(self):
+            return []
+
+    monkeypatch.setattr(home_controller, "StepTree", lambda steps: FakeOldTree())
+    controller.step_tree = cast(Any, FakeCurrentTree())
+    calls = []
+    controller.show_macro_properties = lambda macro: calls.append(macro)
+
+    controller.select_after_undo_redo([], [])
+
+    assert controller.selected_step is None
+    assert calls == [controller.current_macro]
+
+
+def test_handle_macro_meta_changed_returns_without_current_macro() -> None:
+    controller = make_controller()
+
+    controller.handle_macro_meta_changed("label", "Name")
+
+    assert cast(Any, controller.macro_model).saved == []
+
+
+def test_selected_step_flat_index_handles_value_error() -> None:
+    controller = make_controller()
+    selected_node = object()
+
+    class FakeTree:
+        def find_node(self, step):
+            return selected_node
+
+        def flatten(self):
+            return []
+
+    controller.step_tree = cast(Any, FakeTree())
+    controller.selected_step = {"type": "key"}
+
+    assert controller.selected_step_flat_index() is None
+
+
+def test_selected_step_nodes_returns_empty_without_step_tree() -> None:
+    controller = make_controller()
+
+    assert controller.selected_step_nodes() == []

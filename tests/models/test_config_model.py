@@ -56,3 +56,13 @@ def test_config_model_recovers_from_invalid_json(isolated_data_dir) -> None:
 
     assert model.config.general.theme == "system"
     assert json.loads(config_path.read_text(encoding="utf-8"))["general"]["theme"] == "system"
+
+
+def test_config_model_recovers_from_non_dict_json(isolated_data_dir) -> None:
+    config_path = isolated_data_dir / "config.json"
+    config_path.write_text("[]", encoding="utf-8")
+
+    model = ConfigModel()
+
+    assert model.config.general.theme == "system"
+    assert json.loads(config_path.read_text(encoding="utf-8"))["general"]["theme"] == "system"

@@ -1,8 +1,9 @@
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 
 from remaku.core.event_bus import event_bus
-from remaku.views.components.overlay import OverlayWidget, white_icon
+from remaku.views.components import overlay
+from remaku.views.components.overlay import GWL_EXSTYLE, WS_EX_NOACTIVATE, OverlayWidget, white_icon
 
 
 def test_overlay_widget_sets_text(qtbot) -> None:
@@ -42,6 +43,52 @@ def test_overlay_mouse_release_emits_position(qtbot) -> None:
     assert blocker.args == [12, 34]
 
 
+def test_overlay_left_drag_moves_widget(qtbot) -> None:
+    overlay = OverlayWidget()
+    qtbot.addWidget(overlay)
+    overlay.move(10, 20)
+    press_event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        QPointF(2, 3),
+        QPointF(12, 23),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    move_event = QMouseEvent(
+        QMouseEvent.Type.MouseMove,
+        QPointF(5, 8),
+        QPointF(30, 45),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    overlay.mousePressEvent(press_event)
+    overlay.mouseMoveEvent(move_event)
+
+    assert overlay.drag_pos == QPoint(2, 3)
+    assert overlay.pos() == QPoint(28, 42)
+
+
+def test_overlay_ignores_move_without_drag(qtbot) -> None:
+    overlay = OverlayWidget()
+    qtbot.addWidget(overlay)
+    overlay.move(10, 20)
+    event = QMouseEvent(
+        QMouseEvent.Type.MouseMove,
+        QPointF(5, 8),
+        QPointF(30, 45),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    overlay.mouseMoveEvent(event)
+
+    assert overlay.pos() == QPoint(10, 20)
+
+
 def test_white_icon_uses_white_svg_resource_path(monkeypatch) -> None:
     paths = []
 
@@ -54,3 +101,70 @@ def test_white_icon_uses_white_svg_resource_path(monkeypatch) -> None:
     white_icon("pause")
 
     assert paths == [":/remaku/icons/pause-white.svg"]
+
+
+def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) -> None:
+    widget = OverlayWidget()
+    qtbot.addWidget(widget)
+    widget.resize(80, 36)
+    widget.move(1000, -5)
+    calls = []
+
+    class FakeGeometry:
+        def width(self) -> int:
+            return 120
+
+        def height(self) -> int:
+            return 90
+
+    class FakeScreen:
+        def availableGeometry(self) -> FakeGeometry:
+            return FakeGeometry()
+
+    class FakeUser32:
+        def GetWindowLongW(self, hwnd: int, index: int) -> int:
+            calls.append(("get", hwnd, index))
+            return 4
+
+        def SetWindowLongW(self, hwnd: int, index: int, style: int) -> None:
+            calls.append(("set", hwnd, index, style))
+
+    class FakeWindll:
+        user32 = FakeUser32()
+
+    monkeypatch.setattr(overlay.QApplication, "primaryScreen", lambda: FakeScreen())
+    monkeypatch.setattr(overlay.ctypes, "windll", FakeWindll())
+
+    widget.show()
+
+    hwnd = int(widget.winId())
+    assert widget.pos() == QPoint(40, 0)
+    assert calls == [("get", hwnd, GWL_EXSTYLE), ("set", hwnd, GWL_EXSTYLE, 4 | WS_EX_NOACTIVATE)]
+
+
+def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> None:
+    widget = OverlayWidget()
+    qtbot.addWidget(widget)
+    calls = []
+
+    class FakePainter:
+        def __init__(self, target) -> None:
+            self.target = target
+
+        def setRenderHint(self, hint) -> None:
+            calls.append(("hint", hint))
+
+        def setBrush(self, brush) -> None:
+            calls.append(("brush", brush.getRgb()))
+
+        def setPen(self, pen) -> None:
+            calls.append(("pen", pen))
+
+        def drawRoundedRect(self, rect, x_radius: int, y_radius: int) -> None:
+            calls.append(("rect", rect, x_radius, y_radius))
+
+    monkeypatch.setattr(overlay, "QPainter", FakePainter)
+
+    widget.paintEvent(None)
+
+    assert calls[-1] == ("rect", widget.rect(), 8, 8)

@@ -14,6 +14,26 @@ def test_flatten_and_find_node_by_path(sample_steps: list[dict]) -> None:
     assert nested_wait.step["template"] == "start"
 
 
+def test_find_node_returns_matching_step_identity(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+
+    assert tree.find_node(sample_steps[0]) is tree.root_nodes[0]
+
+
+def test_flatten_with_depth_reports_nested_depths(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+
+    assert [(node.step["type"], depth) for node, depth in tree.flatten_with_depth()] == [
+        ("key", 0),
+        ("repeat", 0),
+        ("delay", 1),
+        ("wait_image", 1),
+        ("if_image", 0),
+        ("key", 1),
+        ("delay", 1),
+    ]
+
+
 def test_add_step_to_root_and_container(sample_steps: list[dict]) -> None:
     tree = StepTree(sample_steps)
     repeat_node = tree.root_nodes[1]
@@ -46,6 +66,16 @@ def test_duplicate_nodes_inserts_deep_copy(sample_steps: list[dict]) -> None:
     assert tree.steps[1] is duplicates[0].step
     assert duplicates[0].step == original.step
     assert duplicates[0].step is not original.step
+
+
+def test_duplicate_node_missing_from_siblings_appends_after_end() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+    missing = StepTree([{"type": "key", "key": "b"}]).root_nodes[0]
+
+    duplicates = tree.duplicate_nodes([missing])
+
+    assert tree.root_nodes[-1] is duplicates[0]
+    assert duplicates[0].step["key"] == "b"
 
 
 def test_delete_root_node_reflects_derived_steps(sample_steps: list[dict]) -> None:
@@ -183,6 +213,49 @@ def test_move_between_if_image_branches() -> None:
     assert [child["key"] for child in serialized["else"]] == ["enter", "esc"]
 
 
+def test_move_between_if_image_branches_up_appends_to_previous_branch() -> None:
+    step = {
+        "type": "if_image",
+        "then": [{"type": "key", "key": "enter"}],
+        "else": [{"type": "key", "key": "esc"}],
+    }
+    tree = StepTree([step])
+    else_node = tree.root_nodes[0].get_child_list("else")[0]
+
+    assert tree.move_step(else_node, -1) is True
+    assert [child["key"] for child in tree.steps[0]["then"]] == ["enter", "esc"]
+    assert tree.steps[0]["else"] == []
+
+
+def test_move_nested_child_out_to_grandparent() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "repeat", "steps": [{"type": "key", "key": "a"}]}]}])
+    outer = tree.root_nodes[0]
+    inner = outer.get_child_list("steps")[0]
+    child = inner.get_child_list("steps")[0]
+
+    assert tree.move_step(child, 1) is True
+    assert child.parent is outer
+    assert [step["type"] for step in tree.steps[0]["steps"]] == ["repeat", "key"]
+
+
+def test_move_nested_child_returns_false_when_parent_missing_from_siblings() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "repeat", "steps": [{"type": "key", "key": "a"}]}]}])
+    outer = tree.root_nodes[0]
+    inner = outer.get_child_list("steps")[0]
+    child = inner.get_child_list("steps")[0]
+    outer.get_child_list("steps").remove(inner)
+
+    assert tree.move_step(child, 1) is False
+
+
+def test_move_child_returns_false_when_parent_missing_from_roots() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "key", "key": "a"}]}])
+    parent = tree.root_nodes.pop()
+    child = parent.get_child_list("steps")[0]
+
+    assert tree.move_step(child, 1) is False
+
+
 def test_steps_property_writes_cached_if_any_branches() -> None:
     step = {"type": "if_any_image", "templates": ["one"], "branches": {"one": [{"type": "key", "key": "a"}]}}
     tree = StepTree([step])
@@ -199,6 +272,12 @@ def test_find_node_by_path_rejects_invalid_paths(sample_steps: list[dict]) -> No
     assert tree.find_node_by_path(()) is None
     assert tree.find_node_by_path((("then", 0),)) is None
     assert tree.find_node_by_path((("steps", 99),)) is None
+
+
+def test_node_at_returns_flat_node(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+
+    assert tree.node_at(0) is tree.root_nodes[0]
 
 
 def test_node_at_and_find_node_miss(sample_steps: list[dict]) -> None:
@@ -218,6 +297,19 @@ def test_wrap_in_repeat_rejects_empty_or_unrelated_nodes(sample_steps: list[dict
 
     with pytest.raises(ValueError, match="Cannot wrap nodes from different sibling lists"):
         tree.wrap_in_repeat([unrelated])
+
+
+def test_move_root_swaps_with_neighbor_leaf() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}, {"type": "key", "key": "b"}])
+
+    assert tree.move_step(tree.root_nodes[0], 1) is True
+    assert [step["key"] for step in tree.steps] == ["b", "a"]
+
+
+def test_move_root_at_boundary_returns_false() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+
+    assert tree.move_step(tree.root_nodes[0], -1) is False
 
 
 def test_move_step_out_of_nested_container_to_root() -> None:
@@ -249,6 +341,31 @@ def test_move_root_and_can_move_root_boundaries(sample_steps: list[dict]) -> Non
     assert first.parent is tree.root_nodes[0]
 
 
+def test_can_move_nested_child_out_to_grandparent() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "repeat", "steps": [{"type": "key"}]}]}])
+    inner = tree.root_nodes[0].get_child_list("steps")[0]
+    child = inner.get_child_list("steps")[0]
+
+    assert tree.can_move(child, 1) is True
+
+
+def test_can_move_nested_child_false_when_parent_missing_from_siblings() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "repeat", "steps": [{"type": "key"}]}]}])
+    outer = tree.root_nodes[0]
+    inner = outer.get_child_list("steps")[0]
+    child = inner.get_child_list("steps")[0]
+    outer.get_child_list("steps").remove(inner)
+
+    assert tree.can_move(child, 1) is False
+
+
+def test_can_move_root_missing_node_returns_false() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+    missing = StepTree([{"type": "key", "key": "b"}]).root_nodes[0]
+
+    assert tree.can_move_root(missing, 1) is False
+
+
 def test_next_prev_sibling_and_insert_node_after_fallback(sample_steps: list[dict]) -> None:
     tree = StepTree(sample_steps)
     first = tree.root_nodes[0]
@@ -264,6 +381,16 @@ def test_next_prev_sibling_and_insert_node_after_fallback(sample_steps: list[dic
     assert inserted.parent is None
 
 
+def test_next_prev_sibling_return_none_at_boundaries(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+    missing = StepTree([{"type": "key"}]).root_nodes[0]
+
+    assert tree.prev_sibling(tree.root_nodes[0]) is None
+    assert tree.next_sibling(tree.root_nodes[-1]) is None
+    assert tree.next_sibling(missing) is None
+    assert tree.prev_sibling(missing) is None
+
+
 def test_default_child_key_and_find_sibling_key_for_if_any() -> None:
     tree = StepTree([{"type": "if_any_image", "templates": ["one", "two"], "branches": {}}])
     parent = tree.root_nodes[0]
@@ -273,9 +400,170 @@ def test_default_child_key_and_find_sibling_key_for_if_any() -> None:
     assert tree.find_sibling_key(parent, "missing", 1) is None
 
 
+def test_find_sibling_key_for_standard_container() -> None:
+    tree = StepTree([{"type": "if_image", "then": [], "else": []}])
+    parent = tree.root_nodes[0]
+
+    assert tree.find_sibling_key(parent, "then", 1) == "else"
+    assert tree.find_sibling_key(parent, "else", 1) is None
+
+
+def test_default_child_key_returns_empty_for_leaf_and_empty_if_any() -> None:
+    tree = StepTree([{"type": "key"}, {"type": "if_any_image", "templates": [], "branches": {}}])
+
+    assert tree.default_child_key(tree.root_nodes[0]) == ""
+    assert tree.default_child_key(tree.root_nodes[1]) == ""
+
+
 def test_try_move_into_container_rejects_leaf_neighbor(sample_steps: list[dict]) -> None:
     tree = StepTree(sample_steps)
     source_list = tree.root_nodes
     leaf_neighbor = source_list[0]
 
     assert tree.try_move_into_container(source_list, 1, leaf_neighbor, 1) is False
+
+
+def test_try_move_into_container_rejects_descendant_neighbor() -> None:
+    tree = StepTree([{"type": "repeat", "steps": [{"type": "repeat", "steps": []}]}])
+    parent = tree.root_nodes[0]
+    child = parent.get_child_list("steps")[0]
+
+    assert tree.try_move_into_container([parent], 0, child, 1) is False
+
+
+def test_try_move_into_container_rejects_container_without_child_lists() -> None:
+    tree = StepTree([{"type": "key"}])
+    source_list = tree.root_nodes
+    empty_if_any = StepTree([{"type": "if_any_image", "templates": [], "branches": {}}]).root_nodes[0]
+
+    assert tree.try_move_into_container(source_list, 0, empty_if_any, 1) is False
+
+
+def test_try_move_into_container_appends_when_moving_up() -> None:
+    source = StepTree([{"type": "key", "key": "a"}, {"type": "repeat", "steps": []}]).root_nodes
+    neighbor = source[1]
+
+    assert StepTree.try_move_into_container(source, 0, neighbor, -1) is True
+    assert source == [neighbor]
+    assert neighbor.get_child_list("steps")[0].step["key"] == "a"
+
+
+def test_move_between_lists_inserts_at_front_by_default() -> None:
+    source = StepTree([{"type": "key", "key": "a"}]).root_nodes
+    dest = StepTree([{"type": "key", "key": "b"}]).root_nodes
+
+    StepTree.move_between_lists(source, 0, dest, None)
+
+    assert source == []
+    assert [node.step["key"] for node in dest] == ["a", "b"]
+
+
+def test_move_between_lists_appends_when_requested() -> None:
+    source = StepTree([{"type": "key", "key": "a"}]).root_nodes
+    dest = StepTree([{"type": "key", "key": "b"}]).root_nodes
+
+    StepTree.move_between_lists(source, 0, dest, None, append=True)
+
+    assert [node.step["key"] for node in dest] == ["b", "a"]
+
+
+def test_remove_node_missing_from_siblings_only_clears_parent() -> None:
+    tree = StepTree([{"type": "repeat", "steps": []}])
+    parent = tree.root_nodes[0]
+    missing = StepTree([{"type": "key"}]).root_nodes[0]
+    missing.parent = parent
+
+    tree.remove_node(missing)
+
+    assert missing.parent is None
+    assert parent.get_child_list("steps") == []
+
+
+def test_node_at_returns_flattened_node(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+
+    assert tree.node_at(0) is tree.root_nodes[0]
+
+
+def test_move_step_reorders_adjacent_leaf_roots() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}, {"type": "key", "key": "b"}])
+
+    assert tree.move_step(tree.root_nodes[0], 1) is True
+    assert [step["key"] for step in tree.steps] == ["b", "a"]
+
+
+def test_move_step_returns_false_at_root_boundary() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+
+    assert tree.move_step(tree.root_nodes[0], -1) is False
+
+
+def test_can_move_between_if_image_branches() -> None:
+    tree = StepTree([{"type": "if_image", "then": [{"type": "key"}], "else": []}])
+    child = tree.root_nodes[0].get_child_list("then")[0]
+
+    assert tree.can_move(child, 1) is True
+
+
+def test_can_move_root_returns_false_for_unrelated_node() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+    unrelated = StepTree([{"type": "key", "key": "b"}]).root_nodes[0]
+
+    assert tree.can_move_root(unrelated, 1) is False
+
+
+def test_insert_node_after_missing_target_uses_end_of_siblings() -> None:
+    tree = StepTree([{"type": "repeat", "steps": []}])
+    parent = tree.root_nodes[0]
+    missing = StepTree([{"type": "key", "key": "missing"}]).root_nodes[0]
+    inserted = StepTree([{"type": "key", "key": "inserted"}]).root_nodes[0]
+    missing.parent = parent
+
+    tree.insert_node_after(missing, inserted)
+
+    assert parent.get_child_list("steps") == []
+    assert inserted.parent is parent
+
+
+def test_node_at_returns_flattened_node(sample_steps: list[dict]) -> None:
+    tree = StepTree(sample_steps)
+
+    assert tree.node_at(0) is tree.root_nodes[0]
+
+
+def test_move_step_reorders_adjacent_leaf_roots() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}, {"type": "key", "key": "b"}])
+
+    assert tree.move_step(tree.root_nodes[0], 1) is True
+    assert [step["key"] for step in tree.steps] == ["b", "a"]
+
+
+def test_move_step_returns_false_at_root_boundary() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+
+    assert tree.move_step(tree.root_nodes[0], -1) is False
+
+
+def test_can_move_between_if_image_branches() -> None:
+    tree = StepTree([{"type": "if_image", "then": [{"type": "key"}], "else": []}])
+    child = tree.root_nodes[0].get_child_list("then")[0]
+
+    assert tree.can_move(child, 1) is True
+
+
+def test_can_move_root_returns_false_for_unrelated_node() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+    unrelated = StepTree([{"type": "key", "key": "b"}]).root_nodes[0]
+
+    assert tree.can_move_root(unrelated, 1) is False
+
+
+def test_insert_node_after_missing_root_target_uses_end_of_roots() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+    missing = StepTree([{"type": "key", "key": "missing"}]).root_nodes[0]
+    inserted = StepTree([{"type": "key", "key": "inserted"}]).root_nodes[0]
+
+    tree.insert_node_after(missing, inserted)
+
+    assert tree.root_nodes[-1] is inserted
+    assert inserted.parent is None

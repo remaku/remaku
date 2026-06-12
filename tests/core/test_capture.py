@@ -5,12 +5,17 @@ from remaku.core.capture import CaptureBackend, Grabber
 from remaku.core.window import Rect
 
 
+DEFAULT_FRAME = object()
+
+
 class FakeBetterCam:
     width = 800
     height = 600
 
-    def __init__(self, frame: np.ndarray | None = None) -> None:
-        self.frame: np.ndarray | None = frame if frame is not None else np.ones((2, 2, 3), dtype=np.uint8)
+    def __init__(self, frame: np.ndarray | None | object = DEFAULT_FRAME) -> None:
+        self.frame: np.ndarray | None = (
+            np.ones((2, 2, 3), dtype=np.uint8) if frame is DEFAULT_FRAME else frame
+        )
         self.regions: list[tuple[int, int, int, int]] = []
 
     def grab(self, region: tuple[int, int, int, int]):
@@ -60,6 +65,18 @@ def test_grabber_falls_back_to_mss_when_bettercam_fails(monkeypatch) -> None:
     assert grabber.screen_height == 768
 
 
+def test_grabber_falls_back_to_mss_when_initial_grab_returns_none(monkeypatch) -> None:
+    fake_cam = FakeBetterCam(frame=None)
+    fake_mss = FakeMss()
+    monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
+    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+
+    grabber = Grabber()
+
+    assert grabber.backend == CaptureBackend.MSS
+    assert grabber.cam is None
+
+
 def test_grab_clamps_rect_to_screen(monkeypatch) -> None:
     fake_cam = FakeBetterCam()
     monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
@@ -88,6 +105,37 @@ def test_grab_returns_last_frame_when_backend_returns_none(monkeypatch) -> None:
     fake_cam.frame = None
 
     assert grabber.grab(Rect(left=0, top=0, width=10, height=10)) is first_frame
+
+
+def test_grab_returns_none_when_backend_and_last_frame_are_empty() -> None:
+    fake_cam = FakeBetterCam(frame=None)
+    grabber = Grabber.__new__(Grabber)
+    grabber.backend = CaptureBackend.BETTERCAM
+    grabber.cam = fake_cam
+    grabber.sct = None
+    grabber.last_frame = np.empty((0, 0, 3), dtype=np.uint8)
+    grabber.screen_width = 800
+    grabber.screen_height = 600
+
+    assert grabber.grab(Rect(left=0, top=0, width=10, height=10)) is None
+
+
+def test_grab_frame_returns_none_when_bettercam_missing() -> None:
+    grabber = Grabber.__new__(Grabber)
+    grabber.backend = CaptureBackend.BETTERCAM
+    grabber.cam = None
+    grabber.sct = None
+
+    assert grabber.grab_frame(0, 0, 10, 10) is None
+
+
+def test_grab_frame_returns_none_when_mss_missing() -> None:
+    grabber = Grabber.__new__(Grabber)
+    grabber.backend = CaptureBackend.MSS
+    grabber.cam = None
+    grabber.sct = None
+
+    assert grabber.grab_frame(0, 0, 10, 10) is None
 
 
 def test_mss_grab_returns_bgr_channels(monkeypatch) -> None:
@@ -120,3 +168,20 @@ def test_close_closes_mss_backend(monkeypatch) -> None:
     grabber.close()
 
     assert fake_mss.closed is True
+
+
+def test_close_deletes_bettercam_backend(monkeypatch) -> None:
+    fake_cam = FakeBetterCam()
+    monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
+    grabber = Grabber()
+
+    grabber.close()
+
+    assert not hasattr(grabber, "cam")
+
+
+def test_make_grabber_returns_grabber(monkeypatch) -> None:
+    fake_cam = FakeBetterCam()
+    monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
+
+    assert isinstance(capture.make_grabber(), Grabber)

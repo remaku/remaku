@@ -67,3 +67,12 @@ def test_load_templates_reads_existing_files(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(vision.cv2, "imdecode", lambda data, flags: image)
 
     assert vision.load_templates(["button"], "macro") == {"button": image}
+
+
+def test_load_templates_skips_unreadable_files(tmp_path, monkeypatch) -> None:
+    template_file = tmp_path / "button.png"
+    template_file.write_bytes(b"png")
+    monkeypatch.setattr(vision, "template_path", lambda macro_id, template_id: template_file)
+    monkeypatch.setattr(vision.cv2, "imdecode", lambda data, flags: None)
+
+    assert vision.load_templates(["button"], "macro") == {}

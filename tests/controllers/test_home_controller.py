@@ -67,6 +67,7 @@ class FakeMacroList:
         self.items = [FakeMacroListItem(macro_id) for macro_id in macro_ids]
         self.current_item: FakeMacroListItem | None = None
         self.blocked_states: list[bool] = []
+        self.disabled = False
 
     def blockSignals(self, blocked: bool) -> None:
         self.blocked_states.append(blocked)
@@ -80,10 +81,32 @@ class FakeMacroList:
     def setCurrentItem(self, item: FakeMacroListItem) -> None:
         self.current_item = item
 
+    def setDisabled(self, disabled: bool) -> None:
+        self.disabled = disabled
+
 
 class FakeLeftPanel:
     def __init__(self, macro_ids: list[str]) -> None:
         self.macro_list = FakeMacroList(macro_ids)
+        self.new_macro_button = FakeButton()
+        self.list_items: list[tuple[str, str]] = []
+        self.selected_macro_id = ""
+
+    def set_macro_list(self, items: list[tuple[str, str]], selected_macro_id: str = "") -> None:
+        self.list_items = items
+        self.selected_macro_id = selected_macro_id
+
+
+class FakeStepList:
+    def __init__(self) -> None:
+        self.disabled = False
+        self.itemSelectionChanged = FakeSignal()
+
+    def selectedItems(self) -> list:
+        return []
+
+    def setDisabled(self, disabled: bool) -> None:
+        self.disabled = disabled
 
 
 class FakeCenterPanel:
@@ -91,6 +114,8 @@ class FakeCenterPanel:
         self.step_tree_items: list[dict] = []
         self.selected_step = None
         self.selected_branch = None
+        self.item_to_step: dict[object, dict] = {}
+        self.step_list = FakeStepList()
 
     def set_step_tree(self, items: list[dict], selected_step=None, selected_branch=None) -> None:
         self.step_tree_items = items
@@ -101,21 +126,37 @@ class FakeCenterPanel:
 class FakeRightPanel:
     def __init__(self) -> None:
         self.macro_properties: Macro | None = None
+        self.step_properties: tuple | None = None
+        self.branch_properties: tuple | None = None
 
     def show_macro_properties(self, macro: Macro | None) -> None:
         self.macro_properties = macro
+
+    def show_step_properties(self, *args) -> None:
+        self.step_properties = args
+
+    def show_branch_properties(self, *args) -> None:
+        self.branch_properties = args
 
 
 class FakeButton:
     def __init__(self) -> None:
         self.enabled = True
+        self.disabled = False
 
     def setEnabled(self, enabled: bool) -> None:
         self.enabled = enabled
 
+    def setDisabled(self, disabled: bool) -> None:
+        self.disabled = disabled
+
 
 class FakeToolbar:
     def __init__(self) -> None:
+        self.add_button = FakeButton()
+        self.delete_button = FakeButton()
+        self.move_up_button = FakeButton()
+        self.move_down_button = FakeButton()
         self.undo_button = FakeButton()
         self.redo_button = FakeButton()
 
@@ -162,6 +203,8 @@ class FakeRunner:
         self.label = "Runner"
         self.running = running
         self.status = status or Status()
+        self.macro: dict[str, Any] = {"steps": []}
+        self.macro_path = Path("macro.json")
         self.start_calls = 0
         self.stop_calls = 0
 
@@ -196,6 +239,7 @@ def make_controller() -> HomeController:
     controller.redo_stacks = {}
     controller.undo_selection_indexes = {}
     controller.redo_selection_indexes = {}
+    controller.step_clipboard = None
     return cast(HomeController, controller)
 
 
@@ -219,6 +263,57 @@ class FakeUser32:
 class FakeWindll:
     def __init__(self, user32: FakeUser32) -> None:
         self.user32 = user32
+
+
+class FakeSignal:
+    def __init__(self) -> None:
+        self.connected = []
+
+    def connect(self, callback) -> None:
+        self.connected.append(callback)
+
+
+class FakeShortcut:
+    def __init__(self, key_sequence, parent) -> None:
+        self.key_sequence = key_sequence
+        self.parent = parent
+        self.activated = FakeSignal()
+        self.enabled_values: list[bool] = []
+
+    def setEnabled(self, value: bool) -> None:
+        self.enabled_values.append(value)
+
+
+def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
+    user32 = FakeUser32()
+    fake_config = FakeConfigModel()
+    controller_view = FakeView()
+    controller_view.center_panel.step_list.itemSelectionChanged = FakeSignal()
+    model = FakeMacroModel()
+    shortcuts = []
+
+    def make_shortcut(key_sequence, parent) -> FakeShortcut:
+        shortcut = FakeShortcut(key_sequence, parent)
+        shortcuts.append(shortcut)
+        return shortcut
+
+    monkeypatch.setattr(home_controller.ctypes, "windll", FakeWindll(user32))
+    monkeypatch.setattr(home_controller, "config_model", fake_config)
+    monkeypatch.setattr(home_controller, "QShortcut", make_shortcut)
+
+    controller = HomeController(cast(Any, controller_view), cast(MacroModel, model))
+
+    assert controller.view is controller_view
+    assert controller.macro_model is model
+    assert controller.selected_macro_id == ""
+    assert controller.actions["run"] == controller.run_current_macro
+    assert controller.actions["settings"] == controller.open_settings
+    assert len(shortcuts) == 12
+    assert len(controller.editing_shortcuts) == 10
+    assert controller_view.toolbar.undo_button.enabled is False
+    assert controller_view.toolbar.redo_button.enabled is False
+    assert controller_view.center_panel.step_tree_items == []
+    assert user32.register_calls == []
 
 
 def test_sort_macro_items_uses_configured_order_then_label(monkeypatch) -> None:
@@ -349,6 +444,37 @@ def test_handle_macro_selected_loads_new_macro() -> None:
     assert calls == ["beta"]
 
 
+def test_refresh_macro_list_loads_first_macro_and_updates_left_panel(monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="beta", label="Beta"))
+    model = FakeMacroModel(macros={"beta": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    load_calls = []
+    hotkey_calls = []
+    controller.load_selected_macro = lambda macro_id: load_calls.append(macro_id)
+    controller.register_hotkeys = lambda: hotkey_calls.append("register")
+
+    controller.refresh_macro_list()
+
+    left_panel = cast(Any, controller.view).left_panel
+    assert controller.selected_macro_id == "beta"
+    assert left_panel.list_items == [("beta", "BETA")]
+    assert left_panel.selected_macro_id == "beta"
+    assert load_calls == ["beta"]
+    assert hotkey_calls == ["register"]
+
+
+def test_refresh_macro_list_shows_empty_state_when_no_macros() -> None:
+    controller = make_controller()
+    calls = []
+    controller.show_empty_macro_state = lambda: calls.append("empty")
+    controller.register_hotkeys = lambda: calls.append("hotkeys")
+
+    controller.refresh_macro_list()
+
+    assert calls == ["empty", "hotkeys"]
+
+
 def test_handle_step_and_branch_selection_route_to_view_state(monkeypatch) -> None:
     controller = make_controller()
     step = {"type": "key"}
@@ -376,6 +502,149 @@ def test_handle_action_ignores_locked_editing_action() -> None:
     controller.handle_action("settings")
 
     assert calls == ["settings"]
+
+
+def test_handle_action_runs_known_action_when_unlocked() -> None:
+    controller = make_controller()
+    calls = []
+    controller.actions = {"delete_step": lambda: calls.append("delete")}
+
+    controller.handle_action("delete_step")
+    controller.handle_action("missing")
+
+    assert calls == ["delete"]
+
+
+def test_show_empty_and_load_error_clear_current_state() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="old"))
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([{"type": "key"}])
+    controller.selected_step = {"type": "key"}
+    refresh_calls = []
+    controller.refresh_step_tree = lambda: refresh_calls.append("refresh")
+
+    controller.show_empty_macro_state()
+
+    assert controller.current_macro is None
+    assert controller.current_runner is None
+    assert controller.step_tree is None
+    assert cast(Any, controller.view).right_panel.macro_properties is None
+
+    controller.current_macro = Macro(meta=MacroMeta(id="old"))
+    controller.show_macro_load_error("missing")
+
+    assert controller.current_macro is None
+    assert cast(Any, controller.view).statuses == ["Failed to load macro: missing"]
+    assert refresh_calls == ["refresh", "refresh"]
+
+
+def test_show_loaded_macro_sets_view_state() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    runner = FakeRunner()
+    step_tree = StepTree([{"type": "delay", "ms": 100}])
+    controller = make_controller()
+
+    controller.show_loaded_macro(macro, cast(Any, runner), step_tree)
+
+    assert controller.current_macro is macro
+    assert controller.current_runner is runner
+    assert controller.step_tree is step_tree
+    assert cast(Any, controller.view).right_panel.macro_properties is macro
+    assert cast(Any, controller.view).center_panel.step_tree_items[0]["label"] == "Wait 100 ms"
+
+
+def test_push_undo_stores_snapshot_and_clears_redo() -> None:
+    controller = make_controller()
+    runner = FakeRunner()
+    runner.macro = {"steps": [{"type": "key", "key": "a"}]}
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.redo_stack.append({"old": True})
+    controller.redo_selection_index_stack.append(1)
+
+    controller.push_undo(0)
+    runner.macro["steps"][0]["key"] = "b"
+
+    assert controller.undo_stack == [{"steps": [{"type": "key", "key": "a"}]}]
+    assert controller.undo_selection_index_stack == [0]
+    assert controller.redo_stack == []
+    assert controller.redo_selection_index_stack == []
+
+
+def test_push_undo_caps_history_at_fifty_entries() -> None:
+    controller = make_controller()
+    runner = FakeRunner()
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+
+    for index in range(51):
+        runner.macro = {"index": index}
+        controller.push_undo(index)
+
+    assert len(controller.undo_stack) == 50
+    assert controller.undo_stack[0] == {"index": 1}
+    assert controller.undo_selection_index_stack[0] == 1
+
+
+def test_undo_and_redo_restore_saved_state() -> None:
+    controller = make_controller()
+    runner = FakeRunner()
+    runner.macro = {"steps": [{"type": "key", "key": "current"}]}
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.undo_stack.append({"steps": [{"type": "key", "key": "undo"}]})
+    controller.undo_selection_index_stack.append(0)
+    restored = []
+    controller.restore_macro_state = lambda macro_dict, selection_index=None: restored.append(
+        (macro_dict, selection_index)
+    )
+    controller.selected_step_flat_index = lambda: 2
+
+    controller.undo()
+    controller.redo()
+
+    assert restored == [
+        ({"steps": [{"type": "key", "key": "undo"}]}, 0),
+        ({"steps": [{"type": "key", "key": "current"}]}, 2),
+    ]
+
+
+def test_select_after_undo_redo_handles_empty_and_selection_index() -> None:
+    controller = make_controller()
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": []})
+    controller.current_macro = macro
+    controller.step_tree = StepTree([])
+
+    controller.select_after_undo_redo([], [])
+
+    assert controller.selected_step is None
+    assert cast(Any, controller.view).right_panel.macro_properties is macro
+
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    calls = []
+    controller.refresh_step_tree = lambda: calls.append("refresh")
+    controller.show_step_selection = lambda step: calls.append(("show", step))
+
+    controller.select_after_undo_redo([], [], selection_index=0)
+
+    assert controller.selected_step == {"type": "key", "key": "a"}
+    assert calls == ["refresh", ("show", controller.selected_step)]
+
+
+def test_select_after_undo_redo_selects_changed_or_previous_step() -> None:
+    controller = make_controller()
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}, {"type": "delay", "ms": 1}])
+    calls = []
+    controller.refresh_step_tree = lambda: calls.append("refresh")
+    controller.show_step_selection = lambda step: calls.append(("show", step))
+
+    controller.select_after_undo_redo(
+        [Macro.from_dict({"meta": {}, "steps": [{"type": "key", "key": "z"}]}).steps[0]], []
+    )
+
+    assert controller.selected_step == {"type": "key", "key": "a"}
+    assert calls[-1] == ("show", controller.selected_step)
 
 
 def test_run_current_macro_starts_and_stops_runner(qtbot) -> None:
@@ -416,6 +685,85 @@ def test_parse_step_property_converts_known_types() -> None:
     assert controller.parse_step_property("ms", "150") == 150
     assert controller.parse_step_property("threshold", "87") == 0.87
     assert controller.parse_step_property("key", "enter") == "enter"
+
+
+def test_handle_macro_meta_changed_saves_and_registers_hotkeys() -> None:
+    macro = Macro(meta=MacroMeta(id="macro", enabled=False))
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.macro_model = cast(MacroModel, model)
+    calls = []
+    controller.register_hotkeys = lambda: calls.append("register")
+
+    controller.handle_macro_meta_changed("enabled", "True")
+    controller.handle_macro_meta_changed("label", "Renamed")
+
+    assert macro.meta.enabled is True
+    assert macro.meta.label == "Renamed"
+    assert model.saved == [macro, macro]
+    assert calls == ["register"]
+
+
+def test_handle_step_property_changed_updates_repeat_children() -> None:
+    repeat_step = {"type": "repeat", "skip": False, "steps": [{"type": "key", "skip": False}]}
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [repeat_step]})
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    controller.step_tree = StepTree([repeat_step])
+    controller.selected_step = controller.step_tree.steps[0]
+    controller.refresh_selected_step = lambda: None
+
+    controller.handle_step_property_changed("skip", "true")
+
+    assert controller.step_tree.steps[0]["skip"] is True
+    assert controller.step_tree.steps[0]["steps"][0]["skip"] is True
+    assert model.saved[-1].steps[0].skip is True
+
+
+def test_add_step_reports_missing_macro_or_unknown_type() -> None:
+    controller = make_controller()
+
+    controller.add_step("key")
+    controller.step_tree = StepTree([])
+    controller.add_step("unknown")
+
+    assert cast(Any, controller.view).statuses == ["Select a macro first", "Unknown step type"]
+
+
+def test_add_step_appends_new_step_and_saves() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    controller.step_tree = StepTree([])
+
+    controller.add_step("delay")
+
+    assert controller.step_tree.steps == [{"type": "delay", "ms": 0, "skip": False, "note": ""}]
+    assert controller.selected_step == controller.step_tree.steps[0]
+    assert model.saved[-1].steps[0].type == "delay"
+
+
+def test_load_selected_macro_shows_error_or_loaded_macro(tmp_path: Path, monkeypatch) -> None:
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [{"type": "key", "key": "enter"}]})
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / f"{macro_id}.json")
+
+    controller.load_selected_macro("missing")
+    controller.load_selected_macro("macro")
+
+    assert cast(Any, controller.view).statuses == ["Failed to load macro: missing"]
+    assert controller.current_macro is macro
+    assert controller.current_runner is not None
+    assert controller.step_tree is not None
 
 
 def test_branch_label_uses_template_label_for_if_any_image() -> None:

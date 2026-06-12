@@ -30,12 +30,24 @@ class FakeGrabber:
 
 class FakeConfigModel:
     class Config:
+        class Capture:
+            fps = 60
+
         class Input:
             jitter_ms = 7
 
+        capture = Capture()
         input = Input()
 
     config = Config()
+
+
+class ClosingGrabber:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_update_and_get_status_return_copy() -> None:
@@ -245,3 +257,167 @@ def test_capture_tick_returns_none_when_grabber_has_no_frame(monkeypatch) -> Non
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: True)
 
     assert runner.capture_tick() is None
+
+
+def test_run_finishes_when_no_target_window_found(monkeypatch) -> None:
+    runner = SampleEngine()
+    finishes = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: None)
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.run()
+
+    assert finishes == [(StopReason.NO_WINDOW, "window_not_found")]
+
+
+def test_run_finishes_on_elevation_mismatch(monkeypatch) -> None:
+    runner = SampleEngine()
+    found_window = object()
+    finishes = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: found_window)
+    monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: True)
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.run()
+
+    assert finishes == [(StopReason.ERROR, "elevation_mismatch")]
+
+
+def test_run_finishes_when_template_is_missing(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.template_ids = ["one", "two"]
+    found_window = object()
+    finishes = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: found_window)
+    monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: False)
+    monkeypatch.setattr(engine.window, "client_rect", lambda window: Rect(0, 0, 100, 100))
+    monkeypatch.setattr(engine.vision, "load_templates", lambda template_ids, engine_id: {"one": np.ones((1, 1))})
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.run()
+
+    assert finishes == [(StopReason.STALE, "missing_templates: two")]
+
+
+def test_run_sets_runtime_fields_and_closes_grabber(monkeypatch) -> None:
+    runner = SampleEngine()
+    found_window = object()
+    grabber = ClosingGrabber()
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: found_window)
+    monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: False)
+    monkeypatch.setattr(engine.window, "client_rect", lambda window: Rect(1, 2, 3, 4))
+    monkeypatch.setattr(engine.capture, "make_grabber", lambda: grabber)
+    monkeypatch.setattr(engine.window, "screen_resolution", lambda: (1920, 1080))
+
+    runner.run()
+
+    assert runner.found_window is found_window
+    assert runner.capture_rect == Rect(1, 2, 3, 4)
+    assert runner.templates == {}
+    assert grabber.closed is True
+
+
+def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    found_window = object()
+    windows = iter([None, found_window, found_window])
+    foreground = iter([False, True])
+    waits = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: next(windows))
+    monkeypatch.setattr(engine.window, "is_foreground", lambda window: next(foreground))
+    monkeypatch.setattr(runner.stop_event, "wait", lambda seconds: waits.append(seconds) or False)
+    monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: False)
+    monkeypatch.setattr(engine.window, "client_rect", lambda window: Rect(1, 2, 3, 4))
+    monkeypatch.setattr(engine.capture, "make_grabber", lambda: ClosingGrabber())
+    monkeypatch.setattr(engine.window, "screen_resolution", lambda: (1920, 1080))
+
+    runner.run()
+
+    assert waits == [1, 1]
+    assert runner.status.state == "waiting_foreground"
+
+
+def test_sleep_remaining_raises_when_stop_event_set(monkeypatch) -> None:
+    runner = SampleEngine()
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 10.0)
+    runner.stop()
+
+    with pytest.raises(Stopped):
+        runner.sleep_remaining(9.5, 1.0)
+
+
+def test_scale_template_uses_capture_size(monkeypatch) -> None:
+    runner = SampleEngine()
+    template = np.ones((2, 2), dtype=np.uint8)
+    frame = np.ones((4, 4), dtype=np.uint8)
+    scaled = np.ones((3, 3), dtype=np.uint8)
+    runner.template_capture_sizes = cast(dict[str, tuple[int, int] | None], {"button": (100, 50)})
+    monkeypatch.setattr(engine.vision, "scale_template", lambda source, shape, size: scaled)
+
+    assert runner.scale_template("missing", template, frame) is template
+    assert runner.scale_template("button", template, frame) is scaled
+
+
+def test_wait_for_template_matches_and_updates_status(monkeypatch) -> None:
+    runner = SampleEngine()
+    frame = np.ones((4, 4), dtype=np.uint8)
+    template = np.ones((2, 2), dtype=np.uint8)
+    runner.templates = {"button": template}
+    runner.template_capture_sizes = {}
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+    monkeypatch.setattr(runner, "capture_tick", lambda: frame)
+    monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: None)
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (0.95, (0, 0)))
+
+    assert runner.wait_for_template("button", timeout_ms=1000, threshold=0.9) is True
+    assert runner.status.score == 0.95
+    assert runner.status.match_id == "button"
+
+
+def test_wait_for_template_times_out_or_stops(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.templates = {"button": np.ones((2, 2), dtype=np.uint8)}
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+
+    assert runner.wait_for_template("button", timeout_ms=0, threshold=0.9) is False
+
+    runner.stop()
+    with pytest.raises(Stopped):
+        runner.wait_for_template("button", timeout_ms=1000, threshold=0.9)
+
+
+def test_wait_for_any_returns_best_matching_template(monkeypatch) -> None:
+    runner = SampleEngine()
+    frame = np.ones((4, 4), dtype=np.uint8)
+    runner.templates = {"one": np.ones((1, 1), dtype=np.uint8), "two": np.ones((2, 2), dtype=np.uint8)}
+    runner.template_capture_sizes = {}
+    scores = {1: 0.2, 2: 0.91}
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+    monkeypatch.setattr(runner, "capture_tick", lambda: frame)
+    monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: None)
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (scores[tpl.shape[0]], (0, 0)))
+
+    assert runner.wait_for_any(["one", "two"], timeout_ms=1000, threshold=0.9) == "two"
+    assert runner.status.score == 0.91
+    assert runner.status.match_id == "two"
+
+
+def test_wait_for_any_times_out_or_stops(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.templates = {"one": np.ones((1, 1), dtype=np.uint8)}
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+
+    assert runner.wait_for_any(["one"], timeout_ms=0, threshold=0.9) is None
+
+    runner.stop()
+    with pytest.raises(Stopped):
+        runner.wait_for_any(["one"], timeout_ms=1000, threshold=0.9)
+
+
+def test_build_template_capture_sizes_uses_current_screen_resolution(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.templates = {"one": np.ones((1, 1)), "two": np.ones((1, 1))}
+    monkeypatch.setattr(engine.window, "screen_resolution", lambda: (800, 600))
+
+    assert runner.build_template_capture_sizes() == {"one": (800, 600), "two": (800, 600)}

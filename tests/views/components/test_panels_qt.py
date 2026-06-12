@@ -43,6 +43,55 @@ def test_left_panel_shows_empty_state(qtbot) -> None:
     assert not panel.empty_label.isHidden()
 
 
+def test_left_panel_add_button_emits_new_macro_request(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+
+    with qtbot.waitSignal(event_bus.new_macro_requested, timeout=100):
+        qtbot.mouseClick(panel.new_macro_button, Qt.MouseButton.LeftButton)
+
+
+def test_left_panel_selects_first_macro_when_selected_id_missing(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+
+    with qtbot.waitSignal(event_bus.macro_selected, timeout=100) as blocker:
+        panel.set_macro_list([("alpha", "Alpha"), ("beta", "Beta")], selected_macro_id="missing")
+
+    assert blocker.args == ["alpha"]
+    assert panel.macro_list.currentItem().text() == "Alpha"
+
+
+def test_left_panel_context_actions_emit_current_macro_id(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+    panel.set_macro_list([("alpha", "Alpha")])
+
+    with qtbot.waitSignal(event_bus.macro_rename_requested, timeout=100) as rename:
+        panel.handle_macro_rename()
+
+    with qtbot.waitSignal(event_bus.macro_duplicate_requested, timeout=100) as duplicate:
+        panel.handle_macro_duplicate()
+
+    with qtbot.waitSignal(event_bus.macro_delete_requested, timeout=100) as delete:
+        panel.handle_macro_delete()
+
+    assert rename.args == ["alpha"]
+    assert duplicate.args == ["alpha"]
+    assert delete.args == ["alpha"]
+
+
+def test_left_panel_order_change_emits_and_keeps_current_item(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+    panel.set_macro_list([("alpha", "Alpha"), ("beta", "Beta")], selected_macro_id="beta")
+
+    with qtbot.waitSignal(event_bus.macro_order_changed, timeout=100):
+        panel.handle_order_changed()
+
+    assert panel.macro_list.currentItem().data(Qt.ItemDataRole.UserRole) == "beta"
+
+
 def test_center_panel_sets_step_tree_and_emits_selected_step(qtbot) -> None:
     panel = CenterPanel()
     qtbot.addWidget(panel)

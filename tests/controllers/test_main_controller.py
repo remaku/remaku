@@ -137,12 +137,42 @@ def test_refresh_overlay_shows_running_status(monkeypatch) -> None:
     assert "Template start 92%" in overlay.text
 
 
+def test_refresh_overlay_uses_waiting_state_message(monkeypatch) -> None:
+    controller, fake_config, home, overlay, _window = make_controller(monkeypatch)
+    fake_config.config.general.overlay_enabled = True
+    home.current_runner = FakeRunner(Status(running=True, state="waiting_window"))
+
+    controller.refresh_overlay()
+
+    assert overlay.show_calls == 1
+    assert overlay.text == "Open the selected window to continue"
+
+
+def test_refresh_overlay_updates_text_without_showing_when_disabled(monkeypatch) -> None:
+    controller, fake_config, home, overlay, _window = make_controller(monkeypatch)
+    fake_config.config.general.overlay_enabled = False
+    home.current_runner = FakeRunner(Status(running=True))
+
+    controller.refresh_overlay()
+
+    assert overlay.text == "Running: Sample | step:key"
+    assert overlay.show_calls == 0
+
+
 def test_switch_page_shows_settings(monkeypatch) -> None:
     controller, _fake_config, _home, _overlay, window = make_controller(monkeypatch)
 
     controller.switch_page("settings")
 
     assert window.switched_to is window.settings_view
+
+
+def test_switch_page_ignores_unknown_page(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, window = make_controller(monkeypatch)
+
+    controller.switch_page("home")
+
+    assert window.switched_to is None
 
 
 def test_startup_check_update_skips_remembered_version(monkeypatch) -> None:
@@ -180,6 +210,54 @@ def test_check_updates_prompts_available_update(monkeypatch) -> None:
     monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
 
     controller.check_updates()
+    callbacks[0](main_controller.CheckResult(status="available", info=info))
+
+    assert prompts == [info]
+
+
+def test_check_updates_reports_up_to_date(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+    callbacks = []
+    messages = []
+    monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
+    monkeypatch.setattr(
+        main_controller,
+        "show_message_dialog",
+        lambda parent, title, content: messages.append((title, content)),
+    )
+
+    controller.check_updates()
+    callbacks[0](main_controller.CheckResult(status="up_to_date"))
+
+    assert messages == [("Up to date", "You are already using the latest version.")]
+
+
+def test_check_updates_reports_failure(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+    callbacks = []
+    messages = []
+    monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
+    monkeypatch.setattr(
+        main_controller,
+        "show_message_dialog",
+        lambda parent, title, content: messages.append((title, content)),
+    )
+
+    controller.check_updates()
+    callbacks[0](main_controller.CheckResult(status="error", error="Network unavailable"))
+
+    assert messages == [("Update check failed", "Network unavailable")]
+
+
+def test_startup_check_update_prompts_available_update(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+    prompts = []
+    callbacks = []
+    info = main_controller.UpdateInfo("v2.0.0", (2, 0, 0, 999999), "", "", "")
+    cast(Any, controller).prompt_update = prompts.append
+    monkeypatch.setattr(main_controller, "check_async", lambda parent, callback: callbacks.append(callback))
+
+    controller.startup_check_update()
     callbacks[0](main_controller.CheckResult(status="available", info=info))
 
     assert prompts == [info]

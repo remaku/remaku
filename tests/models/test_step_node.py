@@ -58,3 +58,62 @@ def test_filter_top_level_removes_descendants() -> None:
     child = parent.get_child_list("steps")[0]
 
     assert StepNode.filter_top_level([parent, child]) == [parent]
+
+
+def test_leaf_node_reports_no_children_or_siblings() -> None:
+    node = StepNode({"type": "key", "key": "enter"})
+
+    assert node.is_container is False
+    assert node.is_leaf is True
+    assert node.child_lists() == []
+    assert node.get_child_list("steps") == []
+    assert node.next_sibling() is None
+    assert node.prev_sibling() is None
+    assert node.index_in_parent() == -1
+    assert node.sibling_key() == ""
+
+
+def test_child_sibling_navigation_and_index() -> None:
+    parent = StepNode({"type": "repeat", "steps": [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}]})
+    first, second = parent.get_child_list("steps")
+
+    assert first.next_sibling() is second
+    assert second.prev_sibling() is first
+    assert second.index_in_parent() == 1
+    assert first.sibling_key() == "steps"
+
+
+def test_set_child_list_and_append_insert_assign_parent() -> None:
+    parent = StepNode({"type": "repeat", "steps": []})
+    first = StepNode({"type": "key", "key": "a"})
+    second = StepNode({"type": "key", "key": "b"})
+
+    parent.set_child_list("steps", [first])
+    second.insert_in(parent.get_child_list("steps"), 0, parent)
+
+    assert parent.get_child_list("steps") == [second, first]
+    assert first.parent is parent
+    assert second.parent is parent
+
+    moved = StepNode({"type": "delay"}, parent=parent)
+    moved.append_to(parent.get_child_list("steps"), parent)
+
+    assert moved.parent is parent
+    assert parent.get_child_list("steps")[-1] is moved
+
+
+def test_if_any_set_child_list_and_clear_caches() -> None:
+    parent = StepNode({"type": "if_any_image", "templates": ["one"], "branches": {}})
+    child = StepNode({"type": "key", "key": "a"})
+
+    parent.set_child_list("one", [child])
+    assert parent.get_child_list("one") == [child]
+    assert child.parent is parent
+
+    parent.clear_caches()
+
+    assert parent.get_child_list("one") == []
+
+
+def test_repr_includes_step_type() -> None:
+    assert repr(StepNode({"type": "delay"})).startswith("StepNode(delay")

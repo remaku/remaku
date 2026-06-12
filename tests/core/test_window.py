@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any, cast
 
 from remaku.core import window
 from remaku.core.window import Rect
@@ -59,7 +60,7 @@ def test_find_target_window_returns_none_when_no_visible_match(monkeypatch) -> N
 
 def test_client_rect_converts_client_area_to_screen(monkeypatch) -> None:
     fake_window = FakeWindow("Game")
-    fake_window._hWnd = 123
+    cast(Any, fake_window)._hWnd = 123
     monkeypatch.setattr(window.win32gui, "GetClientRect", lambda hwnd: (0, 0, 640, 480))
     monkeypatch.setattr(window.win32gui, "ClientToScreen", lambda hwnd, point: (10, 20))
 
@@ -70,7 +71,7 @@ def test_client_rect_converts_client_area_to_screen(monkeypatch) -> None:
 
 def test_is_foreground_compares_window_handle(monkeypatch) -> None:
     fake_window = FakeWindow("Game")
-    fake_window._hWnd = 123
+    cast(Any, fake_window)._hWnd = 123
     monkeypatch.setattr(window.win32gui, "GetForegroundWindow", lambda: 123)
 
     assert window.is_foreground(fake_window) is True
@@ -119,7 +120,7 @@ def test_check_elevation_mismatch_returns_false_when_self_elevated(monkeypatch) 
 
 def test_check_elevation_mismatch_detects_elevated_target(monkeypatch) -> None:
     fake_window = FakeWindow("Game")
-    fake_window._hWnd = 123
+    cast(Any, fake_window)._hWnd = 123
     closed = []
     monkeypatch.setattr(window, "is_self_elevated", lambda: False)
     monkeypatch.setattr(window.win32process, "GetWindowThreadProcessId", lambda hwnd: (1, 456))
@@ -134,7 +135,7 @@ def test_check_elevation_mismatch_detects_elevated_target(monkeypatch) -> None:
 
 def test_check_elevation_mismatch_returns_false_for_same_elevation(monkeypatch) -> None:
     fake_window = FakeWindow("Game")
-    fake_window._hWnd = 123
+    cast(Any, fake_window)._hWnd = 123
     monkeypatch.setattr(window, "is_self_elevated", lambda: False)
     monkeypatch.setattr(window.win32process, "GetWindowThreadProcessId", lambda hwnd: (1, 456))
     monkeypatch.setattr(window.win32api, "OpenProcess", lambda access, inherit, pid: "process")
@@ -147,7 +148,7 @@ def test_check_elevation_mismatch_returns_false_for_same_elevation(monkeypatch) 
 
 def test_check_elevation_mismatch_returns_true_on_error(monkeypatch) -> None:
     fake_window = FakeWindow("Game")
-    fake_window._hWnd = 123
+    cast(Any, fake_window)._hWnd = 123
     monkeypatch.setattr(window, "is_self_elevated", lambda: False)
     monkeypatch.setattr(
         window.win32process,

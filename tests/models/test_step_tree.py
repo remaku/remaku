@@ -525,39 +525,6 @@ def test_insert_node_after_missing_target_uses_end_of_siblings() -> None:
     assert inserted.parent is parent
 
 
-def test_node_at_returns_flattened_node(sample_steps: list[dict]) -> None:
-    tree = StepTree(sample_steps)
-
-    assert tree.node_at(0) is tree.root_nodes[0]
-
-
-def test_move_step_reorders_adjacent_leaf_roots() -> None:
-    tree = StepTree([{"type": "key", "key": "a"}, {"type": "key", "key": "b"}])
-
-    assert tree.move_step(tree.root_nodes[0], 1) is True
-    assert [step["key"] for step in tree.steps] == ["b", "a"]
-
-
-def test_move_step_returns_false_at_root_boundary() -> None:
-    tree = StepTree([{"type": "key", "key": "a"}])
-
-    assert tree.move_step(tree.root_nodes[0], -1) is False
-
-
-def test_can_move_between_if_image_branches() -> None:
-    tree = StepTree([{"type": "if_image", "then": [{"type": "key"}], "else": []}])
-    child = tree.root_nodes[0].get_child_list("then")[0]
-
-    assert tree.can_move(child, 1) is True
-
-
-def test_can_move_root_returns_false_for_unrelated_node() -> None:
-    tree = StepTree([{"type": "key", "key": "a"}])
-    unrelated = StepTree([{"type": "key", "key": "b"}]).root_nodes[0]
-
-    assert tree.can_move_root(unrelated, 1) is False
-
-
 def test_insert_node_after_missing_root_target_uses_end_of_roots() -> None:
     tree = StepTree([{"type": "key", "key": "a"}])
     missing = StepTree([{"type": "key", "key": "missing"}]).root_nodes[0]

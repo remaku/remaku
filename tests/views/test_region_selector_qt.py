@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import numpy as np
 import pytest
 from PySide6.QtCore import QPoint, QRect, Qt
@@ -89,7 +91,7 @@ def test_region_selector_paint_event_draws_background_and_selection(monkeypatch,
 
     monkeypatch.setattr(region_selector, "QPainter", FakePainter)
 
-    selector.paintEvent(None)
+    selector.paintEvent(cast(Any, None))
 
     assert calls[0][0] == "pixmap"
     assert calls[1][0] == "fill"
@@ -114,7 +116,7 @@ def test_region_selector_paint_event_skips_selection_when_not_selecting(monkeypa
 
     monkeypatch.setattr(region_selector, "QPainter", FakePainter)
 
-    selector.paintEvent(None)
+    selector.paintEvent(cast(Any, None))
 
     assert [call[0] for call in calls] == ["pixmap", "fill"]
 

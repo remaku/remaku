@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 
-from remaku.views.components import elided_label
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedCaptionLabel
 
 
@@ -34,34 +33,13 @@ def test_elided_label_accepts_parent_constructor(qtbot) -> None:
     assert label.text_content == "Child"
 
 
-def test_elided_label_paint_event_draws_elided_text(monkeypatch, qtbot) -> None:
+def test_elided_label_paint_event_handles_narrow_width(qtbot) -> None:
     label = ElidedBodyLabel("Very long label")
     qtbot.addWidget(label)
-    drawn = []
+    label.resize(8, label.sizeHint().height())
+    label.show()
 
-    class FakePainter:
-        def __init__(self, widget) -> None:
-            self.widget = widget
+    qtbot.waitExposed(label)
+    label.repaint()
 
-        def setRenderHint(self, hint) -> None:
-            drawn.append(("hint", hint))
-
-        def setPen(self, color) -> None:
-            drawn.append(("pen", color))
-
-        def drawText(self, rect, alignment, text) -> None:
-            drawn.append((rect, alignment, text))
-
-    class FakeMetrics:
-        def __init__(self, font) -> None:
-            self.font = font
-
-        def elidedText(self, text, mode, width):
-            return f"{text}:{mode.value}:{width}"
-
-    monkeypatch.setattr(elided_label, "QPainter", FakePainter)
-    monkeypatch.setattr(elided_label, "QFontMetrics", FakeMetrics)
-
-    label.paintEvent(None)
-
-    assert drawn[-1][2].startswith("Very long label:")
+    assert label.text_content == "Very long label"

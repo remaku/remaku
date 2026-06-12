@@ -1,6 +1,6 @@
 from remaku.models.step_dict import (
-    get_step_branches,
     get_step_branch_names,
+    get_step_branches,
     get_step_in_list_index,
     get_step_list,
     get_step_str,

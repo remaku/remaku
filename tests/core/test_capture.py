@@ -1,9 +1,10 @@
+from typing import Any, cast
+
 import numpy as np
 
 from remaku.core import capture
 from remaku.core.capture import CaptureBackend, Grabber
 from remaku.core.window import Rect
-
 
 DEFAULT_FRAME = object()
 
@@ -14,7 +15,7 @@ class FakeBetterCam:
 
     def __init__(self, frame: np.ndarray | None | object = DEFAULT_FRAME) -> None:
         self.frame: np.ndarray | None = (
-            np.ones((2, 2, 3), dtype=np.uint8) if frame is DEFAULT_FRAME else frame
+            np.ones((2, 2, 3), dtype=np.uint8) if frame is DEFAULT_FRAME else cast(np.ndarray | None, frame)
         )
         self.regions: list[tuple[int, int, int, int]] = []
 
@@ -111,7 +112,7 @@ def test_grab_returns_none_when_backend_and_last_frame_are_empty() -> None:
     fake_cam = FakeBetterCam(frame=None)
     grabber = Grabber.__new__(Grabber)
     grabber.backend = CaptureBackend.BETTERCAM
-    grabber.cam = fake_cam
+    grabber.cam = cast(Any, fake_cam)
     grabber.sct = None
     grabber.last_frame = np.empty((0, 0, 3), dtype=np.uint8)
     grabber.screen_width = 800

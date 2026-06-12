@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import QObject
 
@@ -66,7 +66,7 @@ class FakeMainWindow(QObject):
 
 
 class FakeTimer:
-    single_shots: list[tuple[int, object]] = []
+    single_shots: ClassVar[list[tuple[int, object]]] = []
 
     def __init__(self, parent: object) -> None:
         self.parent = parent
@@ -91,7 +91,7 @@ class FakeTimer:
 
 class FakeRunner:
     label = "Sample"
-    start_time = None
+    start_time: object | None = None
 
     def __init__(self, status: Status) -> None:
         self.status = status
@@ -129,7 +129,11 @@ def test_init_wires_dependencies_and_startup_check(monkeypatch) -> None:
     overlays = []
     FakeTimer.single_shots = []
     monkeypatch.setattr(main_controller, "config_model", fake_config)
-    monkeypatch.setattr(main_controller, "HomeController", lambda view, model: home_controllers.append((view, model)) or FakeHomeController())
+    monkeypatch.setattr(
+        main_controller,
+        "HomeController",
+        lambda view, model: home_controllers.append((view, model)) or FakeHomeController(),
+    )
     monkeypatch.setattr(
         main_controller,
         "SettingsController",
@@ -138,7 +142,7 @@ def test_init_wires_dependencies_and_startup_check(monkeypatch) -> None:
     monkeypatch.setattr(main_controller, "OverlayWidget", lambda: overlays.append(FakeOverlay()) or overlays[-1])
     monkeypatch.setattr(main_controller, "QTimer", FakeTimer)
 
-    controller = MainController(main_window, cast(Any, macro_model))
+    controller = MainController(cast(Any, main_window), cast(Any, macro_model))
 
     assert main_window.always_on_top_values == [True]
     assert home_controllers == [(main_window.home_view, macro_model)]
@@ -161,7 +165,7 @@ def test_init_skips_startup_check_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(main_controller, "OverlayWidget", FakeOverlay)
     monkeypatch.setattr(main_controller, "QTimer", FakeTimer)
 
-    MainController(FakeMainWindow(), cast(Any, object()))
+    MainController(cast(Any, FakeMainWindow()), cast(Any, object()))
 
     assert FakeTimer.single_shots == []
 

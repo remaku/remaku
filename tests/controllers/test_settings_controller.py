@@ -264,7 +264,9 @@ def test_restart_application_returns_without_application(monkeypatch) -> None:
     controller, _fake_config, _main_window = make_controller(monkeypatch)
     starts = []
     monkeypatch.setattr(settings_controller.QApplication, "instance", lambda: None)
-    monkeypatch.setattr(settings_controller.QProcess, "startDetached", lambda program, args: starts.append((program, args)))
+    monkeypatch.setattr(
+        settings_controller.QProcess, "startDetached", lambda program, args: starts.append((program, args))
+    )
 
     controller.restart_application()
 

@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent
@@ -713,16 +713,20 @@ def test_right_panel_template_card_toggles_visibility(monkeypatch, qtbot) -> Non
     panel.add_template_card(macro, "button")
     panel.show()
     qtbot.waitExposed(panel)
-    trigger = panel.content_layout.itemAt(panel.content_layout.count() - 2).widget()
-    card = panel.content_layout.itemAt(panel.content_layout.count() - 1).widget()
+    trigger_item = panel.content_layout.itemAt(panel.content_layout.count() - 2)
+    card_item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
+    assert trigger_item is not None
+    assert card_item is not None
+    trigger = trigger_item.widget()
+    card = card_item.widget()
     assert trigger is not None
     assert card is not None
     assert not card.isVisible()
 
-    trigger.mousePressEvent(None)
+    cast(Any, trigger).mousePressEvent(None)
     assert not card.isHidden()
 
-    trigger.mousePressEvent(None)
+    cast(Any, trigger).mousePressEvent(None)
     assert card.isHidden()
 
 

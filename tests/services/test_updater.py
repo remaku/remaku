@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, cast
 from urllib.error import URLError
 
 from remaku.services import updater
@@ -395,7 +396,9 @@ def test_check_uses_beta_channel(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(updater, "config_model", FakeConfigModel())
     monkeypatch.setattr(updater, "parse_version", lambda tag: (1, 0, 0, 999999))
-    monkeypatch.setattr(updater, "check_beta", lambda current: calls.append(current) or CheckResult(status="up_to_date"))
+    monkeypatch.setattr(
+        updater, "check_beta", lambda current: calls.append(current) or CheckResult(status="up_to_date")
+    )
 
     assert updater.check() == CheckResult(status="up_to_date")
     assert calls == [(1, 0, 0, 999999)]
@@ -468,7 +471,7 @@ def test_download_post_suppresses_emit_errors(tmp_path) -> None:
             raise RuntimeError("deleted")
 
     download.post = updater.Download.post.__get__(download, updater.Download)
-    download.poster.posted = RaisingPosted()
+    cast(Any, download.poster).posted = RaisingPosted()
 
     download.post(lambda: events.append("posted"))
 

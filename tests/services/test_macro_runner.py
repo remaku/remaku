@@ -510,7 +510,7 @@ def test_exec_step_dispatches_hold_key_until_gone_and_ignores_unknown_action() -
     runner = make_runner([])
     calls = []
     step = {"type": "hold_key_until_gone", "key": "enter", "template": "start"}
-    runner.do_hold_key_until_gone = lambda received: calls.append(received)
+    runner.do_hold_key_until_gone = lambda step: calls.append(step)
 
     runner.exec_step(step, (("steps", 0),))
     runner.exec_step({"type": "unknown"}, (("steps", 1),))
@@ -561,7 +561,7 @@ def test_hold_key_until_gone_sleeps_when_frame_is_missing(monkeypatch) -> None:
 
 def test_hold_key_until_gone_scales_template_and_releases_after_grace(monkeypatch) -> None:
     runner = make_hold_key_runner()
-    runner.template_capture_sizes = {"start": (5, 5)}
+    runner.template_capture_sizes = {"start": (5, 5), "unused": None}
     scaled_template = np.ones((5, 5), dtype=np.uint8)
     match_returns = iter([(1.0, (0, 0)), (0.0, (0, 0))])
     scale_calls = []
@@ -574,7 +574,9 @@ def test_hold_key_until_gone_scales_template_and_releases_after_grace(monkeypatc
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
     monkeypatch.setattr("remaku.services.macro_runner.vision.scale_template", fake_scale)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: next(match_returns))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template", lambda frame, template: next(match_returns)
+    )
     runner.sleep = lambda ms: None
     runner.sleep_remaining = lambda tick_start, period: None
 

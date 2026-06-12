@@ -25,6 +25,14 @@ def test_new_macro_dialog_returns_trimmed_value(qtbot) -> None:
     assert dialog.cancelButton.text() == "Cancel"
 
 
+def test_new_macro_dialog_returns_empty_value_without_editor(qtbot) -> None:
+    parent = make_parent(qtbot)
+    dialog = NewMacroDialog(parent)
+    dialog.label_edit = None
+
+    assert dialog.value() == ""
+
+
 def test_rename_macro_dialog_prefills_and_trims_value(qtbot) -> None:
     parent = make_parent(qtbot)
     dialog = RenameMacroDialog(parent, current_label="Old Name")
@@ -35,6 +43,14 @@ def test_rename_macro_dialog_prefills_and_trims_value(qtbot) -> None:
 
     assert dialog.value() == "New Name"
     assert dialog.yesButton.text() == "Save"
+
+
+def test_rename_macro_dialog_returns_empty_value_without_editor(qtbot) -> None:
+    parent = make_parent(qtbot)
+    dialog = RenameMacroDialog(parent, current_label="Old Name")
+    dialog.label_edit = None
+
+    assert dialog.value() == ""
 
 
 def test_message_dialog_hides_cancel_button(qtbot) -> None:

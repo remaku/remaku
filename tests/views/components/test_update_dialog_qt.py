@@ -69,6 +69,19 @@ def test_localized_body_uses_configured_language(monkeypatch) -> None:
     assert localized_body("<!-- lang:en -->English<!-- lang:zh_TW -->繁中") == "繁中"
 
 
+def test_localized_body_returns_plain_body_without_language_sections() -> None:
+    assert localized_body("  Plain release notes  ") == "Plain release notes"
+
+
+def test_localized_body_uses_system_language_base_or_english(monkeypatch) -> None:
+    fake_config = FakeConfigModel()
+    fake_config.config.general.language = "system"
+    monkeypatch.setattr(update_dialog, "config_model", fake_config)
+    monkeypatch.setattr(update_dialog.QLocale, "system", lambda: update_dialog.QLocale("fr_CA"))
+
+    assert localized_body("<!-- lang:fr -->Français<!-- lang:en -->English") == "Français"
+
+
 def test_update_dialog_skip_remembers_version(monkeypatch, qtbot) -> None:
     remembered = []
     _parent, dialog = make_dialog(qtbot)
@@ -109,6 +122,16 @@ def test_update_dialog_enter_download_phase_starts_download(tmp_path, monkeypatc
     assert dialog.yesButton.text() == "Cancel"
 
 
+def test_update_dialog_install_with_installer_enters_download_phase(monkeypatch, qtbot) -> None:
+    _parent, dialog = make_dialog(qtbot)
+    entered = []
+    monkeypatch.setattr(dialog, "enter_download_phase", lambda: entered.append(True))
+
+    dialog.handle_install()
+
+    assert entered == [True]
+
+
 def test_update_dialog_progress_updates_label(qtbot) -> None:
     _parent, dialog = make_dialog(qtbot)
 
@@ -116,6 +139,14 @@ def test_update_dialog_progress_updates_label(qtbot) -> None:
 
     assert dialog.progress.value() == 50
     assert "1.0/2.0 MB" in dialog.status_label.text()
+
+
+def test_update_dialog_progress_without_total_updates_downloaded_label(qtbot) -> None:
+    _parent, dialog = make_dialog(qtbot)
+
+    dialog.on_progress(1024 * 1024, 0)
+
+    assert "1.0 MB" in dialog.status_label.text()
 
 
 def test_update_dialog_done_schedules_install(monkeypatch, qtbot) -> None:
@@ -163,3 +194,13 @@ def test_update_dialog_start_install_reports_launch_error(monkeypatch, qtbot) ->
 
     assert dialog.phase == dialog.PHASE_ERROR
     assert "blocked" in dialog.status_label.text()
+
+
+def test_update_dialog_fallback_browser_opens_release_page(monkeypatch, qtbot) -> None:
+    opened = []
+    _parent, dialog = make_dialog(qtbot)
+    monkeypatch.setattr(update_dialog, "open_releases_page", opened.append)
+
+    dialog.fallback_browser()
+
+    assert opened == ["https://example.invalid/releases"]

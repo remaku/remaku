@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from qfluentwidgets import ComboBox, LineEdit
@@ -14,10 +16,26 @@ from remaku.models.macro_model import (
     TemplateInfo,
     WaitImageStep,
 )
-from remaku.views.components import right_panel
+from remaku.views.components import left_panel, right_panel
 from remaku.views.components.center_panel import CenterPanel
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
+
+
+class FakeRoundMenu:
+    instances: ClassVar[list["FakeRoundMenu"]] = []
+
+    def __init__(self, parent) -> None:
+        self.parent = parent
+        self.actions = []
+        self.exec_position = None
+        FakeRoundMenu.instances.append(self)
+
+    def addAction(self, action) -> None:
+        self.actions.append(action)
+
+    def exec(self, position) -> None:
+        self.exec_position = position
 
 
 def test_left_panel_sets_macro_list_and_emits_selection(qtbot) -> None:
@@ -90,6 +108,84 @@ def test_left_panel_order_change_emits_and_keeps_current_item(qtbot) -> None:
         panel.handle_order_changed()
 
     assert panel.macro_list.currentItem().data(Qt.ItemDataRole.UserRole) == "beta"
+
+
+def test_left_panel_item_click_emits_macro_selection(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+    panel.set_macro_list([("alpha", "Alpha")])
+    item = panel.macro_list.item(0)
+
+    with qtbot.waitSignal(event_bus.macro_selected, timeout=100) as blocker:
+        panel.handle_item_clicked(item)
+
+    assert blocker.args == ["alpha"]
+
+
+def test_left_panel_handlers_ignore_missing_current_item(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+
+    panel.emit_macro_selected(None)
+    panel.handle_macro_rename()
+    panel.handle_macro_duplicate()
+    panel.handle_macro_delete()
+    panel.handle_order_changed()
+
+    assert panel.macro_list.currentItem() is None
+
+
+def test_left_panel_context_menu_ignores_empty_position(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+
+    panel.handle_context_menu(panel.macro_list.rect().center())
+
+    assert panel.macro_list.currentItem() is None
+
+
+def test_left_panel_context_menu_builds_actions_and_emits(monkeypatch, qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+    panel.set_macro_list([("alpha", "Alpha")])
+    FakeRoundMenu.instances.clear()
+    monkeypatch.setattr(left_panel, "RoundMenu", FakeRoundMenu)
+    item_rect = panel.macro_list.visualItemRect(panel.macro_list.item(0))
+
+    panel.handle_context_menu(item_rect.center())
+
+    menu = FakeRoundMenu.instances[0]
+    assert menu.parent is panel.macro_list
+    assert menu.exec_position is not None
+    assert [action.text() for action in menu.actions] == ["Rename", "Duplicate", "Delete"]
+
+    with qtbot.waitSignal(event_bus.macro_rename_requested, timeout=100) as rename:
+        menu.actions[0].trigger()
+
+    with qtbot.waitSignal(event_bus.macro_duplicate_requested, timeout=100) as duplicate:
+        menu.actions[1].trigger()
+
+    with qtbot.waitSignal(event_bus.macro_delete_requested, timeout=100) as delete:
+        menu.actions[2].trigger()
+
+    assert rename.args == ["alpha"]
+    assert duplicate.args == ["alpha"]
+    assert delete.args == ["alpha"]
+
+
+def test_left_panel_context_actions_ignore_non_string_macro_id(qtbot) -> None:
+    panel = LeftPanel()
+    qtbot.addWidget(panel)
+    panel.set_macro_list([("alpha", "Alpha")])
+    item = panel.macro_list.currentItem()
+    item.setData(Qt.ItemDataRole.UserRole, 123)
+
+    panel.emit_macro_selected(item)
+    panel.handle_macro_rename()
+    panel.handle_macro_duplicate()
+    panel.handle_macro_delete()
+
+    assert item.data(Qt.ItemDataRole.UserRole) == 123
 
 
 def test_center_panel_sets_step_tree_and_emits_selected_step(qtbot) -> None:

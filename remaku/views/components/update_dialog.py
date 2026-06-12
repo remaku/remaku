@@ -152,7 +152,7 @@ class UpdateDialog(MessageBoxBase):
             return
 
         downloaded_mb = downloaded / (1024 * 1024)
-        self.status_label.setText(self.tr("Downloading {downloaded:.1f} MB").format(downloaded_mb=downloaded_mb))
+        self.status_label.setText(self.tr("Downloading {downloaded:.1f} MB").format(downloaded=downloaded_mb))
 
     def handle_cancel_download(self) -> None:
         if self.download is not None:

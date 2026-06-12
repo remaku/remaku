@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor, QPixmap, QResizeEvent
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import Macro, MacroMeta, TemplateInfo
@@ -70,15 +71,39 @@ def test_template_editor_update_preview_returns_without_label(monkeypatch, qtbot
     assert editor.preview_label is None
 
 
-def test_template_editor_update_preview_displays_pixmap(monkeypatch, qtbot) -> None:
-    monkeypatch.setattr(template_editor, "template_path", lambda macro_id, template_id: "missing.png")
+def test_template_editor_update_preview_displays_pixmap(tmp_path, monkeypatch, qtbot) -> None:
+    image_path = tmp_path / "button.png"
+    pixmap = QPixmap(12, 8)
+    pixmap.fill(QColor("red"))
+    assert pixmap.save(str(image_path))
+    monkeypatch.setattr(template_editor, "template_path", lambda macro_id, template_id: str(image_path))
+
+    editor = TemplateEditor(make_macro(), "button")
+    editor.resize(80, 60)
+    qtbot.addWidget(editor)
+
+    editor.update_preview()
+
+    assert editor.original_pixmap is not None
+    assert not editor.original_pixmap.isNull()
+    assert editor.preview_label is not None
+    assert editor.preview_label.pixmap() is not None
+
+
+def test_template_editor_resize_event_updates_preview(tmp_path, monkeypatch, qtbot) -> None:
+    image_path = tmp_path / "button.png"
+    pixmap = QPixmap(12, 8)
+    pixmap.fill(QColor("blue"))
+    assert pixmap.save(str(image_path))
+    monkeypatch.setattr(template_editor, "template_path", lambda macro_id, template_id: str(image_path))
+
     editor = TemplateEditor(make_macro(), "button")
     qtbot.addWidget(editor)
 
-    assert editor.original_pixmap is not None, "should keep an empty pixmap when preview image is missing"
-    assert editor.original_pixmap.isNull(), "missing preview image should be represented by a null pixmap"
-    assert editor.preview_label is not None, "preview label should remain available after preview refresh"
-    assert editor.preview_label.text() == "No template available", "preview label should explain that no image exists"
+    editor.resizeEvent(QResizeEvent(QSize(100, 80), QSize(80, 60)))
+
+    assert editor.preview_label is not None
+    assert editor.preview_label.pixmap() is not None
 
 
 def test_template_editor_capture_size_inputs_emit_meta_changes(monkeypatch, qtbot) -> None:

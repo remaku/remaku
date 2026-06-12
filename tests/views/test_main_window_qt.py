@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from PySide6.QtWidgets import QWidget
 
 from remaku.views import main_window
@@ -14,6 +16,26 @@ class FakeSettingsView(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("settings")
+
+
+class FakeSignal:
+    def __init__(self) -> None:
+        self.emitted_values: list[int] = []
+
+    def emit(self, value: int) -> None:
+        self.emitted_values.append(value)
+
+
+@dataclass
+class FakeEventBus:
+    hotkey_triggered: FakeSignal
+
+
+@dataclass
+class FakeMessage:
+    message: int
+    wParam: int
+    hWnd: int = 1
 
 
 def test_main_window_creates_child_views(monkeypatch, qtbot) -> None:
@@ -64,3 +86,44 @@ def test_main_window_registers_home_and_settings_views(monkeypatch, qtbot) -> No
 
     assert window.stackedWidget.indexOf(window.home_view) >= 0
     assert window.stackedWidget.indexOf(window.settings_view) >= 0
+
+
+def test_main_window_emits_windows_hotkey(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(main_window, "HomeView", FakeHomeView)
+    monkeypatch.setattr(main_window, "SettingsView", FakeSettingsView)
+    fake_signal = FakeSignal()
+    monkeypatch.setattr(main_window, "event_bus", FakeEventBus(fake_signal))
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            main_window.ctypes.wintypes.MSG,
+            "from_address",
+            lambda message: FakeMessage(message=0x0312, wParam=99),
+        )
+        window.nativeEvent(b"windows_generic_MSG", 123)
+
+    assert fake_signal.emitted_values == [99]
+
+
+def test_main_window_ignores_non_hotkey_native_event(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(main_window, "HomeView", FakeHomeView)
+    monkeypatch.setattr(main_window, "SettingsView", FakeSettingsView)
+    fake_signal = FakeSignal()
+    monkeypatch.setattr(main_window, "event_bus", FakeEventBus(fake_signal))
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            main_window.ctypes.wintypes.MSG,
+            "from_address",
+            lambda message: FakeMessage(message=0x0001, wParam=99),
+        )
+        window.nativeEvent(b"windows_generic_MSG", 123)
+        window.nativeEvent(b"other", 123)
+
+    assert fake_signal.emitted_values == []

@@ -1,7 +1,53 @@
+from typing import ClassVar
+
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 
 from remaku.core.event_bus import event_bus
+from remaku.views.components import toolbar as toolbar_module
 from remaku.views.components.toolbar import Toolbar
+
+
+class FakeTriggered:
+    def __init__(self) -> None:
+        self.callback = None
+
+    def connect(self, callback) -> None:
+        self.callback = callback
+
+    def emit(self, checked: bool = False) -> None:
+        assert self.callback is not None
+        self.callback(checked)
+
+
+class FakeAction:
+    def __init__(self, label: str, parent) -> None:
+        self.label = label
+        self.parent = parent
+        self.shortcut = None
+        self.triggered = FakeTriggered()
+
+    def setShortcut(self, shortcut) -> None:
+        self.shortcut = shortcut.toString(QKeySequence.SequenceFormat.PortableText)
+
+
+class FakeRoundMenu:
+    instances: ClassVar[list["FakeRoundMenu"]] = []
+
+    def __init__(self, parent) -> None:
+        self.parent = parent
+        self.items = []
+        self.exec_position = None
+        FakeRoundMenu.instances.append(self)
+
+    def addSeparator(self) -> None:
+        self.items.append("separator")
+
+    def addAction(self, action: FakeAction) -> None:
+        self.items.append(action)
+
+    def exec(self, position) -> None:
+        self.exec_position = position
 
 
 def test_toolbar_updates_run_button_for_running_state(qtbot) -> None:
@@ -59,6 +105,38 @@ def test_toolbar_show_add_menu_routes_selected_step_type(monkeypatch, qtbot) -> 
         toolbar.show_add_menu()
 
     assert blocker.args == ["delay"]
+
+
+def test_toolbar_popup_menu_builds_actions_and_emits_selected_item(monkeypatch, qtbot) -> None:
+    toolbar = Toolbar()
+    qtbot.addWidget(toolbar)
+    FakeRoundMenu.instances.clear()
+    monkeypatch.setattr(toolbar_module, "RoundMenu", FakeRoundMenu)
+    monkeypatch.setattr(toolbar_module, "Action", FakeAction)
+
+    toolbar.popup_menu(
+        toolbar.file_menu_button,
+        [
+            {"id": "new_macro", "label": "New Macro", "shortcut": "Ctrl+N"},
+            {"separator": True},
+            {"id": "quit", "label": "Quit"},
+        ],
+    )
+
+    menu = FakeRoundMenu.instances[0]
+    assert menu.parent is toolbar
+    assert menu.exec_position is not None
+    assert [item.label if isinstance(item, FakeAction) else item for item in menu.items] == [
+        "New Macro",
+        "separator",
+        "Quit",
+    ]
+    assert menu.items[0].shortcut == "Ctrl+N"
+
+    with qtbot.waitSignal(event_bus.action_triggered, timeout=100) as blocker:
+        menu.items[2].triggered.emit()
+
+    assert blocker.args == ["quit"]
 
 
 def test_toolbar_file_menu_contains_expected_actions(monkeypatch, qtbot) -> None:

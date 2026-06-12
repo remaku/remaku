@@ -50,6 +50,20 @@ class ClosingGrabber:
         self.closed = True
 
 
+def test_is_running_reports_live_thread(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.thread = threading.Thread()
+    monkeypatch.setattr(runner.thread, "is_alive", lambda: True)
+
+    assert runner.is_running() is True
+
+
+def test_is_running_reports_stopped_without_live_thread() -> None:
+    runner = SampleEngine()
+
+    assert runner.is_running() is False
+
+
 def test_update_and_get_status_return_copy() -> None:
     runner = SampleEngine()
 
@@ -61,9 +75,20 @@ def test_update_and_get_status_return_copy() -> None:
     assert runner.status.state == "waiting", "status copy mutation should not change the engine state"
 
 
-def test_finish_sets_reason_and_message(qtbot) -> None:
+def test_get_status_updates_elapsed_when_running(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.start_time = 2.5
+    runner.update(running=True)
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 7.0)
+
+    assert runner.get_status().elapsed_s == 4.5
+
+
+def test_finish_sets_reason_message_and_elapsed(qtbot, monkeypatch) -> None:
     runner = SampleEngine()
     runner.status.running = True
+    runner.start_time = 3.0
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 8.0)
 
     with qtbot.waitSignal(engine.event_bus.macro_running_changed, timeout=100) as blocker:
         runner.finish(StopReason.DONE, "done")
@@ -71,6 +96,7 @@ def test_finish_sets_reason_and_message(qtbot) -> None:
     assert runner.status.running is False, "finish should mark the engine as stopped"
     assert runner.status.last_reason == "done"
     assert runner.status.message == "done"
+    assert runner.status.elapsed_s == 5.0
     assert blocker.args == [False]
 
 
@@ -180,6 +206,13 @@ def test_start_creates_daemon_thread(monkeypatch) -> None:
     assert threads[0].target == runner.run_safe
     assert threads[0].daemon is True
     assert threads[0].start_calls == 1
+
+
+def test_base_loop_raises_not_implemented() -> None:
+    runner = Engine()
+
+    with pytest.raises(NotImplementedError):
+        runner.loop()
 
 
 def test_run_safe_finishes_with_exception_message() -> None:
@@ -338,6 +371,16 @@ def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
     assert runner.status.state == "waiting_foreground"
 
 
+def test_run_stops_while_waiting_for_named_target(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: None)
+    monkeypatch.setattr(runner.stop_event, "wait", lambda seconds: True)
+
+    with pytest.raises(Stopped):
+        runner.run()
+
+
 def test_sleep_remaining_raises_when_stop_event_set(monkeypatch) -> None:
     runner = SampleEngine()
     monkeypatch.setattr(engine.time, "monotonic", lambda: 10.0)
@@ -375,6 +418,27 @@ def test_wait_for_template_matches_and_updates_status(monkeypatch) -> None:
     assert runner.status.match_id == "button"
 
 
+def test_wait_for_template_retries_empty_frame_and_low_score(monkeypatch) -> None:
+    runner = SampleEngine()
+    frame = np.ones((4, 4), dtype=np.uint8)
+    template = np.ones((2, 2), dtype=np.uint8)
+    runner.templates = {"button": template}
+    runner.template_capture_sizes = {}
+    frames = iter([None, frame])
+    sleep_calls = []
+    monotonic_values = iter([0.0, 0.1, 0.2, 0.3, 0.4, 2.0])
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+    monkeypatch.setattr(engine.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "capture_tick", lambda: next(frames))
+    monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: sleep_calls.append((tick_start, period)))
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (0.2, (0, 0)))
+
+    assert runner.wait_for_template("button", timeout_ms=1000, threshold=0.9) is False
+    assert runner.status.score == 0.2
+    assert runner.status.match_id == "button"
+    assert sleep_calls == [(0.2, 1.0 / 60), (0.4, 1.0 / 60)]
+
+
 def test_wait_for_template_times_out_or_stops(monkeypatch) -> None:
     runner = SampleEngine()
     runner.templates = {"button": np.ones((2, 2), dtype=np.uint8)}
@@ -401,6 +465,27 @@ def test_wait_for_any_returns_best_matching_template(monkeypatch) -> None:
     assert runner.wait_for_any(["one", "two"], timeout_ms=1000, threshold=0.9) == "two"
     assert runner.status.score == 0.91
     assert runner.status.match_id == "two"
+
+
+def test_wait_for_any_retries_empty_frame_and_low_score(monkeypatch) -> None:
+    runner = SampleEngine()
+    frame = np.ones((4, 4), dtype=np.uint8)
+    runner.templates = {"one": np.ones((1, 1), dtype=np.uint8), "two": np.ones((2, 2), dtype=np.uint8)}
+    runner.template_capture_sizes = {}
+    frames = iter([None, frame])
+    sleep_calls = []
+    monotonic_values = iter([0.0, 0.1, 0.2, 0.3, 0.4, 2.0])
+    scores = {1: 0.2, 2: 0.4}
+    monkeypatch.setattr(engine, "config_model", FakeConfigModel())
+    monkeypatch.setattr(engine.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "capture_tick", lambda: next(frames))
+    monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: sleep_calls.append((tick_start, period)))
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (scores[tpl.shape[0]], (0, 0)))
+
+    assert runner.wait_for_any(["one", "two"], timeout_ms=1000, threshold=0.9) is None
+    assert runner.status.score == 0.4
+    assert runner.status.match_id == "two"
+    assert sleep_calls == [(0.2, 1.0 / 60), (0.4, 1.0 / 60)]
 
 
 def test_wait_for_any_times_out_or_stops(monkeypatch) -> None:

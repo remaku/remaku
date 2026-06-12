@@ -25,6 +25,12 @@ class FakeMacroModel:
         self.macros[macro.meta.id] = macro
 
 
+@dataclass
+class MissingLoadMacroModel(FakeMacroModel):
+    def list_macros(self) -> list[MacroSummary]:
+        return [MacroSummary(id="missing", label="missing", path="missing.json")]
+
+
 def make_macro(macro_id: str) -> Macro:
     return Macro(meta=MacroMeta(id=macro_id, label=macro_id))
 
@@ -75,6 +81,10 @@ def test_migrate_legacy_templates_skips_invalid_files(tmp_path, monkeypatch) -> 
     template_dir = tmp_path / "templates" / "alpha"
     template_dir.mkdir(parents=True)
     (template_dir / "bad-json.json").write_text("not json", encoding="utf-8")
+    (template_dir / "bad-list.json").write_text(json.dumps([]), encoding="utf-8")
+    (template_dir / "bad-type.json").write_text(
+        json.dumps({"capture_width": "320", "capture_height": 180}), encoding="utf-8"
+    )
     (template_dir / "bad-size.json").write_text(
         json.dumps({"capture_width": 0, "capture_height": 180}), encoding="utf-8"
     )
@@ -108,6 +118,17 @@ def test_migrate_legacy_templates_is_idempotent(tmp_path, monkeypatch) -> None:
 def test_migrate_legacy_templates_skips_missing_macro_or_template_dir(tmp_path, monkeypatch) -> None:
     model = FakeMacroModel({"alpha": make_macro("alpha")})
     monkeypatch.setattr(migration, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
-    model.macros.clear()
 
     assert migration.migrate_legacy_templates(as_macro_model(model)) == (0, 0)
+
+
+def test_migrate_legacy_templates_skips_when_macro_load_fails(tmp_path, monkeypatch) -> None:
+    model = MissingLoadMacroModel({})
+    template_dir = tmp_path / "templates" / "missing"
+    template_dir.mkdir(parents=True)
+    legacy_file = template_dir / "button.json"
+    legacy_file.write_text(json.dumps({"capture_width": 320, "capture_height": 180}), encoding="utf-8")
+    monkeypatch.setattr(migration, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+
+    assert migration.migrate_legacy_templates(as_macro_model(model)) == (0, 0)
+    assert legacy_file.exists()

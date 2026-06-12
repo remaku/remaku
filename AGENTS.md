@@ -44,4 +44,5 @@ Rules:
 - **Tech stack**: Python, PySide6 (UI), OpenCV (`cv2` for image recognition), `uv` (package management).
 - **Entry point**: Run `uv run src/main.py` to start the application.
 - **Linting & formatting**: Use `ruff` and `pyright`. After modifying code, run `uv run ruff check --fix`, `uv run ruff format`, and `uv run pyright`.
+- **Test coverage**: Run `uv run pytest --cov=remaku --cov-report=term-missing`.
 - **Building the executable**: Run `.\build_exe.ps1` which uses PyInstaller to build the executable and Inno Setup (`iscc`) to package the installer.

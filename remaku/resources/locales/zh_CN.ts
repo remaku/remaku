@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<TS version="2.1" language="zh_CN">
+<TS version="2.1" language="zh_CN" sourcelanguage="en_US">
     <context>
         <name>AboutDialog</name>
         <message>
@@ -147,7 +147,7 @@
         <message>
             <location filename="../../controllers/home_controller.py" line="795" />
             <source>On Next Row</source>
-            <translation>下一行</translation>
+            <translation>换行</translation>
         </message>
         <message>
             <location filename="../../controllers/home_controller.py" line="796" />

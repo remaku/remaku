@@ -147,7 +147,7 @@
         <message>
             <location filename="../../controllers/home_controller.py" line="795" />
             <source>On Next Row</source>
-            <translation>下一列</translation>
+            <translation>換列</translation>
         </message>
         <message>
             <location filename="../../controllers/home_controller.py" line="796" />

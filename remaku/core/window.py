@@ -1,4 +1,3 @@
-import ctypes
 from dataclasses import dataclass
 from typing import Any
 
@@ -69,7 +68,15 @@ def is_foreground(window: Any) -> bool:
 
 def is_self_elevated() -> bool:
     try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        token = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(),
+            win32con.TOKEN_QUERY,
+        )
+        try:
+            elevation = win32security.GetTokenInformation(token, win32security.TokenElevation)
+            return bool(elevation)
+        finally:
+            win32api.CloseHandle(token)
     except Exception:
         return False
 

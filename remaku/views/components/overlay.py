@@ -1,13 +1,10 @@
-import ctypes
-
+import win32con
+import win32gui
 from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QWidget
 
 from remaku.core.event_bus import event_bus
-
-GWL_EXSTYLE = -20
-WS_EX_NOACTIVATE = 0x08000000
 
 
 def white_icon(name: str) -> QIcon:
@@ -58,8 +55,8 @@ class OverlayWidget(QWidget):
         self.move(x, y)
 
         hwnd = int(self.winId())
-        style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_NOACTIVATE)
+        style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, style | win32con.WS_EX_NOACTIVATE)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)

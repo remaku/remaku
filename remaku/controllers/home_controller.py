@@ -1,5 +1,4 @@
 import copy
-import ctypes
 import json
 import logging
 import os
@@ -31,7 +30,6 @@ from remaku.models.macro_model import (
     MacroSummary,
     RepeatStep,
     Step,
-    TemplateInfo,
     WaitImageStep,
     parse_step,
     step_to_dict,
@@ -39,6 +37,8 @@ from remaku.models.macro_model import (
 from remaku.models.step_node import StepNode
 from remaku.models.step_tree import StepTree
 from remaku.paths import log_dir, macro_path, macros_dir, template_path, templates_dir
+from remaku.services.clipboard_service import ClipboardService
+from remaku.services.hotkey_service import HotkeyService
 from remaku.services.macro_import_service import (
     ImportMacroOptions,
     MacroImportError,
@@ -47,6 +47,7 @@ from remaku.services.macro_import_service import (
     resolve_import_macro_id,
 )
 from remaku.services.macro_runner import MacroRunner
+from remaku.services.template_service import TemplateService
 from remaku.version import __version__
 from remaku.views.components.about_dialog import AboutDialog
 from remaku.views.components.new_macro_dialog import NewMacroDialog
@@ -55,6 +56,18 @@ from remaku.views.home_view import HomeView
 from remaku.views.region_selector import RegionSelector
 
 logger = logging.getLogger(__name__)
+
+
+def virtual_desktop_size() -> tuple[int, int]:
+    screens = QApplication.screens()
+    if not screens:
+        return (0, 0)
+
+    rect = screens[0].virtualGeometry()
+    for s in screens[1:]:
+        rect = rect.united(s.virtualGeometry())
+
+    return (rect.width(), rect.height())
 
 
 class HomeController(QObject):
@@ -79,9 +92,17 @@ class HomeController(QObject):
         self.undo_selection_indexes: dict[str, list[int | None]] = {}
         self.redo_selection_indexes: dict[str, list[int | None]] = {}
         self.step_clipboard: dict | None = None
+        self.clipboard_service = ClipboardService()
+        self.template_service = TemplateService(
+            self.generate_template_id,
+            self.default_template_label,
+            screen_size_provider=virtual_desktop_size,
+        )
         self.editing_locked = False
-        self.hotkey_ids: list[int] = []
-        self.hotkey_map: dict[int, str] = {}
+        self.hotkey_service = HotkeyService(
+            self.macro_model,
+            lambda: int(self.view.window().winId()),
+        )
         self.hotkey_runners: dict[str, MacroRunner] = {}
         self.actions: dict[str, Callable[[], object]] = {
             "about": self.show_about_dialog,
@@ -356,9 +377,6 @@ class HomeController(QObject):
         self.restore_macro_state(restored_state, selection_index)
         self.update_undo_redo_state()
 
-    def collect_template_refs_from_steps(self, steps: list[dict]) -> set[str]:
-        return StepTree(copy.deepcopy(steps)).collect_template_refs()
-
     def copy_selected_steps(self) -> None:
         if self.step_tree is None or self.current_macro is None:
             return
@@ -367,28 +385,11 @@ class HomeController(QObject):
         if not selected:
             return
 
-        top_level = self.step_tree.get_top_level(selected)
-        steps = [copy.deepcopy(node.step) for node in top_level]
-        if not steps:
+        clipboard = self.clipboard_service.copy_selected_steps(self.current_macro, self.step_tree, selected)
+        if clipboard is None:
             return
 
-        refs = self.collect_template_refs_from_steps(steps)
-
-        template_data = {
-            template_id: template_path(self.current_macro.meta.id, template_id).read_bytes()
-            for template_id in refs
-            if (template_path(self.current_macro.meta.id, template_id)).exists()
-        }
-        template_meta = {
-            template_id: copy.deepcopy(self.current_macro.to_dict().get("templates", {}).get(template_id, {}))
-            for template_id in refs
-            if template_id in self.current_macro.to_dict().get("templates", {})
-        }
-        self.step_clipboard = {
-            "steps": steps,
-            "templates": template_data,
-            "template_meta": template_meta,
-        }
+        self.step_clipboard = clipboard
         event_bus.clipboard_changed.emit(True)
 
     def cut_selected_steps(self) -> None:
@@ -401,40 +402,17 @@ class HomeController(QObject):
             return
 
         self.push_undo()
-
-        clipboard_steps = copy.deepcopy(self.step_clipboard.get("steps", []))
-        if not clipboard_steps:
+        result = self.clipboard_service.paste_steps(
+            self.current_macro,
+            self.step_tree,
+            self.step_clipboard,
+            self.selected_step_node(),
+            self.selected_step,
+        )
+        if not result.changed:
             return
 
-        target_node = self.selected_step_node()
-        inserted_nodes = self.step_tree.insert_steps_after(target_node, clipboard_steps)
-
-        templates_dir(self.current_macro.meta.id).mkdir(parents=True, exist_ok=True)
-
-        for template_id, data in self.step_clipboard.get("templates", {}).items():
-            destination = template_path(self.current_macro.meta.id, template_id)
-            if not destination.exists():
-                destination.write_bytes(data)
-
-        for template_id, meta in self.step_clipboard.get("template_meta", {}).items():
-            if template_id not in self.current_macro.templates:
-                self.current_macro.templates[template_id] = (
-                    self.current_macro.templates.get(template_id)
-                    or Macro.from_dict({"meta": {}, "templates": {template_id: meta}, "steps": []}).templates[
-                        template_id
-                    ]
-                )
-                continue
-
-            current_meta = self.current_macro.templates[template_id]
-            if not current_meta.label and "label" in meta:
-                current_meta.label = str(meta["label"])
-            if not current_meta.capture_width and "capture_width" in meta:
-                current_meta.capture_width = int(meta["capture_width"])
-            if not current_meta.capture_height and "capture_height" in meta:
-                current_meta.capture_height = int(meta["capture_height"])
-
-        self.selected_step = inserted_nodes[0].step if inserted_nodes else self.selected_step
+        self.selected_step = result.selected_step
         self.mutate_current_macro()
 
     def refresh_macro_list(self) -> None:
@@ -1262,6 +1240,12 @@ class HomeController(QObject):
         target.mkdir(parents=True, exist_ok=True)
         os.startfile(target)
 
+    def generate_template_id(self) -> str:
+        return str(int(time.time()))
+
+    def default_template_label(self, template_id: str) -> str:
+        return self.tr("Template {id}").format(id=template_id)
+
     def launch_region_selector(self, template_id: str) -> None:
         if self.current_macro is None:
             return
@@ -1281,38 +1265,14 @@ class HomeController(QObject):
         if self.selected_step is None or self.current_macro is None:
             return
 
-        old_png = template_path(self.current_macro.meta.id, old_template_id)
-        if old_png.exists():
-            old_png.unlink()
-
-        old_meta = self.current_macro.templates.pop(old_template_id, None)
-
-        new_meta = self.current_macro.templates.get(new_template_id)
-        if new_meta is None:
-            new_meta = TemplateInfo()
-            self.current_macro.templates[new_template_id] = new_meta
-
-        new_meta.capture_width = width
-        new_meta.capture_height = height
-
-        if old_meta is not None and old_meta.label and not new_meta.label:
-            new_meta.label = old_meta.label
-        else:
-            new_meta.label = self.tr("Template {id}").format(id=new_template_id)
-
-        step_type = self.selected_step.get("type", "")
-
-        if step_type == "if_any_image":
-            branches = self.selected_step.setdefault("branches", {})
-            if old_template_id in branches:
-                branches[new_template_id] = branches.pop(old_template_id)
-            self.selected_step["templates"] = [
-                new_template_id if t == old_template_id else t for t in self.selected_step.get("templates", [])
-            ]
-        else:
-            if self.selected_step.get("template") == old_template_id:
-                self.selected_step["template"] = new_template_id
-
+        self.template_service.apply_captured_template(
+            self.current_macro,
+            self.selected_step,
+            old_template_id,
+            new_template_id,
+            width,
+            height,
+        )
         self.mutate_current_macro()
 
     def handle_template_capture(self, template_id: str) -> None:
@@ -1327,8 +1287,6 @@ class HomeController(QObject):
         if self.selected_step is None or self.current_macro is None:
             return
 
-        new_template_id = str(int(time.time()))
-
         file_path, _ = QFileDialog.getOpenFileName(
             self.view, self.tr("Select Template Image"), "", self.tr("PNG Images (*.png)")
         )
@@ -1336,195 +1294,47 @@ class HomeController(QObject):
         if not file_path:
             return
 
-        destination = template_path(self.current_macro.meta.id, new_template_id)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(file_path, destination)
-
-        screen = QApplication.primaryScreen()
-        if screen is None:
-            raise RuntimeError("No primary screen is available")
-
-        pixmap = screen.grabWindow(0)
-        capture_width = pixmap.width()
-        capture_height = pixmap.height()
-
-        old_png = template_path(self.current_macro.meta.id, template_id)
-        if old_png.exists():
-            old_png.unlink()
-
-        old_meta = self.current_macro.templates.pop(template_id, None)
-
-        new_meta = self.current_macro.templates.get(new_template_id)
-        if new_meta is None:
-            new_meta = TemplateInfo()
-            self.current_macro.templates[new_template_id] = new_meta
-
-        new_meta.capture_width = capture_width
-        new_meta.capture_height = capture_height
-
-        if old_meta is not None and old_meta.label and not new_meta.label:
-            new_meta.label = old_meta.label
-        else:
-            new_meta.label = self.tr("Template {id}").format(id=new_template_id)
-
-        step_type = self.selected_step.get("type", "")
-
-        if step_type == "if_any_image":
-            branches = self.selected_step.setdefault("branches", {})
-            if template_id in branches:
-                branches[new_template_id] = branches.pop(template_id)
-            self.selected_step["templates"] = [
-                new_template_id if t == template_id else t for t in self.selected_step.get("templates", [])
-            ]
-        else:
-            if self.selected_step.get("template") == template_id:
-                self.selected_step["template"] = new_template_id
-
+        self.template_service.pick_template(
+            self.current_macro,
+            self.selected_step,
+            template_id,
+            file_path,
+        )
         self.mutate_current_macro()
 
     def handle_template_delete(self, template_id: str) -> None:
         if self.current_macro is None or self.step_tree is None:
             return
 
-        png_path = template_path(self.current_macro.meta.id, template_id)
-        if png_path.exists():
-            png_path.unlink()
-
-        self.current_macro.templates.pop(template_id, None)
-
-        for node in self.step_tree.flatten():
-            step = node.step
-
-            if step.get("template") == template_id:
-                step["template"] = ""
-
-            if "templates" in step:
-                step["templates"] = [t for t in step["templates"] if t != template_id]
-                step.setdefault("branches", {}).pop(template_id, None)
-
+        self.template_service.delete_template(self.current_macro, self.step_tree, template_id)
         self.mutate_current_macro()
 
     def handle_template_add(self) -> None:
         if self.current_macro is None or self.selected_step is None:
             return
 
-        if self.selected_step.get("type") != "if_any_image":
+        if not self.template_service.add_template(self.current_macro, self.selected_step):
             return
 
-        new_template_id = str(int(time.time()))
-        self.current_macro.templates[new_template_id] = TemplateInfo()
-        self.selected_step.setdefault("templates", []).append(new_template_id)
         self.mutate_current_macro()
 
     def handle_template_meta_changed(self, template_id: str, field: str, value: str) -> None:
         if self.current_macro is None:
             return
 
-        template_info = self.current_macro.templates.get(template_id)
-        if template_info is None:
+        if not self.template_service.update_template_meta(self.current_macro, template_id, field, value):
             return
-
-        if field == "label":
-            template_info.label = value
-        elif field in ("capture_width", "capture_height"):
-            try:
-                setattr(template_info, field, int(value))
-            except ValueError:
-                return
 
         self.sync_macro_steps_from_tree()
         self.save_current_macro()
         self.refresh_step_tree()
 
     def register_hotkeys(self) -> None:
-        user32 = ctypes.windll.user32
-
-        for hid in self.hotkey_ids:
-            user32.UnregisterHotKey(int(self.view.window().winId()), hid)
-
-        self.hotkey_ids = []
-        self.hotkey_map = {}
-
-        for i, summary in enumerate(self.macro_model.list_macros()):
-            macro = self.macro_model.load(summary.id)
-            if macro is None or not macro.meta.enabled or not macro.meta.hotkey:
-                continue
-
-            mods, vk = self.parse_hotkey(macro.meta.hotkey)
-            if vk == 0:
-                continue
-
-            hid = 0xBF00 + i
-
-            if user32.RegisterHotKey(int(self.view.window().winId()), hid, mods, vk):
-                self.hotkey_ids.append(hid)
-                self.hotkey_map[hid] = summary.id
-                logger.info("Registered hotkey: %s -> %s", macro.meta.hotkey, summary.label)
-            else:
-                logger.warning("Hotkey registration failed: %s", macro.meta.hotkey)
-
-    def parse_hotkey(self, hotkey: str) -> tuple[int, int]:
-        MOD_ALT = 0x0001
-        MOD_CTRL = 0x0002
-        MOD_SHIFT = 0x0004
-        mods = 0
-        vk = 0
-        parts = hotkey.lower().split("+")
-
-        for part in parts:
-            if part == "ctrl":
-                mods |= MOD_CTRL
-            elif part == "alt":
-                mods |= MOD_ALT
-            elif part == "shift":
-                mods |= MOD_SHIFT
-            else:
-                vk = self.key_to_vk(part)
-
-        return mods, vk
-
-    def key_to_vk(self, key: str) -> int:
-        vk_map: dict[str, int] = {
-            "f1": 0x70,
-            "f2": 0x71,
-            "f3": 0x72,
-            "f4": 0x73,
-            "f5": 0x74,
-            "f6": 0x75,
-            "f7": 0x76,
-            "f8": 0x77,
-            "f9": 0x78,
-            "f10": 0x79,
-            "f11": 0x7A,
-            "f12": 0x7B,
-            "space": 0x20,
-            "enter": 0x0D,
-            "return": 0x0D,
-            "tab": 0x09,
-            "esc": 0x1B,
-            "escape": 0x1B,
-            "insert": 0x2D,
-            "delete": 0x2E,
-            "home": 0x24,
-            "end": 0x23,
-            "pageup": 0x21,
-            "pagedown": 0x22,
-            "up": 0x26,
-            "down": 0x28,
-            "left": 0x25,
-            "right": 0x27,
-        }
-
-        if key in vk_map:
-            return vk_map[key]
-
-        if len(key) == 1:
-            return ctypes.windll.user32.VkKeyScanW(ord(key)) & 0xFF
-
-        return 0
+        self.hotkey_service.macro_model = self.macro_model
+        self.hotkey_service.register_hotkeys()
 
     def handle_hotkey_triggered(self, hid: int) -> None:
-        macro_id = self.hotkey_map.get(hid)
+        macro_id = self.hotkey_service.macro_id_for_hotkey(hid)
         if macro_id is None:
             return
 

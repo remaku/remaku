@@ -28,6 +28,7 @@ dev = [
   "pytest-cov>=7.1.0",
   "pytest-qt>=4.5.0",
   "ruff>=0.15.15",
+  "types-pywin32>=1.0",
 ]
 
 [tool.uv]

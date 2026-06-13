@@ -87,27 +87,21 @@ def test_is_foreground_returns_false_on_errors(monkeypatch) -> None:
 
 
 def test_is_self_elevated_returns_admin_state(monkeypatch) -> None:
-    class FakeShell32:
-        def IsUserAnAdmin(self) -> int:
-            return 1
-
-    class FakeWindll:
-        shell32 = FakeShell32()
-
-    monkeypatch.setattr(window.ctypes, "windll", FakeWindll())
+    monkeypatch.setattr(window.win32api, "GetCurrentProcess", lambda: "fake_process")
+    monkeypatch.setattr(window.win32security, "OpenProcessToken", lambda process, access: "token")
+    monkeypatch.setattr(window.win32security, "GetTokenInformation", lambda token, token_type: True)
+    monkeypatch.setattr(window.win32api, "CloseHandle", lambda handle: None)
 
     assert window.is_self_elevated() is True
 
 
 def test_is_self_elevated_returns_false_on_error(monkeypatch) -> None:
-    class BadShell32:
-        def IsUserAnAdmin(self) -> int:
-            raise RuntimeError("blocked")
-
-    class FakeWindll:
-        shell32 = BadShell32()
-
-    monkeypatch.setattr(window.ctypes, "windll", FakeWindll())
+    monkeypatch.setattr(window.win32api, "GetCurrentProcess", lambda: "fake_process")
+    monkeypatch.setattr(
+        window.win32security,
+        "OpenProcessToken",
+        lambda process, access: (_ for _ in ()).throw(RuntimeError("blocked")),
+    )
 
     assert window.is_self_elevated() is False
 

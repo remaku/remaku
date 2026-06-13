@@ -3,16 +3,17 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 
 from remaku.controllers import home_controller
 from remaku.controllers.home_controller import HomeController
 from remaku.models.config_model import AppConfig
 from remaku.models.macro_model import Macro, MacroMeta, MacroModel, MacroSummary, TemplateInfo
 from remaku.models.step_tree import StepTree
-from remaku.services import macro_import_service
+from remaku.services import hotkey_service, macro_import_service
+from remaku.services.clipboard_service import ClipboardService
 from remaku.services.engine import Status
+from remaku.services.template_service import TemplateService
 
 
 class FakeMacroModel:
@@ -247,29 +248,20 @@ def make_controller() -> HomeController:
     controller.undo_selection_indexes = {}
     controller.redo_selection_indexes = {}
     controller.step_clipboard = None
+    controller.clipboard_service = ClipboardService(
+        lambda macro_id, template_id: home_controller.template_path(macro_id, template_id),
+        lambda macro_id: home_controller.templates_dir(macro_id),
+    )
+    controller.template_service = TemplateService(
+        controller.generate_template_id,
+        controller.default_template_label,
+        lambda macro_id, template_id: home_controller.template_path(macro_id, template_id),
+    )
+    controller.hotkey_service = hotkey_service.HotkeyService(
+        controller.macro_model,
+        lambda: int(controller.view.window().winId()),
+    )
     return cast(HomeController, controller)
-
-
-class FakeUser32:
-    def __init__(self, register_result: bool = True) -> None:
-        self.register_result = register_result
-        self.register_calls: list[tuple[int, int, int, int]] = []
-        self.unregister_calls: list[tuple[int, int]] = []
-
-    def RegisterHotKey(self, hwnd: int, hotkey_id: int, modifiers: int, vk: int) -> bool:
-        self.register_calls.append((hwnd, hotkey_id, modifiers, vk))
-        return self.register_result
-
-    def UnregisterHotKey(self, hwnd: int, hotkey_id: int) -> None:
-        self.unregister_calls.append((hwnd, hotkey_id))
-
-    def VkKeyScanW(self, codepoint: int) -> int:
-        return codepoint + 0x100
-
-
-class FakeWindll:
-    def __init__(self, user32: FakeUser32) -> None:
-        self.user32 = user32
 
 
 class FakeSignal:
@@ -292,7 +284,6 @@ class FakeShortcut:
 
 
 def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
-    user32 = FakeUser32()
     fake_config = FakeConfigModel()
     controller_view = FakeView()
     controller_view.center_panel.step_list.itemSelectionChanged = FakeSignal()
@@ -304,11 +295,19 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
         shortcuts.append(shortcut)
         return shortcut
 
-    monkeypatch.setattr(home_controller.ctypes, "windll", FakeWindll(user32))
+    register_calls: list[tuple] = []
+
+    def fake_register_hotkey(hwnd: int, hid: int, mods: int, vk: int) -> None:
+        register_calls.append((hwnd, hid, mods, vk))
+
     monkeypatch.setattr(home_controller, "config_model", fake_config)
     monkeypatch.setattr(home_controller, "QShortcut", make_shortcut)
+    monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register_hotkey)
+    monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", lambda hwnd, hid: None)
 
     controller = HomeController(cast(Any, controller_view), cast(MacroModel, model))
+
+    assert register_calls == []
 
     assert controller.view is controller_view
     assert controller.macro_model is model
@@ -321,7 +320,6 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller_view.toolbar.undo_button.enabled is False
     assert controller_view.toolbar.redo_button.enabled is False
     assert controller_view.center_panel.step_tree_items == []
-    assert user32.register_calls == []
 
 
 def test_set_editing_locked_disables_editing_controls() -> None:
@@ -378,21 +376,50 @@ def test_sort_macro_items_uses_configured_order_then_label(monkeypatch) -> None:
 def test_parse_hotkey_handles_modifiers_and_named_key() -> None:
     controller = make_controller()
 
-    assert controller.parse_hotkey("CTRL+Alt+enter") == (0x0002 | 0x0001, 0x0D)
-    assert controller.parse_hotkey("shift+f1") == (0x0004, 0x70)
+    assert controller.hotkey_service.parse_hotkey("CTRL+Alt+enter") == (0x0002 | 0x0001, 0x0D)
+    assert controller.hotkey_service.parse_hotkey("shift+f1") == (0x0004, 0x70)
+
+
+def test_virtual_desktop_size_returns_valid_dimensions(monkeypatch) -> None:
+    class FakeScreen:
+        def __init__(self, x: int, y: int, w: int, h: int) -> None:
+            self.geo = QRect(x, y, w, h)
+
+        def virtualGeometry(self) -> QRect:
+            return self.geo
+
+    monkeypatch.setattr(home_controller.QApplication, "screens", lambda: [])
+    assert home_controller.virtual_desktop_size() == (0, 0)
+
+    monkeypatch.setattr(
+        home_controller.QApplication,
+        "screens",
+        lambda: [FakeScreen(0, 0, 1920, 1080), FakeScreen(1920, 0, 1280, 720)],
+    )
+    width, height = home_controller.virtual_desktop_size()
+    assert width == 3200
+    assert height == 1080
 
 
 def test_key_to_vk_uses_vk_key_scan_for_single_character(monkeypatch) -> None:
-    user32 = FakeUser32()
-    monkeypatch.setattr(home_controller.ctypes, "windll", FakeWindll(user32))
+    monkeypatch.setattr(hotkey_service.win32api, "VkKeyScan", lambda key: ord(key) + 0x100)
     controller = make_controller()
 
-    assert controller.key_to_vk("a") == ord("a")
+    assert controller.hotkey_service.key_to_vk("a") == ord("a")
 
 
 def test_register_hotkeys_unregisters_previous_and_skips_invalid(monkeypatch) -> None:
-    user32 = FakeUser32(register_result=True)
-    monkeypatch.setattr(home_controller.ctypes, "windll", FakeWindll(user32))
+    register_calls: list[tuple[int, int, int, int]] = []
+    unregister_calls: list[tuple[int, int]] = []
+
+    def fake_register(hwnd: int, hid: int, mods: int, vk: int) -> None:
+        register_calls.append((hwnd, hid, mods, vk))
+
+    def fake_unregister(hwnd: int, hid: int) -> None:
+        unregister_calls.append((hwnd, hid))
+
+    monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register)
+    monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", fake_unregister)
     macros = {
         "enabled": Macro(meta=MacroMeta(id="enabled", label="Enabled", hotkey="ctrl+f1", enabled=True)),
         "disabled": Macro(meta=MacroMeta(id="disabled", label="Disabled", hotkey="ctrl+f2", enabled=False)),
@@ -402,31 +429,37 @@ def test_register_hotkeys_unregisters_previous_and_skips_invalid(monkeypatch) ->
     model = FakeMacroModel(macros=macros)
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
-    controller.hotkey_ids = [0xBF99]
-    controller.hotkey_map = {0xBF99: "old"}
+    controller.hotkey_service.hotkey_ids = [0xBF99]
+    controller.hotkey_service.hotkey_map = {0xBF99: "old"}
 
     controller.register_hotkeys()
 
-    assert user32.unregister_calls == [(99, 0xBF99)]
-    assert user32.register_calls == [(99, 0xBF02, 0x0002, 0x70)]
-    assert controller.hotkey_ids == [0xBF02]
-    assert controller.hotkey_map == {0xBF02: "enabled"}
+    assert unregister_calls == [(99, 0xBF99)]
+    assert register_calls == [(99, 0xBF02, 0x0002, 0x70)]
+    assert controller.hotkey_service.hotkey_ids == [0xBF02]
+    assert controller.hotkey_service.hotkey_map == {0xBF02: "enabled"}
 
 
 def test_register_hotkeys_does_not_store_failed_registration(monkeypatch) -> None:
-    user32 = FakeUser32(register_result=False)
-    monkeypatch.setattr(home_controller.ctypes, "windll", FakeWindll(user32))
+    register_calls: list[tuple[int, int, int, int]] = []
+
+    def fake_register(hwnd: int, hid: int, mods: int, vk: int) -> None:
+        register_calls.append((hwnd, hid, mods, vk))
+        raise Exception("failed")
+
+    monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register)
+    monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", lambda hwnd, hid: None)
     model = FakeMacroModel(macros={"macro": Macro(meta=MacroMeta(id="macro", label="Macro", hotkey="ctrl+f1"))})
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
-    controller.hotkey_ids = []
-    controller.hotkey_map = {}
+    controller.hotkey_service.hotkey_ids = []
+    controller.hotkey_service.hotkey_map = {}
 
     controller.register_hotkeys()
 
-    assert user32.register_calls == [(99, 0xBF00, 0x0002, 0x70)]
-    assert controller.hotkey_ids == []
-    assert controller.hotkey_map == {}
+    assert register_calls == [(99, 0xBF00, 0x0002, 0x70)]
+    assert controller.hotkey_service.hotkey_ids == []
+    assert controller.hotkey_service.hotkey_map == {}
 
 
 def test_handle_hotkey_triggered_selects_macro_and_loads_steps(monkeypatch, tmp_path: Path) -> None:
@@ -439,7 +472,7 @@ def test_handle_hotkey_triggered_selects_macro_and_loads_steps(monkeypatch, tmp_
     model = FakeMacroModel(macros={"target": macro})
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
-    controller.hotkey_map = {0xBF00: "target"}
+    controller.hotkey_service.hotkey_map = {0xBF00: "target"}
     cast(Any, controller.view).left_panel = FakeLeftPanel(["other", "target"])
     show_loaded_calls = []
     monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / f"{macro_id}.json")
@@ -1310,7 +1343,7 @@ def test_handle_hotkey_triggered_ignores_missing_disabled_and_stops_running(qtbo
     model = FakeMacroModel(macros={"macro": macro})
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
-    controller.hotkey_map = {1: "missing", 2: "macro", 3: "running"}
+    controller.hotkey_service.hotkey_map = {1: "missing", 2: "macro", 3: "running"}
 
     controller.handle_hotkey_triggered(99)
     controller.handle_hotkey_triggered(1)
@@ -2098,21 +2131,9 @@ def test_handle_template_pick_updates_if_any_image_refs(tmp_path: Path, monkeypa
     controller.selected_step = selected_step
     calls = []
     controller.mutate_current_macro = lambda: calls.append("mutate")
-
-    class FakePixmap:
-        def width(self) -> int:
-            return 800
-
-        def height(self) -> int:
-            return 600
-
-    class FakeScreen:
-        def grabWindow(self, window_id: int) -> FakePixmap:
-            assert window_id == 0
-            return FakePixmap()
+    controller.template_service.screen_size_provider = lambda: (800, 600)
 
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
-    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: FakeScreen())
     monkeypatch.setattr(home_controller.time, "time", lambda: 700.0)
     monkeypatch.setattr(
         home_controller,
@@ -2132,7 +2153,7 @@ def test_handle_template_pick_updates_if_any_image_refs(tmp_path: Path, monkeypa
     assert calls == ["mutate"]
 
 
-def test_handle_template_pick_returns_for_missing_state_cancel_and_no_screen(tmp_path: Path, monkeypatch) -> None:
+def test_handle_template_pick_returns_for_missing_state_and_cancel(tmp_path: Path, monkeypatch) -> None:
     controller = make_controller()
 
     controller.handle_template_pick("old")
@@ -2141,19 +2162,6 @@ def test_handle_template_pick_returns_for_missing_state_cancel_and_no_screen(tmp
     controller.selected_step = {"type": "wait_image", "template": "old"}
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: ("", ""))
     controller.handle_template_pick("old")
-
-    source = tmp_path / "source.png"
-    source.write_bytes(b"png")
-    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
-    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: None)
-    monkeypatch.setattr(
-        home_controller,
-        "template_path",
-        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
-    )
-
-    with pytest.raises(RuntimeError, match="No primary screen is available"):
-        controller.handle_template_pick("old")
 
 
 def test_handle_template_pick_updates_single_template_with_generated_label(tmp_path: Path, monkeypatch) -> None:
@@ -2165,20 +2173,9 @@ def test_handle_template_pick_updates_single_template_with_generated_label(tmp_p
     controller.current_macro = macro
     controller.selected_step = selected_step
     controller.mutate_current_macro = lambda: None
-
-    class FakePixmap:
-        def width(self) -> int:
-            return 1
-
-        def height(self) -> int:
-            return 2
-
-    class FakeScreen:
-        def grabWindow(self, window_id: int) -> FakePixmap:
-            return FakePixmap()
+    controller.template_service.screen_size_provider = lambda: (1, 2)
 
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(source), ""))
-    monkeypatch.setattr(home_controller.QApplication, "primaryScreen", lambda: FakeScreen())
     monkeypatch.setattr(home_controller.time, "time", lambda: 800.0)
     monkeypatch.setattr(
         home_controller,
@@ -2309,6 +2306,30 @@ def test_paste_steps_adds_missing_template_metadata(tmp_path: Path, monkeypatch)
 
     assert macro.templates["button"].label == "Button"
     assert macro.templates["button"].capture_width == 320
+
+
+def test_paste_steps_creates_template_from_clipboard_meta_when_not_in_macro(tmp_path: Path, monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"existing": TemplateInfo(label="Existing")})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([])
+    controller.step_clipboard = {
+        "steps": [{"type": "wait_image", "template": "new_one"}],
+        "templates": {},
+        "template_meta": {"new_one": {"label": "New", "capture_width": 640, "capture_height": 360}},
+    }
+    controller.mutate_current_macro = lambda: None
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+
+    controller.paste_steps()
+
+    assert "existing" in macro.templates
+    assert macro.templates["existing"].label == "Existing"
+    assert "new_one" in macro.templates
+    assert macro.templates["new_one"].label == "New"
+    assert macro.templates["new_one"].capture_width == 640
+    assert macro.templates["new_one"].capture_height == 360
 
 
 def test_handle_macro_rename_cancel_does_not_save(monkeypatch) -> None:

@@ -1,9 +1,10 @@
+import win32con
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QMouseEvent, QPaintEvent
 
 from remaku.core.event_bus import event_bus
 from remaku.views.components import overlay
-from remaku.views.components.overlay import GWL_EXSTYLE, WS_EX_NOACTIVATE, OverlayWidget, white_icon
+from remaku.views.components.overlay import OverlayWidget, white_icon
 
 
 def test_overlay_widget_sets_text(qtbot) -> None:
@@ -121,26 +122,26 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
         def availableGeometry(self) -> FakeGeometry:
             return FakeGeometry()
 
-    class FakeUser32:
-        def GetWindowLongW(self, hwnd: int, index: int) -> int:
-            calls.append(("get", hwnd, index))
-            return 4
+    def fake_get_long(hwnd: int, index: int) -> int:
+        calls.append(("get", hwnd, index))
+        return 4
 
-        def SetWindowLongW(self, hwnd: int, index: int, style: int) -> None:
-            calls.append(("set", hwnd, index, style))
-
-    class FakeWindll:
-        user32 = FakeUser32()
+    def fake_set_long(hwnd: int, index: int, style: int) -> None:
+        calls.append(("set", hwnd, index, style))
 
     monkeypatch.setattr(overlay.QApplication, "primaryScreen", lambda: FakeScreen())
-    monkeypatch.setattr(overlay.ctypes, "windll", FakeWindll())
+    monkeypatch.setattr(overlay.win32gui, "GetWindowLong", fake_get_long)
+    monkeypatch.setattr(overlay.win32gui, "SetWindowLong", fake_set_long)
 
     widget.show()
 
     hwnd = int(widget.winId())
     assert 0 <= widget.x() <= 40
     assert widget.y() == 0
-    assert calls == [("get", hwnd, GWL_EXSTYLE), ("set", hwnd, GWL_EXSTYLE, 4 | WS_EX_NOACTIVATE)]
+    assert calls == [
+        ("get", hwnd, win32con.GWL_EXSTYLE),
+        ("set", hwnd, win32con.GWL_EXSTYLE, 4 | win32con.WS_EX_NOACTIVATE),
+    ]
 
 
 def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> None:

@@ -172,27 +172,20 @@ src/
     en.json
 ```
 
-### 從原始碼執行
+### 快速開始
+
+`Makefile` 提供常用指令。執行 `make` 可查看所有可用目標。
 
 ```powershell
-uv sync
-uv run src/main.py
+make setup      # 建立虛擬環境並安裝依賴
+make dev        # 熱重載執行（需要 nodemon）
+make test       # 執行測試（含覆蓋率報表）
+make lint       # 執行 ruff 程式碼檢查
+make format     # 執行 ruff 格式化
+make typecheck  # 執行 pyright 型別檢查
+make check-all  # 執行 lint、格式檢查、型別檢查與測試
+make build      # 建置安裝程式（PyInstaller + Inno Setup）
 ```
-
-### 程式碼檢查
-
-```powershell
-uv run ruff check --fix src
-uv run ruff format src
-```
-
-### 建置 .exe
-
-```powershell
-.\build_exe.ps1
-```
-
-建置流程使用 PyInstaller 打包成單一執行檔，並以 Inno Setup (`iscc`) 建立安裝程式。
 
 ## 支持
 

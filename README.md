@@ -172,27 +172,20 @@ src/
     en.json
 ```
 
-### Run from Source
+### Quick Start
+
+A `Makefile` is provided. Run `make` to see available targets.
 
 ```powershell
-uv sync
-uv run src/main.py
+make setup      # Create venv and install dependencies
+make dev        # Run with hot-reload (requires nodemon)
+make test       # Run tests with coverage
+make lint       # Run ruff linter
+make format     # Run ruff formatter
+make typecheck  # Run pyright type checker
+make check-all  # Run lint, format check, typecheck, and tests
+make build      # Build the installer (PyInstaller + Inno Setup)
 ```
-
-### Lint and Format
-
-```powershell
-uv run ruff check --fix src
-uv run ruff format src
-```
-
-### Build .exe
-
-```powershell
-.\build_exe.ps1
-```
-
-The build process uses PyInstaller to create a single executable, then Inno Setup (`iscc`) to produce the installer.
 
 ## Support
 

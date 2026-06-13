@@ -23,10 +23,32 @@ def normalize_language_key(language: str) -> str:
 
 
 def resolve_language(language: str) -> str:
-    if language == SYSTEM_LANGUAGE:
-        return QLocale.system().name()
+    if language != SYSTEM_LANGUAGE:
+        return normalize_language(language)
 
-    return normalize_language(language)
+    for tag in QLocale.system().uiLanguages():
+        parts = tag.replace("_", "-").split("-")
+        lang = parts[0].lower()
+
+        if lang == "en":
+            return "en_US"
+
+        if lang == "zh":
+            script = ""
+            territory = ""
+            for part in parts[1:]:
+                if len(part) == 4 and part[0].isupper():
+                    script = part
+                elif len(part) == 2 and part.isupper():
+                    territory = part
+
+            if script == "Hant" or territory in ("TW", "HK", "MO"):
+                return "zh_TW"
+
+            if script == "Hans" or territory in ("CN", "SG"):
+                return "zh_CN"
+
+    return QLocale.system().name()
 
 
 def language_base(language: str) -> str:

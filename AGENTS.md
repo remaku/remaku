@@ -28,8 +28,9 @@ Rules:
 ## Code Style
 
 - All `import` statements must be placed at the top of the file. Do not use inline imports inside functions.
-- Every Python file must have a PEP 257-compliant module docstring at the very top (before any `import`) describing the file's purpose.
 - Do not use `_` prefix for naming functions or variables.
+  - ❌ `self._current_macro` `def _on_macro_changed()`
+  - ✅ `self.current_macro` `def handle_macro_changed()`
 - Add a blank line before and after block statements (`if`, `for`, `while`) for readability. Do not add one before `elif`/`else` (they follow the `if` block directly). Consecutive short statements or tightly related logic do not require forced blank lines.
 
 ## Git Rules
@@ -41,6 +42,14 @@ Rules:
 ## Development & Build
 
 - **Tech stack**: Python, PySide6 (UI), OpenCV (`cv2` for image recognition), `uv` (package management).
-- **Entry point**: Run `uv run src/main.py` to start the application.
-- **Linting & formatting**: Use `ruff` and `pyright`. After modifying code, run `uv run ruff check --fix`, `uv run ruff format`, and `uv run pyright`.
-- **Building the executable**: Run `.\build_exe.ps1` which uses PyInstaller to build the executable and Inno Setup (`iscc`) to package the installer.
+- **Makefile**: A `Makefile` is provided for all common tasks. Run `make` to see available targets.
+  - `make setup` — Create venv and install dependencies
+  - `make dev` — Run `src/main.py` with hot-reload (requires nodemon)
+  - `make lint` — Run `ruff check`
+  - `make format` — Run `ruff format`
+  - `make format-check` — Check formatting without changes
+  - `make typecheck` — Run `pyright`
+  - `make test` — Run `pytest` with coverage
+  - `make check-all` — Run lint, format-check, typecheck, and test
+  - `make build` — Build the installer (PyInstaller + Inno Setup)
+  - `make clean` — Remove all build artifacts and caches

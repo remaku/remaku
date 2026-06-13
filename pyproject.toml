@@ -8,8 +8,10 @@ dependencies = [
   "bettercam>=1.0",
   "certifi>=2024.0",
   "loguru>=0.7",
+  "mss>=10.1",
   "numpy>=2.0",
   "opencv-python-headless>=4.10",
+  "platformdirs>=4.0",
   "pydirectinput-rgx>=2.1",
   "pygetwindow>=0.0.9",
   "pyside6>=6.7",
@@ -33,14 +35,14 @@ package = false
 
 [tool.ruff]
 line-length = 120
-src = ["src", "tests"]
+extend-exclude = ["resources_rc.py"]
 
 [tool.ruff.lint]
 extend-select = ["I", "UP", "B", "SIM", "C4", "PT", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.pyright]
-include = ["src", "tests"]
+exclude = [".venv", "dist"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

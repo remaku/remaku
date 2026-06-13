@@ -57,6 +57,20 @@ def test_pack_explorer_view_disables_import_for_incompatible_pack(qtbot) -> None
     assert view.import_button.isEnabled() is False
 
 
+def test_pack_explorer_view_disables_import_while_importing(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_selected_pack(make_item())
+    view.set_importing(True)
+
+    assert view.import_button.isEnabled() is False
+
+    view.set_importing(False)
+
+    assert view.import_button.isEnabled() is True
+
+
 def test_pack_explorer_view_uses_selected_language(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
     view = PackExplorerView()
@@ -66,6 +80,19 @@ def test_pack_explorer_view_uses_selected_language(qtbot) -> None:
 
     assert view.name_label.text() == "範例套件"
     assert view.description_label.text() == "範例描述"
+
+
+def test_pack_explorer_view_keeps_status_separate_from_description(qtbot) -> None:
+    config_model.config.general.language = "en_US"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_selected_pack(make_item())
+    view.set_status_text("Downloading pack...")
+
+    assert view.description_label.text() == "Sample description"
+    assert view.status_label.text() == "Downloading pack..."
+    assert not view.status_label.isHidden()
 
 
 def test_pack_explorer_view_emits_selection(qtbot) -> None:

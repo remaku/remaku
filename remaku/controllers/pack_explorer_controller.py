@@ -24,6 +24,7 @@ class PackExplorerController(QObject):
         self.current_game_filter = "all"
         self.current_compatibility_filter = "all"
         self.current_download = None
+        self.pending_status_text = ""
         self.loaded = False
         self.loading = False
 
@@ -52,6 +53,7 @@ class PackExplorerController(QObject):
         self.loading = False
         self.update_filter_options()
         self.filter_packs(self.current_search)
+        self.show_pending_status()
 
     def handle_catalog_error(self, error: str) -> None:
         self.catalog = None
@@ -124,6 +126,13 @@ class PackExplorerController(QObject):
     def handle_pack_selected(self, pack_id: str) -> None:
         self.view.set_selected_pack(self.find_item(pack_id))
 
+    def show_pending_status(self) -> None:
+        if not self.pending_status_text:
+            return
+
+        self.view.set_status_text(self.pending_status_text)
+        self.pending_status_text = ""
+
     def import_pack(self, pack_id: str) -> None:
         item = self.find_item(pack_id)
         if item is None or item.status == "incompatible":
@@ -132,6 +141,7 @@ class PackExplorerController(QObject):
         self.start_download(item)
 
     def start_download(self, item: PackListItem) -> None:
+        self.view.set_importing(True)
         self.view.set_status_text(self.tr("Downloading pack..."))
 
         def on_progress(downloaded: int, total: int) -> None:
@@ -144,17 +154,20 @@ class PackExplorerController(QObject):
         def on_done(path: str) -> None:
             try:
                 pack_service.import_pack_as_macro(Path(path), self.macro_model)
-                self.view.set_status_text(self.tr("Imported macro: {name}").format(name=self.pack_label(item)))
+                self.pending_status_text = self.tr("Imported macro: {name}").format(name=self.pack_label(item))
             except ValueError as error:
                 show_message_dialog(self.view.window(), self.tr("Pack import failed"), str(error))
+                self.view.set_importing(False)
                 self.view.set_status_text(str(error))
                 return
 
+            self.view.set_importing(False)
             event_bus.macros_changed.emit()
             self.refresh()
 
         def on_error(error: str) -> None:
             show_message_dialog(self.view.window(), self.tr("Pack download failed"), error)
+            self.view.set_importing(False)
             self.view.set_status_text(error)
 
         self.current_download = pack_service.download_pack(self.view, item.entry, on_progress, on_done, on_error)

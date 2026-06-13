@@ -28,6 +28,8 @@ class PackExplorerView(QWidget):
         self.setObjectName("pack_explorer")
         self.items: list[PackListItem] = []
         self.current_pack_id = ""
+        self.current_pack_status: PackStatus = "available"
+        self.importing = False
 
         self.init_ui()
 
@@ -96,18 +98,25 @@ class PackExplorerView(QWidget):
         self.name_label = SubtitleLabel(self.tr("Select a pack"), self.detail_card)
         detail_layout.addWidget(self.name_label)
 
+        detail_content = QVBoxLayout()
+        detail_content.setSpacing(24)
+        detail_layout.addLayout(detail_content)
+
         self.description_label = BodyLabel(self.tr("Choose a pack from the list to view details."), self.detail_card)
         self.description_label.setWordWrap(True)
-        detail_layout.addWidget(self.description_label)
-        detail_layout.addSpacing(12)
+        detail_content.addWidget(self.description_label)
+
+        self.status_label = BodyLabel("", self.detail_card)
+        self.status_label.setWordWrap(True)
+        self.status_label.hide()
+        detail_content.addWidget(self.status_label)
 
         self.detail_form = QFormLayout()
         self.detail_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         self.detail_form.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.detail_form.setHorizontalSpacing(24)
         self.detail_form.setVerticalSpacing(8)
-        detail_layout.addLayout(self.detail_form)
-        detail_layout.addSpacing(12)
+        detail_content.addLayout(self.detail_form)
 
         self.info_labels: dict[str, BodyLabel] = {}
         for key, label in self.info_fields():
@@ -124,7 +133,7 @@ class PackExplorerView(QWidget):
         self.import_button.clicked.connect(lambda: self.import_requested.emit(self.current_pack_id))
         button_row.addWidget(self.import_button)
 
-        detail_layout.addLayout(button_row)
+        detail_content.addLayout(button_row)
         detail_layout.addStretch()
         content.addWidget(self.detail_card, 1)
 
@@ -146,10 +155,15 @@ class PackExplorerView(QWidget):
         self.set_info_values({})
 
     def set_loading(self) -> None:
-        self.description_label.setText(self.tr("Loading packs..."))
+        self.set_status_text(self.tr("Loading packs..."))
 
     def set_status_text(self, text: str) -> None:
-        self.description_label.setText(text)
+        self.status_label.setText(text)
+        self.status_label.setVisible(bool(text))
+
+    def set_importing(self, importing: bool) -> None:
+        self.importing = importing
+        self.update_buttons(self.current_pack_status, has_selection=bool(self.current_pack_id))
 
     def set_filter_options(self, games: list[tuple[str, str]]) -> None:
         self.update_filter(self.game_filter, self.tr("All games"), games)
@@ -241,16 +255,20 @@ class PackExplorerView(QWidget):
             return
 
         self.current_pack_id = item.entry.pack_id
+        self.current_pack_status = item.status
         self.name_label.setText(self.localized_label(item.entry))
         self.set_info_values(self.info_values(item))
         self.description_label.setText(self.localized_description(item.entry))
+        self.set_status_text("")
         self.update_buttons(item.status)
 
     def clear_detail(self) -> None:
         self.current_pack_id = ""
+        self.current_pack_status = "available"
         self.name_label.setText(self.tr("Select a pack"))
         self.clear_info_values()
         self.description_label.setText(self.tr("Choose a pack from the list to view details."))
+        self.set_status_text("")
         self.update_buttons("available", has_selection=False)
 
     def info_values(self, item: PackListItem) -> dict[str, str]:
@@ -276,4 +294,4 @@ class PackExplorerView(QWidget):
         return self.tr("Compatible")
 
     def update_buttons(self, status: PackStatus, has_selection: bool = True) -> None:
-        self.import_button.setEnabled(has_selection and status == "available")
+        self.import_button.setEnabled(has_selection and status == "available" and not self.importing)

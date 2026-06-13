@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, Signal
 
 from remaku.controllers import pack_explorer_controller
 from remaku.controllers.pack_explorer_controller import PackExplorerController
+from remaku.models.config_model import config_model
 from remaku.models.pack_model import PackCatalog
 
 
@@ -20,6 +21,7 @@ class FakeView(QObject):
         self.current_pack_id = ""
         self.loading_calls = 0
         self.statuses: list[str] = []
+        self.importing_states: list[bool] = []
         self.items = []
         self.selected = None
         self.filter_options: list[tuple[str, str]] | None = None
@@ -29,6 +31,9 @@ class FakeView(QObject):
 
     def set_status_text(self, text: str) -> None:
         self.statuses.append(text)
+
+    def set_importing(self, importing: bool) -> None:
+        self.importing_states.append(importing)
 
     def set_pack_items(self, items, selected_pack_id: str = "") -> None:
         self.items = items
@@ -46,10 +51,15 @@ class FakeView(QObject):
 
 @dataclass
 class FakeDownload:
+    on_done: Any | None = None
     started: bool = False
 
     def start(self) -> None:
         self.started = True
+
+    def finish(self, path: str) -> None:
+        if self.on_done is not None:
+            self.on_done(path)
 
 
 def make_catalog() -> PackCatalog:
@@ -172,7 +182,7 @@ def test_handle_pack_selected_updates_view(monkeypatch) -> None:
 
 
 def test_start_download_starts_download(monkeypatch) -> None:
-    controller, _view = make_controller(monkeypatch)
+    controller, view = make_controller(monkeypatch)
     controller.ensure_loaded()
     fake_download = FakeDownload()
     monkeypatch.setattr(
@@ -184,6 +194,27 @@ def test_start_download_starts_download(monkeypatch) -> None:
     controller.import_pack("fh6.sample")
 
     assert fake_download.started is True
+    assert view.importing_states == [True]
+
+
+def test_import_pack_shows_imported_status_after_refresh(monkeypatch, tmp_path) -> None:
+    config_model.config.general.language = "en_US"
+    controller, view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    fake_download = FakeDownload()
+
+    def download_pack(parent, entry, on_progress, on_done, on_error):
+        fake_download.on_done = on_done
+        return fake_download
+
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "import_pack_as_macro", lambda path, model: object())
+
+    controller.import_pack("fh6.sample")
+    fake_download.finish(str(tmp_path / "sample.zip"))
+
+    assert view.importing_states == [True, False]
+    assert view.statuses[-1] == "Imported macro: Sample Pack"
 
 
 def test_incompatible_pack_does_not_download(monkeypatch) -> None:

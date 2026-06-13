@@ -11,6 +11,7 @@ from remaku.controllers.home_controller import HomeController
 from remaku.models.config_model import AppConfig
 from remaku.models.macro_model import Macro, MacroMeta, MacroModel, MacroSummary, TemplateInfo
 from remaku.models.step_tree import StepTree
+from remaku.services import macro_import_service
 from remaku.services.engine import Status
 
 
@@ -314,6 +315,7 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller.selected_macro_id == ""
     assert controller.actions["run"] == controller.run_current_macro
     assert controller.actions["settings"] == controller.open_settings
+    assert controller.actions["pack_explorer"] == controller.open_pack_explorer
     assert len(shortcuts) == 12
     assert len(controller.editing_shortcuts) == 10
     assert controller_view.toolbar.undo_button.enabled is False
@@ -898,14 +900,6 @@ def test_step_tree_refs_from_macro_collects_template_ids() -> None:
     assert controller.step_tree_refs_from_macro(macro) == {"one", "two", "three"}
 
 
-def test_resolve_timestamp_macro_id_increments_until_unused(monkeypatch) -> None:
-    controller = make_controller()
-    controller.macro_model = cast(MacroModel, FakeMacroModel({"100", "101"}))
-    monkeypatch.setattr(home_controller.time, "time", lambda: 100.1)
-
-    assert controller.resolve_timestamp_macro_id() == "102"
-
-
 def test_add_step_factory_returns_supported_steps() -> None:
     controller = make_controller()
 
@@ -1066,6 +1060,7 @@ def test_import_macro_saves_archive_and_templates(tmp_path: Path, monkeypatch) -
     refresh_calls = []
     controller.refresh_macro_list = lambda: refresh_calls.append("refresh")
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(macro_import_service.time, "time", lambda: 400.0)
     monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
     monkeypatch.setattr(
@@ -1073,16 +1068,23 @@ def test_import_macro_saves_archive_and_templates(tmp_path: Path, monkeypatch) -
         "template_path",
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
+    monkeypatch.setattr(macro_import_service, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(macro_import_service, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        macro_import_service,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
     monkeypatch.setattr(home_controller, "config_model", fake_config)
 
     controller.import_macro()
 
-    assert model.saved[0].meta.id == "imported"
+    assert model.saved[0].meta.id == "400"
     assert model.saved[0].templates["button"].capture_width == 320
-    assert (tmp_path / "templates" / "imported" / "button.png").read_bytes() == b"png"
-    assert fake_config.config.general.macro_order == ["imported"]
+    assert (tmp_path / "templates" / "400" / "button.png").read_bytes() == b"png"
+    assert fake_config.config.general.macro_order == ["400"]
     assert fake_config.save_calls == 1
-    assert controller.selected_macro_id == "imported"
+    assert controller.selected_macro_id == "400"
     assert refresh_calls == ["refresh"]
     assert cast(Any, controller.view).statuses == ["Imported macro: Imported"]
 
@@ -1673,13 +1675,17 @@ def test_open_folders_settings_and_quit_emit_or_call(tmp_path: Path, monkeypatch
     controller.open_logs_folder()
     controller.open_macro_folder()
 
-    with qtbot.waitSignal(home_controller.event_bus.switch_page_requested, timeout=100) as page:
+    with qtbot.waitSignal(home_controller.event_bus.switch_page_requested, timeout=100) as settings_page:
         controller.open_settings()
+
+    with qtbot.waitSignal(home_controller.event_bus.switch_page_requested, timeout=100) as packs_page:
+        controller.open_pack_explorer()
 
     controller.quit_application()
 
     assert opened == [tmp_path / "logs", tmp_path / "macros"]
-    assert page.args == ["settings"]
+    assert settings_page.args == ["settings"]
+    assert packs_page.args == ["packs"]
     assert closed == ["close"]
 
 
@@ -1950,7 +1956,7 @@ def test_import_macro_handles_duplicate_id_legacy_meta_and_existing_order(tmp_pa
             "templates/button.json": json.dumps({"capture_width": 640, "capture_height": 360}).encode(),
         },
     )
-    existing_file = tmp_path / "macros" / "imported.json"
+    existing_file = tmp_path / "macros" / "500.json"
     existing_file.parent.mkdir(parents=True)
     existing_file.write_text("{}")
     fake_config = FakeConfigModel()
@@ -1961,11 +1967,18 @@ def test_import_macro_handles_duplicate_id_legacy_meta_and_existing_order(tmp_pa
     refresh_calls = []
     controller.refresh_macro_list = lambda: refresh_calls.append("refresh")
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
-    monkeypatch.setattr(home_controller.time, "time", lambda: 500.0)
+    monkeypatch.setattr(macro_import_service.time, "time", lambda: 500.0)
     monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
     monkeypatch.setattr(
         home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(macro_import_service, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(macro_import_service, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        macro_import_service,
         "template_path",
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
@@ -2011,6 +2024,13 @@ def test_import_macro_skips_invalid_legacy_metadata(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
     monkeypatch.setattr(
         home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(macro_import_service, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(macro_import_service, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        macro_import_service,
         "template_path",
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
@@ -2370,7 +2390,7 @@ def test_import_macro_confirms_and_overwrites_existing_template(tmp_path: Path, 
         },
         {"templates/button.png": b"new"},
     )
-    existing_template = tmp_path / "templates" / "macro" / "button.png"
+    existing_template = tmp_path / "templates" / "500" / "button.png"
     existing_template.parent.mkdir(parents=True)
     existing_template.write_bytes(b"old")
     model = FakeMacroModel()
@@ -2378,10 +2398,18 @@ def test_import_macro_confirms_and_overwrites_existing_template(tmp_path: Path, 
     controller.macro_model = cast(MacroModel, model)
     controller.refresh_macro_list = lambda: None
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
+    monkeypatch.setattr(macro_import_service.time, "time", lambda: 500.0)
     monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
     monkeypatch.setattr(
         home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(macro_import_service, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
+    monkeypatch.setattr(macro_import_service, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        macro_import_service,
         "template_path",
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
@@ -2390,7 +2418,7 @@ def test_import_macro_confirms_and_overwrites_existing_template(tmp_path: Path, 
     controller.import_macro()
 
     assert existing_template.read_bytes() == b"new"
-    assert model.saved[0].meta.id == "macro"
+    assert model.saved[0].meta.id == "500"
 
 
 def test_duplicate_selected_step_returns_when_duplicate_fails(monkeypatch) -> None:

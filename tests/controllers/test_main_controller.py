@@ -50,12 +50,21 @@ class FakeHomeController:
         return f"step:{step['type']}"
 
 
+class FakePackExplorerController:
+    def __init__(self) -> None:
+        self.ensure_loaded_calls = 0
+
+    def ensure_loaded(self) -> None:
+        self.ensure_loaded_calls += 1
+
+
 class FakeMainWindow(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.switched_to = None
         self.always_on_top_values: list[bool] = []
         self.home_view = object()
+        self.pack_explorer_view = object()
         self.settings_view = object()
 
     def set_always_on_top(self, value: bool) -> None:
@@ -126,6 +135,7 @@ def test_init_wires_dependencies_and_startup_check(monkeypatch) -> None:
     macro_model = object()
     home_controllers = []
     settings_controllers = []
+    pack_controllers = []
     overlays = []
     FakeTimer.single_shots = []
     monkeypatch.setattr(main_controller, "config_model", fake_config)
@@ -139,6 +149,11 @@ def test_init_wires_dependencies_and_startup_check(monkeypatch) -> None:
         "SettingsController",
         lambda view, window: settings_controllers.append((view, window)) or object(),
     )
+    monkeypatch.setattr(
+        main_controller,
+        "PackExplorerController",
+        lambda view, model: pack_controllers.append((view, model)) or FakePackExplorerController(),
+    )
     monkeypatch.setattr(main_controller, "OverlayWidget", lambda: overlays.append(FakeOverlay()) or overlays[-1])
     monkeypatch.setattr(main_controller, "QTimer", FakeTimer)
 
@@ -146,6 +161,7 @@ def test_init_wires_dependencies_and_startup_check(monkeypatch) -> None:
 
     assert main_window.always_on_top_values == [True]
     assert home_controllers == [(main_window.home_view, macro_model)]
+    assert pack_controllers == [(main_window.pack_explorer_view, macro_model)]
     assert settings_controllers == [(main_window.settings_view, main_window)]
     assert overlays[0].moved_to == (100, 100)
     assert overlays[0].hide_calls == 1
@@ -162,6 +178,7 @@ def test_init_skips_startup_check_when_disabled(monkeypatch) -> None:
     monkeypatch.setattr(main_controller, "config_model", fake_config)
     monkeypatch.setattr(main_controller, "HomeController", lambda view, model: FakeHomeController())
     monkeypatch.setattr(main_controller, "SettingsController", lambda view, window: object())
+    monkeypatch.setattr(main_controller, "PackExplorerController", lambda view, model: FakePackExplorerController())
     monkeypatch.setattr(main_controller, "OverlayWidget", FakeOverlay)
     monkeypatch.setattr(main_controller, "QTimer", FakeTimer)
 
@@ -263,6 +280,17 @@ def test_refresh_overlay_updates_text_without_showing_when_disabled(monkeypatch)
 
     assert overlay.text == "Running: Sample | step:key"
     assert overlay.show_calls == 0
+
+
+def test_switch_page_shows_packs_and_loads_explorer(monkeypatch) -> None:
+    controller, _fake_config, _home, _overlay, window = make_controller(monkeypatch)
+    pack_controller = FakePackExplorerController()
+    cast(Any, controller).pack_explorer_controller = pack_controller
+
+    controller.switch_page("packs")
+
+    assert window.switched_to is window.pack_explorer_view
+    assert pack_controller.ensure_loaded_calls == 1
 
 
 def test_switch_page_shows_settings(monkeypatch) -> None:

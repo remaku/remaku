@@ -8,6 +8,7 @@ import time
 import webbrowser
 import zipfile
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QObject, Qt, QTimer
@@ -38,6 +39,13 @@ from remaku.models.macro_model import (
 from remaku.models.step_node import StepNode
 from remaku.models.step_tree import StepTree
 from remaku.paths import log_dir, macro_path, macros_dir, template_path, templates_dir
+from remaku.services.macro_import_service import (
+    ImportMacroOptions,
+    MacroImportError,
+    inspect_macro_archive,
+    install_macro_archive,
+    resolve_import_macro_id,
+)
 from remaku.services.macro_runner import MacroRunner
 from remaku.version import __version__
 from remaku.views.components.about_dialog import AboutDialog
@@ -83,6 +91,7 @@ class HomeController(QObject):
             "open_logs": self.open_logs_folder,
             "new_macro": self.handle_new_macro,
             "settings": self.open_settings,
+            "pack_explorer": self.open_pack_explorer,
             "quit": self.quit_application,
             "add_step": lambda: event_bus.show_toolbar_step_menu_requested.emit(),
             "duplicate_step": self.duplicate_selected_step,
@@ -121,6 +130,7 @@ class HomeController(QObject):
         event_bus.template_meta_changed.connect(self.handle_template_meta_changed)
         event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
         event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
+        event_bus.macros_changed.connect(self.refresh_macro_list)
 
         self.view.center_panel.step_list.itemSelectionChanged.connect(self.update_step_action_state)
 
@@ -978,126 +988,40 @@ class HomeController(QObject):
         if not file_path:
             return
 
+        archive_path = Path(file_path)
+
         try:
-            with zipfile.ZipFile(file_path, "r") as archive:
-                archive_names = set(archive.namelist())
-                if "macro.json" not in archive_names:
-                    self.import_failed(self.tr("macro.json is missing from the archive"))
-                    return
+            parsed = inspect_macro_archive(archive_path)
+            imported_macro_id = resolve_import_macro_id()
 
-                raw_macro = json.loads(archive.read("macro.json"))
-                if not isinstance(raw_macro, dict):
-                    self.import_failed(self.tr("Invalid macro data"))
-                    return
-
-                meta_data = raw_macro.get("meta")
-                if not isinstance(meta_data, dict):
-                    self.import_failed(self.tr("Macro metadata is invalid"))
-                    return
-
-                raw_macro_id = meta_data.get("id", meta_data.get("name"))
-                if not raw_macro_id:
-                    self.import_failed(self.tr("Macro metadata is invalid"))
-                    return
-
-                if not isinstance(raw_macro.get("steps"), list):
-                    self.import_failed(self.tr("Macro steps are invalid"))
-                    return
-
-                refs = StepTree(raw_macro["steps"]).collect_template_refs()
-                missing_templates = sorted(
-                    template_id for template_id in refs if f"templates/{template_id}.png" not in archive_names
+            conflicts = self.find_template_conflicts(imported_macro_id, parsed.template_refs)
+            overwrite = False
+            if conflicts:
+                overwrite = show_confirm_dialog(
+                    self.view.window(),
+                    self.tr("Template conflict"),
+                    self.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
                 )
-                if missing_templates:
-                    self.import_failed(self.tr("Missing templates: {names}").format(names=", ".join(missing_templates)))
-                    return
 
-                imported_macro_id = str(raw_macro_id)
-                destination = macro_path(imported_macro_id)
-                if destination.exists():
-                    imported_macro_id = self.resolve_timestamp_macro_id()
-                    destination = macro_path(imported_macro_id)
-
-                meta_data["name"] = imported_macro_id
-
-                conflicts = self.find_template_conflicts(imported_macro_id, refs)
-                overwrite = False
-                if conflicts:
-                    overwrite = show_confirm_dialog(
-                        self.view.window(),
-                        self.tr("Template conflict"),
-                        self.tr("Overwrite existing templates: {names}").format(names=", ".join(conflicts)),
-                    )
-
-                raw_templates = raw_macro.setdefault("templates", {})
-                if not isinstance(raw_templates, dict):
-                    raw_templates = {}
-                    raw_macro["templates"] = raw_templates
-
-                template_dir = templates_dir(imported_macro_id)
-                template_dir.mkdir(parents=True, exist_ok=True)
-
-                for template_id in refs:
-                    png_destination = template_dir / f"{template_id}.png"
-                    if not png_destination.exists() or (overwrite and template_id in conflicts):
-                        png_destination.write_bytes(archive.read(f"templates/{template_id}.png"))
-
-                    legacy_meta_path = f"templates/{template_id}.json"
-                    if legacy_meta_path not in archive_names:
-                        continue
-
-                    try:
-                        legacy_meta = json.loads(archive.read(legacy_meta_path))
-                    except (OSError, ValueError):
-                        continue
-
-                    if not isinstance(legacy_meta, dict):
-                        continue
-
-                    entry = raw_templates.get(template_id, {"label": template_id})
-                    if not isinstance(entry, dict):
-                        entry = {"label": template_id}
-
-                    for key in ("capture_width", "capture_height"):
-                        if key in legacy_meta and key not in entry:
-                            entry[key] = legacy_meta[key]
-
-                    raw_templates[template_id] = entry
-        except zipfile.BadZipFile:
-            self.import_failed(self.tr("Invalid zip file"))
-            return
-        except (OSError, json.JSONDecodeError, ValueError):
-            self.import_failed(self.tr("Failed to import macro"))
+            result = install_macro_archive(
+                archive_path,
+                self.macro_model,
+                ImportMacroOptions(overwrite_template_conflicts=overwrite),
+            )
+        except MacroImportError as error:
+            self.import_failed(self.tr(str(error)))
             return
 
-        imported_macro = Macro.from_dict(raw_macro)
-        imported_macro.meta.id = imported_macro_id
-        if not imported_macro.meta.label:
-            imported_macro.meta.label = imported_macro_id
-
-        self.macro_model.save(imported_macro)
-
-        if imported_macro_id not in config_model.config.general.macro_order:
-            config_model.config.general.macro_order.append(imported_macro_id)
+        if result.macro_id not in config_model.config.general.macro_order:
+            config_model.config.general.macro_order.append(result.macro_id)
             config_model.save()
 
-        self.selected_macro_id = imported_macro_id
+        self.selected_macro_id = result.macro_id
         self.refresh_macro_list()
-        self.view.set_status_text(self.tr("Imported macro: {name}").format(name=imported_macro.meta.label))
+        self.view.set_status_text(self.tr("Imported macro: {name}").format(name=result.label))
 
     def find_template_conflicts(self, macro_id: str, refs: set[str]) -> list[str]:
         return sorted(template_id for template_id in refs if (template_path(macro_id, template_id)).exists())
-
-    def resolve_timestamp_macro_id(self) -> str:
-        existing_ids = {item.id for item in self.macro_model.list_macros()}
-        base = int(time.time())
-
-        offset = 0
-        while True:
-            candidate = str(base + offset)
-            if candidate not in existing_ids:
-                return candidate
-            offset += 1
 
     def step_tree_refs_from_macro(self, macro: Macro) -> set[str]:
         step_tree = StepTree([step_to_dict(step) for step in macro.steps])
@@ -1143,6 +1067,9 @@ class HomeController(QObject):
 
     def open_settings(self) -> None:
         event_bus.switch_page_requested.emit("settings")
+
+    def open_pack_explorer(self) -> None:
+        event_bus.switch_page_requested.emit("packs")
 
     def quit_application(self) -> None:
         self.view.window().close()

@@ -22,10 +22,7 @@ class FakeMenu:
 
 
 def test_step_type_items_returns_expected_step_types(qtbot) -> None:
-    parent = QWidget()
-    qtbot.addWidget(parent)
-
-    items = step_menu.step_type_items(parent)
+    items = step_menu.step_type_items()
 
     assert [item["id"] for item in items] == [
         "key",

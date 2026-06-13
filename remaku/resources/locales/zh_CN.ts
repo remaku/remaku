@@ -470,28 +470,28 @@
     <context>
         <name>PackExplorerController</name>
         <message>
-            <location filename="../../controllers/pack_explorer_controller.py" line="135" />
-            <location filename="../../controllers/pack_explorer_controller.py" line="142" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="145" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="152" />
             <source>Downloading pack...</source>
             <translation>正在下载包...</translation>
         </message>
         <message>
-            <location filename="../../controllers/pack_explorer_controller.py" line="140" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="150" />
             <source>Downloading pack... {percent}%</source>
             <translation>正在下载包... {percent}%</translation>
         </message>
         <message>
-            <location filename="../../controllers/pack_explorer_controller.py" line="147" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="157" />
             <source>Imported macro: {name}</source>
             <translation>已导入宏：{name}</translation>
         </message>
         <message>
-            <location filename="../../controllers/pack_explorer_controller.py" line="149" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="159" />
             <source>Pack import failed</source>
             <translation>包导入失败</translation>
         </message>
         <message>
-            <location filename="../../controllers/pack_explorer_controller.py" line="157" />
+            <location filename="../../controllers/pack_explorer_controller.py" line="169" />
             <source>Pack download failed</source>
             <translation>包下载失败</translation>
         </message>
@@ -499,101 +499,101 @@
     <context>
         <name>PackExplorerView</name>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="39" />
+            <location filename="../../views/pack_explorer_view.py" line="41" />
             <source>Pack Explorer</source>
             <translation>包浏览器</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="48" />
+            <location filename="../../views/pack_explorer_view.py" line="50" />
             <source>Search packs</source>
             <translation>搜索包</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="58" />
+            <location filename="../../views/pack_explorer_view.py" line="60" />
             <source>All compatibility</source>
             <translation>所有兼容性</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="59" />
-            <location filename="../../views/pack_explorer_view.py" line="276" />
+            <location filename="../../views/pack_explorer_view.py" line="61" />
+            <location filename="../../views/pack_explorer_view.py" line="294" />
             <source>Compatible</source>
             <translation>兼容</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="60" />
-            <location filename="../../views/pack_explorer_view.py" line="220" />
+            <location filename="../../views/pack_explorer_view.py" line="62" />
+            <location filename="../../views/pack_explorer_view.py" line="234" />
             <source>Incompatible</source>
             <translation>不兼容</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="77" />
+            <location filename="../../views/pack_explorer_view.py" line="79" />
             <source>Packs</source>
             <translation>包</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="84" />
+            <location filename="../../views/pack_explorer_view.py" line="86" />
             <source>No packs found</source>
             <translation>找不到包</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="96" />
-            <location filename="../../views/pack_explorer_view.py" line="251" />
+            <location filename="../../views/pack_explorer_view.py" line="98" />
+            <location filename="../../views/pack_explorer_view.py" line="268" />
             <source>Select a pack</source>
             <translation>选择包</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="99" />
-            <location filename="../../views/pack_explorer_view.py" line="253" />
+            <location filename="../../views/pack_explorer_view.py" line="105" />
+            <location filename="../../views/pack_explorer_view.py" line="270" />
             <source>Choose a pack from the list to view details.</source>
             <translation>从列表中选择包以查看详细信息。</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="123" />
+            <location filename="../../views/pack_explorer_view.py" line="132" />
             <source>Import Macro</source>
             <translation>导入宏</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="136" />
+            <location filename="../../views/pack_explorer_view.py" line="145" />
             <source>Game</source>
             <translation>游戏</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="137" />
+            <location filename="../../views/pack_explorer_view.py" line="146" />
             <source>Author</source>
             <translation>作者</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="138" />
+            <location filename="../../views/pack_explorer_view.py" line="147" />
             <source>Compatibility</source>
             <translation>兼容性</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="149" />
+            <location filename="../../views/pack_explorer_view.py" line="158" />
             <source>Loading packs...</source>
             <translation>正在加载包...</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="155" />
+            <location filename="../../views/pack_explorer_view.py" line="169" />
             <source>All games</source>
             <translation>所有游戏</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="219" />
+            <location filename="../../views/pack_explorer_view.py" line="233" />
             <source>Available</source>
             <translation>可用</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="268" />
+            <location filename="../../views/pack_explorer_view.py" line="286" />
             <source>Requires Remaku {minimum} to {maximum}</source>
             <translation>需要 Remaku {minimum} 至 {maximum}</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="271" />
+            <location filename="../../views/pack_explorer_view.py" line="289" />
             <source>Requires Remaku {minimum} or newer</source>
             <translation>需要 Remaku {minimum} 或更新版本</translation>
         </message>
         <message>
-            <location filename="../../views/pack_explorer_view.py" line="274" />
+            <location filename="../../views/pack_explorer_view.py" line="292" />
             <source>Requires Remaku {maximum} or older</source>
             <translation>需要 Remaku {maximum} 或旧版本</translation>
         </message>
@@ -863,6 +863,49 @@
         </message>
     </context>
     <context>
+        <name>StepMenu</name>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="10" />
+            <source>Key</source>
+            <translation>按键</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="11" />
+            <source>Delay</source>
+            <translation>等待时间</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="12" />
+            <source>Wait Image</source>
+            <translation>等待图片</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="13" />
+            <source>Hold Key Until Gone</source>
+            <translation>长按直到消失</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="14" />
+            <source>Repeat</source>
+            <translation>重复</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="15" />
+            <source>If Image</source>
+            <translation>如果图片</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="16" />
+            <source>If Any Image</source>
+            <translation>如果任一图片</translation>
+        </message>
+        <message>
+            <location filename="../../views/components/step_menu.py" line="17" />
+            <source>Grid Navigation</source>
+            <translation>格子导航</translation>
+        </message>
+    </context>
+    <context>
         <name>TemplateEditor</name>
         <message>
             <location filename="../../views/components/template_editor.py" line="34" />
@@ -1125,49 +1168,6 @@
             <location filename="../../views/components/update_dialog.py" line="162" />
             <source>Open Download Page</source>
             <translation>打开下载页</translation>
-        </message>
-    </context>
-    <context>
-        <name>parent</name>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="9" />
-            <source>Key</source>
-            <translation>按键</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="10" />
-            <source>Delay</source>
-            <translation>等待时间</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="11" />
-            <source>Wait Image</source>
-            <translation>等待图片</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="12" />
-            <source>Hold Key Until Gone</source>
-            <translation>长按直到消失</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="13" />
-            <source>Repeat</source>
-            <translation>重复</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="14" />
-            <source>If Image</source>
-            <translation>如果图片</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="15" />
-            <source>If Any Image</source>
-            <translation>如果任一图片</translation>
-        </message>
-        <message>
-            <location filename="../../views/components/step_menu.py" line="16" />
-            <source>Grid Navigation</source>
-            <translation>格子导航</translation>
         </message>
     </context>
 </TS>

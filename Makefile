@@ -1,7 +1,7 @@
 SHELL := pwsh.exe
 .SHELLFLAGS := -NoProfile -Command
 
-TS_DIR   := .\remaku\resources\locales
+TS_DIR := .\remaku\resources\locales
 TS_FILES := $(TS_DIR)\zh_TW.ts $(TS_DIR)\zh_CN.ts
 TAG ?= v0.1.0
 

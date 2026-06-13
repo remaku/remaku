@@ -234,26 +234,6 @@
             <translation>宏 ZIP (*.zip)</translation>
         </message>
         <message>
-            <source>macro.json is missing from the archive</source>
-            <translation type="vanished">压缩包中缺少 macro.json</translation>
-        </message>
-        <message>
-            <source>Invalid macro data</source>
-            <translation type="vanished">无效的宏数据</translation>
-        </message>
-        <message>
-            <source>Macro metadata is invalid</source>
-            <translation type="vanished">宏 metadata 无效</translation>
-        </message>
-        <message>
-            <source>Macro steps are invalid</source>
-            <translation type="vanished">宏步骤无效</translation>
-        </message>
-        <message>
-            <source>Missing templates: {names}</source>
-            <translation type="vanished">缺少模板：{names}</translation>
-        </message>
-        <message>
             <location filename="../../controllers/home_controller.py" line="1002" />
             <source>Template conflict</source>
             <translation>模板冲突</translation>
@@ -262,14 +242,6 @@
             <location filename="../../controllers/home_controller.py" line="1003" />
             <source>Overwrite existing templates: {names}</source>
             <translation>覆盖已有模板：{names}</translation>
-        </message>
-        <message>
-            <source>Invalid zip file</source>
-            <translation type="vanished">无效的 ZIP 文件</translation>
-        </message>
-        <message>
-            <source>Failed to import macro</source>
-            <translation type="vanished">导入宏失败</translation>
         </message>
         <message>
             <location filename="../../controllers/home_controller.py" line="1021" />

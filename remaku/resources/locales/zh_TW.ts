@@ -234,26 +234,6 @@
             <translation>巨集 ZIP (*.zip)</translation>
         </message>
         <message>
-            <source>macro.json is missing from the archive</source>
-            <translation type="vanished">壓縮檔中缺少 macro.json</translation>
-        </message>
-        <message>
-            <source>Invalid macro data</source>
-            <translation type="vanished">無效的巨集資料</translation>
-        </message>
-        <message>
-            <source>Macro metadata is invalid</source>
-            <translation type="vanished">巨集 metadata 無效</translation>
-        </message>
-        <message>
-            <source>Macro steps are invalid</source>
-            <translation type="vanished">巨集步驟無效</translation>
-        </message>
-        <message>
-            <source>Missing templates: {names}</source>
-            <translation type="vanished">缺少模板：{names}</translation>
-        </message>
-        <message>
             <location filename="../../controllers/home_controller.py" line="1002" />
             <source>Template conflict</source>
             <translation>模板衝突</translation>
@@ -262,14 +242,6 @@
             <location filename="../../controllers/home_controller.py" line="1003" />
             <source>Overwrite existing templates: {names}</source>
             <translation>覆蓋既有模板：{names}</translation>
-        </message>
-        <message>
-            <source>Invalid zip file</source>
-            <translation type="vanished">無效的 ZIP 檔案</translation>
-        </message>
-        <message>
-            <source>Failed to import macro</source>
-            <translation type="vanished">匯入巨集失敗</translation>
         </message>
         <message>
             <location filename="../../controllers/home_controller.py" line="1021" />
@@ -1196,33 +1168,6 @@
             <location filename="../../views/components/step_menu.py" line="16" />
             <source>Grid Navigation</source>
             <translation>格子導航</translation>
-        </message>
-    </context>
-    <context>
-        <name>self.main_window</name>
-        <message>
-            <source>Running: {label}</source>
-            <translation type="vanished">執行中：{label}</translation>
-        </message>
-        <message>
-            <source>Loop {progress}/{total}</source>
-            <translation type="vanished">迴圈 {progress}/{total}</translation>
-        </message>
-        <message>
-            <source>Up to date</source>
-            <translation type="vanished">已是最新版本</translation>
-        </message>
-        <message>
-            <source>You are already using the latest version.</source>
-            <translation type="vanished">目前已是最新版本。</translation>
-        </message>
-        <message>
-            <source>Update check failed</source>
-            <translation type="vanished">檢查更新失敗</translation>
-        </message>
-        <message>
-            <source>Unable to check for updates.</source>
-            <translation type="vanished">無法檢查更新。</translation>
         </message>
     </context>
 </TS>

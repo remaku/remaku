@@ -206,6 +206,16 @@ class StepNode:
         self.branches_by_key.clear()
 
     def serialize_children(self) -> None:
+        if self.step_type == "if_any_image":
+            branches = get_step_branches(self.step)
+            template_ids = [str(t) for t in self.step.get("templates", [])]
+            for key in list(branches.keys()):
+                if key not in template_ids:
+                    del branches[key]
+            for key in list(self.branches_by_key.keys()):
+                if key not in template_ids:
+                    del self.branches_by_key[key]
+
         for key, child_list in self.child_lists():
             for child in child_list:
                 child.serialize_children()

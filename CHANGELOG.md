@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Old template branches in if-any-image steps are now properly removed after re-capturing or replacing a template image
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 重新擷取或更換 if-any-image 步驟中的模板圖片後，舊的模板分支現在會正確移除
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 重新捕获或替换 if-any-image 步骤中的模板图片后，旧的模板分支现在会正确移除
+
 ## v0.6.0
 
 <!-- lang:en -->

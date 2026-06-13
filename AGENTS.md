@@ -42,7 +42,14 @@ Rules:
 ## Development & Build
 
 - **Tech stack**: Python, PySide6 (UI), OpenCV (`cv2` for image recognition), `uv` (package management).
-- **Entry point**: Run `uv run src/main.py` to start the application.
-- **Linting & formatting**: Use `ruff` and `pyright`. After modifying code, run `uv run ruff check --fix`, `uv run ruff format`, and `uv run pyright`.
-- **Test coverage**: Run `uv run pytest --cov=remaku --cov-report=term-missing`.
-- **Building the executable**: Run `.\build_exe.ps1` which uses PyInstaller to build the executable and Inno Setup (`iscc`) to package the installer.
+- **Makefile**: A `Makefile` is provided for all common tasks. Run `make` to see available targets.
+  - `make setup` — Create venv and install dependencies
+  - `make dev` — Run `src/main.py` with hot-reload (requires nodemon)
+  - `make lint` — Run `ruff check`
+  - `make format` — Run `ruff format`
+  - `make format-check` — Check formatting without changes
+  - `make typecheck` — Run `pyright`
+  - `make test` — Run `pytest` with coverage
+  - `make check-all` — Run lint, format-check, typecheck, and test
+  - `make build` — Build the installer (PyInstaller + Inno Setup)
+  - `make clean` — Remove all build artifacts and caches

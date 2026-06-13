@@ -10,6 +10,8 @@
 - Numeric input fields now show a red error border when empty or invalid, and only save valid numbers instead of silently falling back to zero
 - File menu now includes an "Open Macro Folder" option for quick access to macro files
 - Step branches now have their own details panel with an add button, so steps can be added directly inside then/else, template, and grid navigation branches
+- File menu now includes Pack Explorer, where you can browse official macro packs and import compatible macros directly
+- File menu now includes Pack Explorer, where you can browse official macro packs and import compatible macros directly
 
 ### Changed
 
@@ -39,6 +41,7 @@
 - 數字輸入欄位現在在空白或無效時會顯示紅色錯誤邊框，僅儲存有效數字，不再默默回退為零
 - 檔案選單現在包含「開啟巨集資料夾」選項，可快速存取巨集檔案
 - 步驟分支現在有自己的詳細面板和新增按鈕，可直接在 then/else、模板及網格導航分支內加入步驟
+- 檔案選單現在包含 Pack Explorer，可瀏覽官方巨集包並直接匯入相容的巨集
 
 ### 變更
 
@@ -68,6 +71,7 @@
 - 数字输入字段现在在空白或无效时会显示红色错误边框，仅保存有效数字，不再静默回退为零
 - 文件菜单现在包含「打开宏文件夹」选项，可快速访问宏文件
 - 步骤分支现在有自己的详情面板和新增按钮，可直接在 then/else、模板及网格导航分支内加入步骤
+- 文件菜单现在包含 Pack Explorer，可浏览官方宏包并直接导入兼容的宏
 
 ### 变更
 

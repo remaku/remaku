@@ -1,3 +1,5 @@
+from PySide6.QtCore import Qt
+
 from remaku.models.config_model import config_model
 from remaku.models.pack_model import PackCatalogEntry, PackListItem, PackStatus
 from remaku.views.pack_explorer_view import PackExplorerView
@@ -29,6 +31,16 @@ def test_pack_explorer_view_sets_pack_list(qtbot) -> None:
     assert view.pack_list.count() == 1
     assert view.pack_list.item(0).text() == "Sample Pack"
     assert view.empty_label.isHidden()
+
+
+def test_pack_explorer_view_sets_loading_status(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_loading()
+
+    assert view.status_label.text() == "Loading packs..."
+    assert not view.status_label.isHidden()
 
 
 def test_pack_explorer_view_updates_detail_and_buttons(qtbot) -> None:
@@ -95,6 +107,16 @@ def test_pack_explorer_view_keeps_status_separate_from_description(qtbot) -> Non
     assert not view.status_label.isHidden()
 
 
+def test_pack_explorer_view_shows_loading_status(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_loading()
+
+    assert view.status_label.text() == "Loading packs..."
+    assert not view.status_label.isHidden()
+
+
 def test_pack_explorer_view_emits_selection(qtbot) -> None:
     view = PackExplorerView()
     qtbot.addWidget(view)
@@ -118,3 +140,82 @@ def test_pack_explorer_view_clears_empty_detail(qtbot) -> None:
     assert not view.empty_label.isHidden()
     assert view.current_pack_id == ""
     assert view.import_button.isEnabled() is False
+
+
+def test_pack_explorer_view_selects_requested_pack_and_labels_incompatible(qtbot) -> None:
+    config_model.config.general.language = "en_US"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    available_item = make_item("available")
+    incompatible_item = make_item("incompatible")
+    incompatible_item.entry.pack_id = "fh6.incompatible"
+
+    view.set_pack_items([available_item, incompatible_item], selected_pack_id="fh6.incompatible")
+
+    assert view.pack_list.currentItem().data(Qt.ItemDataRole.UserRole) == "fh6.incompatible"
+    assert view.pack_list.item(1).text() == "Sample Pack (Incompatible)"
+
+
+def test_pack_explorer_view_resets_missing_filter_to_all(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.update_filter(view.game_filter, "All games", [("fh6", "Forza Horizon 6")])
+    view.game_filter.setCurrentIndex(view.game_filter.findData("fh6"))
+    view.update_filter(view.game_filter, "All games", [])
+
+    assert view.current_filter_value(view.game_filter) == "all"
+
+
+def test_pack_explorer_view_emits_filter_changes(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    view.set_filter_options([("fh6", "Forza Horizon 6")])
+
+    with qtbot.waitSignal(view.game_filter_changed) as game_blocker:
+        view.game_filter.setCurrentIndex(view.game_filter.findData("fh6"))
+
+    with qtbot.waitSignal(view.compatibility_filter_changed) as compatibility_blocker:
+        view.compatibility_filter.setCurrentIndex(view.compatibility_filter.findData("incompatible"))
+
+    assert game_blocker.args == ["fh6"]
+    assert compatibility_blocker.args == ["incompatible"]
+
+
+def test_pack_explorer_view_ignores_empty_selection(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    emissions = []
+    view.pack_selected.connect(emissions.append)
+
+    view.handle_selection_changed()
+
+    assert emissions == []
+
+
+def test_pack_explorer_view_clears_selected_pack_none(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    view.set_selected_pack(make_item())
+
+    view.set_selected_pack(None)
+
+    assert view.current_pack_id == ""
+    assert view.name_label.text() == "Select a pack"
+
+
+def test_pack_explorer_view_formats_compatibility_ranges(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    item = make_item()
+
+    item.entry.compatibility.remaku_min = "1.0.0"
+    item.entry.compatibility.remaku_max = "2.0.0"
+    assert view.compatibility_text(item.entry) == "Requires Remaku 1.0.0 to 2.0.0"
+
+    item.entry.compatibility.remaku_max = ""
+    assert view.compatibility_text(item.entry) == "Requires Remaku 1.0.0 or newer"
+
+    item.entry.compatibility.remaku_min = ""
+    item.entry.compatibility.remaku_max = "2.0.0"
+    assert view.compatibility_text(item.entry) == "Requires Remaku 2.0.0 or older"

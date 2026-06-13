@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import cast
+from urllib.error import URLError
+
+import pytest
 
 from remaku.models.config_model import AppConfig
 from remaku.models.macro_model import Macro, MacroModel
@@ -54,6 +57,23 @@ def test_fetch_catalog_parses_json(monkeypatch) -> None:
     catalog = pack_service.fetch_catalog("https://example.invalid/catalog.json")
 
     assert catalog.packs[0].pack_id == "fh6.sample"
+
+
+def test_fetch_catalog_wraps_fetch_errors(monkeypatch) -> None:
+    def fetch_json(url: str) -> dict:
+        raise URLError("offline")
+
+    monkeypatch.setattr(pack_service, "fetch_json", fetch_json)
+
+    with pytest.raises(ValueError, match="Unable to load pack catalog"):
+        pack_service.fetch_catalog("https://example.invalid/catalog.json")
+
+
+def test_fetch_catalog_requires_object(monkeypatch) -> None:
+    monkeypatch.setattr(pack_service, "fetch_json", lambda url: [])
+
+    with pytest.raises(ValueError, match="Pack catalog must be an object"):
+        pack_service.fetch_catalog("https://example.invalid/catalog.json")
 
 
 def test_fetch_catalog_async_posts_catalog(monkeypatch) -> None:
@@ -158,6 +178,54 @@ def test_compare_pack_versions() -> None:
     assert pack_service.compare_pack_versions("1.0.0", "1.1.0") == -1
     assert pack_service.compare_pack_versions("1.1.0", "1.0.0") == 1
     assert pack_service.compare_pack_versions("1.0", "1.0.0") == 0
+    assert pack_service.compare_pack_versions("bad", "0.0.1") == -1
+
+
+def test_download_pack_creates_cache_destination(tmp_path: Path, monkeypatch) -> None:
+    downloads = []
+    entry = make_entry()
+    monkeypatch.setattr(
+        pack_service, "pack_download_path", lambda pack_id, version: tmp_path / f"{pack_id}-{version}.zip"
+    )
+
+    class FakeDownload:
+        def __init__(self, parent, url: str, destination: str, on_progress, on_done, on_error) -> None:
+            downloads.append((parent, url, destination, on_progress, on_done, on_error))
+
+    monkeypatch.setattr(pack_service, "Download", FakeDownload)
+
+    download = pack_service.download_pack("parent", entry, "progress", "done", "error")
+
+    assert isinstance(download, FakeDownload)
+    assert downloads[0][:3] == (
+        "parent",
+        "https://example.invalid/sample.zip",
+        str(tmp_path / "fh6.sample-1.1.0.zip"),
+    )
+    assert (tmp_path).exists()
+
+
+def test_import_pack_as_macro_skips_existing_macro_order(tmp_path: Path, monkeypatch) -> None:
+    archive_path = tmp_path / "pack.zip"
+    fake_config = FakeConfigModel()
+    fake_config.config.general.macro_order = ["macro-1"]
+    model = FakeMacroModel()
+    monkeypatch.setattr(pack_service, "config_model", fake_config)
+    monkeypatch.setattr(
+        pack_service,
+        "install_macro_archive",
+        lambda path, macro_model, options: type(
+            "Result",
+            (),
+            {"macro_id": "macro-1", "label": "Sample", "template_refs": set(), "generated_new_id": False},
+        )(),
+    )
+
+    result = pack_service.import_pack_as_macro(archive_path, cast(MacroModel, model))
+
+    assert result.macro_id == "macro-1"
+    assert fake_config.config.general.macro_order == ["macro-1"]
+    assert fake_config.save_calls == 0
 
 
 def test_import_pack_as_macro_updates_macro_order(tmp_path: Path, monkeypatch) -> None:

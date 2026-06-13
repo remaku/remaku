@@ -51,15 +51,25 @@ class FakeView(QObject):
 
 @dataclass
 class FakeDownload:
+    on_progress: Any | None = None
     on_done: Any | None = None
+    on_error: Any | None = None
     started: bool = False
 
     def start(self) -> None:
         self.started = True
 
+    def progress(self, downloaded: int, total: int) -> None:
+        if self.on_progress is not None:
+            self.on_progress(downloaded, total)
+
     def finish(self, path: str) -> None:
         if self.on_done is not None:
             self.on_done(path)
+
+    def fail(self, error: str) -> None:
+        if self.on_error is not None:
+            self.on_error(error)
 
 
 def make_catalog() -> PackCatalog:
@@ -181,20 +191,24 @@ def test_handle_pack_selected_updates_view(monkeypatch) -> None:
     assert view.selected.entry.pack_id == "fh6.sample"
 
 
-def test_start_download_starts_download(monkeypatch) -> None:
+def test_start_download_reports_progress(monkeypatch) -> None:
     controller, view = make_controller(monkeypatch)
     controller.ensure_loaded()
     fake_download = FakeDownload()
-    monkeypatch.setattr(
-        pack_explorer_controller.pack_service,
-        "download_pack",
-        lambda parent, entry, on_progress, on_done, on_error: fake_download,
-    )
+
+    def download_pack(parent, entry, on_progress, on_done, on_error):
+        fake_download.on_progress = on_progress
+        return fake_download
+
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
 
     controller.import_pack("fh6.sample")
+    fake_download.progress(5, 10)
+    fake_download.progress(5, 0)
 
     assert fake_download.started is True
     assert view.importing_states == [True]
+    assert view.statuses[-2:] == ["Downloading pack... 50%", "Downloading pack..."]
 
 
 def test_import_pack_shows_imported_status_after_refresh(monkeypatch, tmp_path) -> None:
@@ -215,6 +229,113 @@ def test_import_pack_shows_imported_status_after_refresh(monkeypatch, tmp_path) 
 
     assert view.importing_states == [True, False]
     assert view.statuses[-1] == "Imported macro: Sample Pack"
+
+
+def test_import_pack_shows_import_error(monkeypatch, tmp_path) -> None:
+    controller, view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    fake_download = FakeDownload()
+    messages = []
+
+    def download_pack(parent, entry, on_progress, on_done, on_error):
+        fake_download.on_done = on_done
+        return fake_download
+
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(
+        pack_explorer_controller.pack_service,
+        "import_pack_as_macro",
+        lambda path, model: (_ for _ in ()).throw(ValueError("bad archive")),
+    )
+    monkeypatch.setattr(
+        pack_explorer_controller,
+        "show_message_dialog",
+        lambda parent, title, message: messages.append((title, message)),
+    )
+
+    controller.import_pack("fh6.sample")
+    fake_download.finish(str(tmp_path / "sample.zip"))
+
+    assert view.importing_states == [True, False]
+    assert view.statuses[-1] == "bad archive"
+    assert messages == [("Pack import failed", "bad archive")]
+
+
+def test_import_pack_shows_download_error(monkeypatch) -> None:
+    controller, view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    fake_download = FakeDownload()
+    messages = []
+
+    def download_pack(parent, entry, on_progress, on_done, on_error):
+        fake_download.on_error = on_error
+        return fake_download
+
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(
+        pack_explorer_controller,
+        "show_message_dialog",
+        lambda parent, title, message: messages.append((title, message)),
+    )
+
+    controller.import_pack("fh6.sample")
+    fake_download.fail("network down")
+
+    assert view.importing_states == [True, False]
+    assert view.statuses[-1] == "network down"
+    assert messages == [("Pack download failed", "network down")]
+
+
+def test_search_matches_pack_label_description_and_game(monkeypatch) -> None:
+    config_model.config.general.language = "en_US"
+    controller, _view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    item = controller.items[0]
+
+    assert controller.matches_search(item, "sample pack") is True
+    assert controller.matches_search(item, "sample description") is True
+    assert controller.matches_search(item, "forza horizon") is True
+
+
+def test_filters_exclude_incompatible_when_compatible_selected(monkeypatch) -> None:
+    controller, view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    controller.items[0].status = "incompatible"
+
+    controller.filter_by_compatibility("compatible")
+
+    assert view.items == []
+
+
+def test_filters_exclude_available_when_incompatible_selected(monkeypatch) -> None:
+    controller, view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+
+    controller.filter_by_compatibility("incompatible")
+
+    assert view.items == []
+
+
+def test_find_item_returns_none_for_missing_pack(monkeypatch) -> None:
+    controller, _view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+
+    assert controller.find_item("missing") is None
+
+
+def test_import_pack_ignores_missing_pack(monkeypatch) -> None:
+    controller, _view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    calls = []
+    monkeypatch.setattr(
+        pack_explorer_controller.pack_service,
+        "download_pack",
+        lambda parent, entry, on_progress, on_done, on_error: calls.append(entry.pack_id),
+    )
+
+    controller.import_pack("missing")
+
+    assert calls == []
 
 
 def test_incompatible_pack_does_not_download(monkeypatch) -> None:

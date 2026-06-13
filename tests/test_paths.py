@@ -20,3 +20,7 @@ def test_path_helpers_build_data_paths(monkeypatch, tmp_path: Path) -> None:
     assert paths.templates_dir() == tmp_path / "remaku" / "templates"
     assert paths.templates_dir("daily") == tmp_path / "remaku" / "templates" / "daily"
     assert paths.template_path("daily", "button") == tmp_path / "remaku" / "templates" / "daily" / "button.png"
+    assert paths.pack_cache_dir() == tmp_path / "remaku" / "pack-cache"
+    assert paths.safe_pack_filename("bad/name:*") == "bad_name__"
+    assert paths.safe_pack_filename("") == "pack"
+    assert paths.pack_download_path("bad/name", "1:0") == tmp_path / "remaku" / "pack-cache" / "bad_name-1_0.zip"

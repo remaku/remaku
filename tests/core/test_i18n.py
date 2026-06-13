@@ -13,6 +13,11 @@ def test_localized_text_uses_requested_language_then_english() -> None:
     assert i18n.localized_text(value, "fr_FR") == "English"
 
 
+def test_localized_text_uses_first_non_empty_then_empty_string() -> None:
+    assert i18n.localized_text({"zh_TW": "繁中"}, "fr_FR") == "繁中"
+    assert i18n.localized_text({"zh_TW": ""}, "fr_FR") == ""
+
+
 def test_parse_localized_text_normalizes_keys_and_legacy_strings() -> None:
     assert i18n.parse_localized_text({"zh-TW": "繁中"}) == {"zh_TW": "繁中"}
     assert i18n.parse_localized_text("Legacy") == {"en_US": "Legacy"}

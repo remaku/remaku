@@ -3,11 +3,12 @@ import platform
 import sys
 
 from loguru import logger
-from PySide6.QtCore import QLocale, QTimer, QTranslator
+from PySide6.QtCore import QTimer, QTranslator
 from PySide6.QtWidgets import QApplication
 
 import remaku.resources.resources_rc  # noqa: F401
 from remaku.controllers.main_controller import MainController
+from remaku.core.i18n import SUPPORTED_TRANSLATOR_LANGUAGES, resolve_language
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
 from remaku.paths import log_dir
@@ -71,12 +72,9 @@ def main():
 def load_translator(app: QApplication) -> None:
     global active_translator
 
-    language = config_model.config.general.language
+    language = resolve_language(config_model.config.general.language)
 
-    if language == "system":
-        language = QLocale.system().name()
-
-    if language not in ("zh_TW", "zh_CN"):
+    if language not in SUPPORTED_TRANSLATOR_LANGUAGES:
         return
 
     translator = QTranslator(app)

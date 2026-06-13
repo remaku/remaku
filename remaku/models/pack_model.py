@@ -1,39 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-LocalizedText = dict[str, str]
-
-
-def normalize_language(language: str) -> str:
-    language = language.replace("-", "_")
-
-    if language in ("zh_TW", "zh_CN"):
-        return language
-
-    return "en_US"
-
-
-def localized_text(value: LocalizedText, language: str) -> str:
-    normalized = normalize_language(language)
-
-    if value.get(normalized):
-        return value[normalized]
-
-    if value.get("en_US"):
-        return value["en_US"]
-
-    for text in value.values():
-        if text:
-            return text
-
-    return ""
-
-
-def parse_localized_text(value: Any) -> LocalizedText:
-    if isinstance(value, dict):
-        return {str(key).replace("-", "_"): str(text) for key, text in value.items() if text is not None}
-
-    return {"en_US": str(value or "")}
+from remaku.core.i18n import LanguageText, localized_text, parse_localized_text
 
 
 @dataclass(slots=True)
@@ -125,8 +93,8 @@ class PackGame:
 class PackCatalogEntry:
     pack_id: str
     game: str
-    label: LocalizedText
-    description: LocalizedText
+    label: LanguageText
+    description: LanguageText
     author: str
     version: str
     release_tag: str

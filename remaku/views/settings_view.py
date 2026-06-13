@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import BodyLabel, CardWidget, CheckBox, ComboBox, LineEdit, ScrollArea, StrongBodyLabel, TitleLabel
 
+from remaku.core.i18n import settings_language_options
 from remaku.models.config_model import config_model
 
 
@@ -55,7 +56,7 @@ class SettingsView(ScrollArea):
             "general.language",
             self.tr("Language"),
             config_model.config.general.language,
-            [(self.tr("System"), "system"), ("English", "en_US"), ("繁體中文", "zh_TW"), ("简体中文", "zh_CN")],
+            settings_language_options(self.tr("System")),
         )
 
         self.add_section(self.tr("Capture"))

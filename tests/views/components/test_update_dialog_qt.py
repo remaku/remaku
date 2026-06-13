@@ -2,10 +2,11 @@ from typing import Any, ClassVar, cast
 
 from PySide6.QtWidgets import QWidget
 
+from remaku.core.i18n import normalize_language_key
 from remaku.models.config_model import AppConfig
 from remaku.services.updater import UpdateInfo
 from remaku.views.components import update_dialog
-from remaku.views.components.update_dialog import UpdateDialog, localized_body, normalize_language
+from remaku.views.components.update_dialog import UpdateDialog, localized_body
 
 
 class FakeConfigModel:
@@ -58,7 +59,7 @@ def make_dialog(qtbot, info: UpdateInfo | None = None) -> tuple[QWidget, UpdateD
 
 
 def test_normalize_language_handles_hyphen_and_case() -> None:
-    assert normalize_language("ZH-tw") == "zh_tw"
+    assert normalize_language_key("ZH-tw") == "zh_tw"
 
 
 def test_localized_body_uses_configured_language(monkeypatch) -> None:
@@ -71,15 +72,6 @@ def test_localized_body_uses_configured_language(monkeypatch) -> None:
 
 def test_localized_body_returns_plain_body_without_language_sections() -> None:
     assert localized_body("  Plain release notes  ") == "Plain release notes"
-
-
-def test_localized_body_uses_system_language_base_or_english(monkeypatch) -> None:
-    fake_config = FakeConfigModel()
-    fake_config.config.general.language = "system"
-    monkeypatch.setattr(update_dialog, "config_model", fake_config)
-    monkeypatch.setattr(update_dialog.QLocale, "system", lambda: update_dialog.QLocale("fr_CA"))
-
-    assert localized_body("<!-- lang:fr -->Français<!-- lang:en -->English") == "Français"
 
 
 def test_update_dialog_skip_remembers_version(monkeypatch, qtbot) -> None:

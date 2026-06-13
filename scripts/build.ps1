@@ -44,6 +44,6 @@ uv run python -m PyInstaller `
   --exclude-module tkinter `
   --exclude-module PyQt5 `
   --exclude-module PyQt6 `
-  main.py
+  remaku/main.py
 
 iscc /DMyAppVersion="$numericV" installer.iss

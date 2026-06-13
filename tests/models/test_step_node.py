@@ -209,3 +209,21 @@ def test_append_and_insert_detach_from_previous_parent() -> None:
 
 def test_repr_includes_step_type() -> None:
     assert repr(StepNode({"type": "delay"})).startswith("StepNode(delay")
+
+
+def test_serialize_children_removes_inactive_branches() -> None:
+    step = {
+        "type": "if_any_image",
+        "templates": ["one"],
+        "branches": {
+            "one": [{"type": "key", "key": "a"}],
+            "two": [{"type": "key", "key": "b"}],
+        },
+    }
+    node = StepNode(step)
+    node.branches_map()
+    node.serialize_children()
+
+    assert "two" not in step["branches"]
+    assert "two" not in node.branches_by_key
+    assert step["branches"]["one"] == [{"type": "key", "key": "a"}]

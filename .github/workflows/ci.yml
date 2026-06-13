@@ -17,13 +17,13 @@ jobs:
           version: 'latest'
 
       - name: Install dependencies
-        run: uv sync
+        run: make sync
 
       - name: Ruff check
-        run: uv run ruff check src
+        run: make lint
 
       - name: Ruff format check
-        run: uv run ruff format --check src
+        run: make format-check
 
   typecheck:
     runs-on: windows-latest
@@ -35,10 +35,10 @@ jobs:
           version: 'latest'
 
       - name: Install dependencies
-        run: uv sync
+        run: make sync
 
       - name: Pyright
-        run: uv run pyright src
+        run: make typecheck
 
   test:
     runs-on: windows-latest
@@ -50,7 +50,7 @@ jobs:
           version: 'latest'
 
       - name: Install dependencies
-        run: uv sync
+        run: make sync
 
       - name: Pytest
-        run: uv run pytest --cov=src --cov-report=term-missing tests/
+        run: make test

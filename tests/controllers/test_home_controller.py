@@ -788,7 +788,7 @@ def test_add_step_appends_new_step_and_saves() -> None:
 
     controller.add_step("delay")
 
-    assert controller.step_tree.steps == [{"type": "delay", "ms": 0, "skip": False, "note": ""}]
+    assert controller.step_tree.steps == [{"type": "delay", "ms": 500, "skip": False, "note": ""}]
     assert controller.selected_step == controller.step_tree.steps[0]
     assert model.saved[-1].steps[0].type == "delay"
 

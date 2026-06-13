@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 from PySide6.QtWidgets import QApplication
 
-import remaku.main as app_main
+import main as app_main
 from remaku.models.config_model import AppConfig
 
 

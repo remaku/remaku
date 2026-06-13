@@ -103,7 +103,7 @@ def preview_download_phase(dialog: UpdateDialog):
     dialog.phase = dialog.PHASE_DOWNLOAD
     dialog.skip_button.setEnabled(False)
     dialog.cancelButton.setEnabled(False)
-    dialog.yesButton.setText("Cancel")
+    dialog.yesButton.setText(dialog.tr("Cancel"))
     with contextlib.suppress(RuntimeError):
         dialog.yesButton.clicked.disconnect()
     dialog.yesButton.clicked.connect(dialog.handle_cancel_download)

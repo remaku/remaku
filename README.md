@@ -145,31 +145,73 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). GUI uses PySide6 (Qt6
 ### Project Structure
 
 ```
-src/
-  main.py              # Entry point, initializes config and launches the main window
-  main_window.py       # Main window: three-panel layout, menus, step editing
-  overlay.py           # Status overlay floating window with play/stop controls
-  runner.py            # Step runner base class, manages threads and status
-  macro_engine.py      # JSON macro parsing and execution engine
-  vision.py            # OpenCV image recognition (template matching)
-  capture.py           # Screen capture (BetterCam / DXGI)
-  keys.py              # Keyboard input simulation (pydirectinput)
-  window.py            # Windows window management (find, foreground, elevation check)
-  region_selector.py   # Screen region selection tool
-  config.py            # Configuration file read/write
-  settings.py          # Settings page UI
-  step_node.py         # Step tree node model with parent-child references
-  step_tree.py         # Step tree manager for macro step operations
-  updater.py           # Auto-update check and installation
-  version.py           # Version info (read from pyproject.toml)
-  icons.py             # SVG icon engine (Lucide icons)
-  icons/               # SVG icon files
-    *.svg
-  i18n/                # Internationalization translation files
-    __init__.py
-    zh_tw.json
-    zh_cn.json
-    en.json
+remaku/
+  main.py                         # Entry point, initializes config and launches the main window
+  paths.py                        # File path utilities
+  theme.py                        # Theme management
+  version.py                      # Version info (read from pyproject.toml)
+  controllers/
+    home_controller.py            # Main editor controller (step editing, macro management)
+    main_controller.py            # Application-level controller (menus, updates, window)
+    pack_explorer_controller.py   # Pack Explorer browse and import logic
+    settings_controller.py        # Settings page controller
+  core/
+    capture.py                    # Screen capture (BetterCam / DXGI)
+    dialogs.py                    # Native dialog helpers
+    event_bus.py                  # Application-wide event system
+    i18n.py                       # Internationalization
+    keys.py                       # Keyboard input simulation (pydirectinput)
+    vision.py                     # OpenCV image recognition (template matching)
+    window.py                     # Windows window management (find, foreground, elevation check)
+  models/
+    config_model.py               # Configuration data model
+    macro_model.py                # Macro data model
+    pack_model.py                 # Macro pack catalog model
+    step_dict.py                  # Step serialization / deserialization
+    step_node.py                  # Step tree node model with parent-child references
+    step_tree.py                  # Step tree manager for macro step operations
+  resources/
+    icon.py                       # SVG icon engine (Lucide icons)
+    resources.qrc                 # Qt resource file
+    resources_rc.py               # Compiled Qt resources
+    icons/                        # SVG icon files
+    images/                       # Image assets (logo.png)
+    locales/                      # Qt translation files (.ts / .qm)
+  services/
+    engine.py                     # JSON macro parsing and execution engine
+    macro_import_service.py       # Macro import / export (ZIP) logic
+    macro_runner.py               # Macro execution runner with threading
+    migration.py                  # Legacy data migration
+    pack_service.py               # Pack catalog fetching and management
+    updater.py                    # Auto-update check and installation
+  views/
+    home_view.py                  # Main editor view (three-panel layout)
+    main_window.py                # Main application window
+    pack_explorer_view.py         # Pack Explorer UI
+    region_selector.py            # Screen region selection tool
+    settings_view.py              # Settings page UI
+    components/
+      about_dialog.py             # About dialog
+      center_panel.py             # Center panel (step tree)
+      confirm_dialog.py           # Confirmation dialog
+      elided_label.py             # Text elision label widget
+      left_panel.py               # Left panel (macro list)
+      message_dialog.py           # Message dialog
+      new_macro_dialog.py         # New macro dialog
+      overlay.py                  # Status overlay floating window
+      rename_macro_dialog.py      # Rename macro dialog
+      right_panel.py              # Right panel (step properties)
+      step_menu.py                # Step type context menu
+      template_editor.py          # Template editor widget
+      toolbar.py                  # Toolbar with step operations
+      update_dialog.py            # Update dialog with release notes
+tests/
+  controllers/                    # Controller unit tests
+  core/                           # Core module unit tests
+  models/                         # Model unit tests
+  services/                       # Service unit tests
+  views/                          # View unit tests
+    components/                   # Component unit tests
 ```
 
 ### Quick Start
@@ -177,14 +219,17 @@ src/
 A `Makefile` is provided. Run `make` to see available targets.
 
 ```powershell
-make setup      # Create venv and install dependencies
-make dev        # Run with hot-reload (requires nodemon)
-make test       # Run tests with coverage
-make lint       # Run ruff linter
-make format     # Run ruff formatter
-make typecheck  # Run pyright type checker
-make check-all  # Run lint, format check, typecheck, and tests
-make build      # Build the installer (PyInstaller + Inno Setup)
+make setup        # Create venv and install dependencies
+make dev          # Run with hot-reload (requires nodemon)
+make test         # Run tests with coverage
+make lint         # Run ruff linter
+make format       # Run ruff formatter
+make format-check # Check formatting without changes
+make typecheck    # Run pyright type checker
+make check-all    # Run lint, format check, typecheck, and tests
+make translate    # Update and compile translation files
+make build        # Build the installer (PyInstaller + Inno Setup)
+make clean        # Remove all build artifacts and caches
 ```
 
 ## Support

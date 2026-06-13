@@ -145,31 +145,73 @@ Documents\remaku\
 ### 專案結構
 
 ```
-src/
-  main.py              # 進入點，初始化設定與啟動主視窗
-  main_window.py       # 主視窗，三欄介面、選單、步驟編輯
-  overlay.py           # 狀態浮窗元件，含播放/停止按鈕
-  runner.py            # 步驟執行器基礎類別，管理執行緒與狀態
-  macro_engine.py      # JSON 巨集解析與執行引擎
-  vision.py            # OpenCV 影像辨識（模板匹配）
-  capture.py           # 畫面擷取（BetterCam / DXGI）
-  keys.py              # 鍵盤輸入模擬（pydirectinput）
-  window.py            # Windows 視窗管理（尋找、前景、權限檢查）
-  region_selector.py   # 螢幕區域選取工具
-  config.py            # 設定檔讀寫
-  settings.py          # 設定頁面介面
-  step_node.py         # 步驟樹節點模型，含父子參照
-  step_tree.py         # 步驟樹管理器，處理巨集步驟操作
-  updater.py           # 自動更新檢查與安裝
-  version.py           # 版本資訊（從 pyproject.toml 讀取）
-  icons.py             # SVG 圖示引擎（Lucide 圖示）
-  icons/               # SVG 圖示檔案
-    *.svg
-  i18n/                # 多國語言翻譯檔案
-    __init__.py
-    zh_tw.json
-    zh_cn.json
-    en.json
+remaku/
+  main.py                         # 進入點，初始化設定與啟動主視窗
+  paths.py                        # 檔案路徑工具
+  theme.py                        # 主題管理
+  version.py                      # 版本資訊（從 pyproject.toml 讀取）
+  controllers/
+    home_controller.py            # 主編輯器控制器（步驟編輯、巨集管理）
+    main_controller.py            # 應用層控制器（選單、更新、視窗）
+    pack_explorer_controller.py   # Pack Explorer 瀏覽與匯入邏輯
+    settings_controller.py        # 設定頁面控制器
+  core/
+    capture.py                    # 畫面擷取（BetterCam / DXGI）
+    dialogs.py                    # 原生對話框輔助工具
+    event_bus.py                  # 全域事件系統
+    i18n.py                       # 多國語言
+    keys.py                       # 鍵盤輸入模擬（pydirectinput）
+    vision.py                     # OpenCV 影像辨識（模板匹配）
+    window.py                     # Windows 視窗管理（尋找、前景、權限檢查）
+  models/
+    config_model.py               # 設定資料模型
+    macro_model.py                # 巨集資料模型
+    pack_model.py                 # 巨集包目錄模型
+    step_dict.py                  # 步驟序列化／反序列化
+    step_node.py                  # 步驟樹節點模型，含父子參照
+    step_tree.py                  # 步驟樹管理器，處理巨集步驟操作
+  resources/
+    icon.py                       # SVG 圖示引擎（Lucide 圖示）
+    resources.qrc                 # Qt 資源檔
+    resources_rc.py               # 已編譯的 Qt 資源
+    icons/                        # SVG 圖示檔案
+    images/                       # 圖片資源（logo.png）
+    locales/                      # Qt 翻譯檔（.ts / .qm）
+  services/
+    engine.py                     # JSON 巨集解析與執行引擎
+    macro_import_service.py       # 巨集匯入／匯出（ZIP）邏輯
+    macro_runner.py               # 巨集執行器（含執行緒管理）
+    migration.py                  # 舊版資料遷移
+    pack_service.py               # 巨集包目錄擷取與管理
+    updater.py                    # 自動更新檢查與安裝
+  views/
+    home_view.py                  # 主編輯器檢視（三欄介面）
+    main_window.py                # 主應用程式視窗
+    pack_explorer_view.py         # Pack Explorer 介面
+    region_selector.py            # 螢幕區域選取工具
+    settings_view.py              # 設定頁面介面
+    components/
+      about_dialog.py             # 關於對話框
+      center_panel.py             # 中央面板（步驟樹）
+      confirm_dialog.py           # 確認對話框
+      elided_label.py             # 文字省略標籤元件
+      left_panel.py               # 左側面板（巨集列表）
+      message_dialog.py           # 訊息對話框
+      new_macro_dialog.py         # 新增巨集對話框
+      overlay.py                  # 狀態浮窗元件
+      rename_macro_dialog.py      # 重新命名巨集對話框
+      right_panel.py              # 右側面板（步驟屬性）
+      step_menu.py                # 步驟類型右鍵選單
+      template_editor.py          # 模板編輯器元件
+      toolbar.py                  # 工具列（步驟操作）
+      update_dialog.py            # 更新對話框（含更新說明）
+tests/
+  controllers/                    # 控制器單元測試
+  core/                           # 核心模組單元測試
+  models/                         # 模型單元測試
+  services/                       # 服務單元測試
+  views/                          # 檢視單元測試
+    components/                   # 元件單元測試
 ```
 
 ### 快速開始
@@ -177,14 +219,17 @@ src/
 `Makefile` 提供常用指令。執行 `make` 可查看所有可用目標。
 
 ```powershell
-make setup      # 建立虛擬環境並安裝依賴
-make dev        # 熱重載執行（需要 nodemon）
-make test       # 執行測試（含覆蓋率報表）
-make lint       # 執行 ruff 程式碼檢查
-make format     # 執行 ruff 格式化
-make typecheck  # 執行 pyright 型別檢查
-make check-all  # 執行 lint、格式檢查、型別檢查與測試
-make build      # 建置安裝程式（PyInstaller + Inno Setup）
+make setup        # 建立虛擬環境並安裝依賴
+make dev          # 熱重載執行（需要 nodemon）
+make test         # 執行測試（含覆蓋率報表）
+make lint         # 執行 ruff 程式碼檢查
+make format       # 執行 ruff 格式化
+make format-check # 檢查格式但不變更
+make typecheck    # 執行 pyright 型別檢查
+make check-all    # 執行 lint、格式檢查、型別檢查與測試
+make translate    # 更新並編譯翻譯檔案
+make build        # 建置安裝程式（PyInstaller + Inno Setup）
+make clean        # 清除所有建置產物與快取
 ```
 
 ## 支持

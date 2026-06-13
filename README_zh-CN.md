@@ -145,31 +145,73 @@ Documents\remaku\
 ### 项目结构
 
 ```
-src/
-  main.py              # 入口点，初始化设置与启动主窗口
-  main_window.py       # 主窗口，三栏界面、菜单、步骤编辑
-  overlay.py           # 状态浮窗组件，含播放/停止按钮
-  runner.py            # 步骤执行器基础类，管理线程与状态
-  macro_engine.py      # JSON 宏解析与执行引擎
-  vision.py            # OpenCV 图像识别（模板匹配）
-  capture.py           # 画面捕获（BetterCam / DXGI）
-  keys.py              # 键盘输入模拟（pydirectinput）
-  window.py            # Windows 窗口管理（查找、前景、权限检查）
-  region_selector.py   # 屏幕区域选取工具
-  config.py            # 配置文件读写
-  settings.py          # 设置页面界面
-  step_node.py         # 步骤树节点模型，含父子引用
-  step_tree.py         # 步骤树管理器，处理宏步骤操作
-  updater.py           # 自动更新检查与安装
-  version.py           # 版本信息（从 pyproject.toml 读取）
-  icons.py             # SVG 图标引擎（Lucide 图标）
-  icons/               # SVG 图标文件
-    *.svg
-  i18n/                # 多语言翻译文件
-    __init__.py
-    zh_tw.json
-    zh_cn.json
-    en.json
+remaku/
+  main.py                         # 入口点，初始化设置与启动主窗口
+  paths.py                        # 文件路径工具
+  theme.py                        # 主题管理
+  version.py                      # 版本信息（从 pyproject.toml 读取）
+  controllers/
+    home_controller.py            # 主编辑器控制器（步骤编辑、宏管理）
+    main_controller.py            # 应用层控制器（菜单、更新、窗口）
+    pack_explorer_controller.py   # Pack Explorer 浏览与导入逻辑
+    settings_controller.py        # 设置页面控制器
+  core/
+    capture.py                    # 画面捕获（BetterCam / DXGI）
+    dialogs.py                    # 原生对话框辅助工具
+    event_bus.py                  # 全局事件系统
+    i18n.py                       # 多语言
+    keys.py                       # 键盘输入模拟（pydirectinput）
+    vision.py                     # OpenCV 图像识别（模板匹配）
+    window.py                     # Windows 窗口管理（查找、前景、权限检查）
+  models/
+    config_model.py               # 设置数据模型
+    macro_model.py                # 宏数据模型
+    pack_model.py                 # 宏包目录模型
+    step_dict.py                  # 步骤序列化／反序列化
+    step_node.py                  # 步骤树节点模型，含父子引用
+    step_tree.py                  # 步骤树管理器，处理宏步骤操作
+  resources/
+    icon.py                       # SVG 图标引擎（Lucide 图标）
+    resources.qrc                 # Qt 资源文件
+    resources_rc.py               # 已编译的 Qt 资源
+    icons/                        # SVG 图标文件
+    images/                       # 图片资源（logo.png）
+    locales/                      # Qt 翻译文件（.ts / .qm）
+  services/
+    engine.py                     # JSON 宏解析与执行引擎
+    macro_import_service.py       # 宏导入／导出（ZIP）逻辑
+    macro_runner.py               # 宏执行器（含线程管理）
+    migration.py                  # 旧版数据迁移
+    pack_service.py               # 宏包目录获取与管理
+    updater.py                    # 自动更新检查与安装
+  views/
+    home_view.py                  # 主编辑器视图（三栏界面）
+    main_window.py                # 主应用程序窗口
+    pack_explorer_view.py         # Pack Explorer 界面
+    region_selector.py            # 屏幕区域选取工具
+    settings_view.py              # 设置页面界面
+    components/
+      about_dialog.py             # 关于对话框
+      center_panel.py             # 中央面板（步骤树）
+      confirm_dialog.py           # 确认对话框
+      elided_label.py             # 文字省略标签组件
+      left_panel.py               # 左侧面板（宏列表）
+      message_dialog.py           # 消息对话框
+      new_macro_dialog.py         # 新建宏对话框
+      overlay.py                  # 状态浮窗组件
+      rename_macro_dialog.py      # 重命名宏对话框
+      right_panel.py              # 右侧面板（步骤属性）
+      step_menu.py                # 步骤类型右键菜单
+      template_editor.py          # 模板编辑器组件
+      toolbar.py                  # 工具栏（步骤操作）
+      update_dialog.py            # 更新对话框（含更新说明）
+tests/
+  controllers/                    # 控制器单元测试
+  core/                           # 核心模块单元测试
+  models/                         # 模型单元测试
+  services/                       # 服务单元测试
+  views/                          # 视图单元测试
+    components/                   # 组件单元测试
 ```
 
 ### 快速开始
@@ -177,14 +219,17 @@ src/
 `Makefile` 提供常用命令。运行 `make` 可查看所有可用目标。
 
 ```powershell
-make setup      # 创建虚拟环境并安装依赖
-make dev        # 热重载运行（需要 nodemon）
-make test       # 运行测试（含覆盖率报告）
-make lint       # 运行 ruff 代码检查
-make format     # 运行 ruff 格式化
-make typecheck  # 运行 pyright 类型检查
-make check-all  # 运行 lint、格式检查、类型检查与测试
-make build      # 构建安装程序（PyInstaller + Inno Setup）
+make setup        # 创建虚拟环境并安装依赖
+make dev          # 热重载运行（需要 nodemon）
+make test         # 运行测试（含覆盖率报告）
+make lint         # 运行 ruff 代码检查
+make format       # 运行 ruff 格式化
+make format-check # 检查格式但不更改
+make typecheck    # 运行 pyright 类型检查
+make check-all    # 运行 lint、格式检查、类型检查与测试
+make translate    # 更新并编译翻译文件
+make build        # 构建安装程序（PyInstaller + Inno Setup）
+make clean        # 清除所有构建产物与缓存
 ```
 
 ## 支持

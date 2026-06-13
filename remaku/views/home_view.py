@@ -12,11 +12,11 @@ class HomeView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.setObjectName("home")
+
         self.init_ui()
 
     def init_ui(self):
-        self.setObjectName("home")
-
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(11, 0, 11, 11)

@@ -96,6 +96,7 @@ class Toolbar(QWidget):
                 {"id": "export_macro", "label": self.tr("Export Macro")},
                 {"id": "open_macro_folder", "label": self.tr("Open Macro Folder")},
                 {"separator": True},
+                {"id": "pack_explorer", "label": self.tr("Pack Explorer")},
                 {"id": "settings", "label": self.tr("Settings"), "shortcut": "Ctrl+,"},
                 {"separator": True},
                 {"id": "quit", "label": self.tr("Quit")},

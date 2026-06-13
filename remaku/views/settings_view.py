@@ -9,13 +9,12 @@ class SettingsView(ScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.setObjectName("settings")
         self.widgets: dict[str, CheckBox | ComboBox | LineEdit] = {}
 
         self.init_ui()
 
     def init_ui(self):
-        self.setObjectName("settings")
-
         self.setWidgetResizable(True)
         self.setFrameShape(ScrollArea.Shape.NoFrame)
         self.setStyleSheet("background: transparent;")

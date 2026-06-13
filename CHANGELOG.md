@@ -1,27 +1,27 @@
 # Changelog
 
-## v0.6.1-beta.1
+## v0.6.1
 
 <!-- lang:en -->
 
 ### Fixed
 
 - Old template branches in if-any-image steps are now properly removed after re-capturing or replacing a template image
-- System language detection now uses the display language instead of the regional format, so the app shows the correct interface language on Chinese Windows systems
+- System language detection now reliably uses the system language and script settings, falling back to display language preferences when the regional format is set to a different language
 
 <!-- lang:zh_tw -->
 
 ### 修正
 
 - 重新擷取或更換 if-any-image 步驟中的模板圖片後，舊的模板分支現在會正確移除
-- 系統語言偵測現在使用顯示語言而非地區格式，繁體中文 Windows 系統現在能正確顯示中文介面
+- 系統語言偵測現在能可靠地使用系統語言與文字設定，當地區格式設為不同語言時會退回使用顯示語言偏好
 
 <!-- lang:zh_cn -->
 
 ### 修复
 
 - 重新捕获或替换 if-any-image 步骤中的模板图片后，旧的模板分支现在会正确移除
-- 系统语言检测现在使用显示语言而非区域格式，简体中文 Windows 系统现在能正确显示中文界面
+- 系统语言检测现在能可靠地使用系统语言与文字设置，当区域格式设为不同语言时会回退使用显示语言偏好
 
 ## v0.6.0
 

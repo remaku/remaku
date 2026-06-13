@@ -26,7 +26,26 @@ def resolve_language(language: str) -> str:
     if language != SYSTEM_LANGUAGE:
         return normalize_language(language)
 
-    for tag in QLocale.system().uiLanguages():
+    locale = QLocale.system()
+
+    if locale.language() == QLocale.Language.Chinese:
+        script = locale.script()
+        if script == QLocale.Script.TraditionalHanScript:
+            return "zh_TW"
+
+        if script == QLocale.Script.SimplifiedHanScript:
+            return "zh_CN"
+
+        territory = locale.territory()
+        if territory in (QLocale.Country.Taiwan, QLocale.Country.HongKong, QLocale.Country.Macao):
+            return "zh_TW"
+
+        if territory in (QLocale.Country.China, QLocale.Country.Singapore):
+            return "zh_CN"
+
+        return "zh_TW"
+
+    for tag in locale.uiLanguages():
         parts = tag.replace("_", "-").split("-")
         lang = parts[0].lower()
 
@@ -34,21 +53,21 @@ def resolve_language(language: str) -> str:
             return "en_US"
 
         if lang == "zh":
-            script = ""
-            territory = ""
+            script_name = ""
+            territory_name = ""
             for part in parts[1:]:
                 if len(part) == 4 and part[0].isupper():
-                    script = part
+                    script_name = part
                 elif len(part) == 2 and part.isupper():
-                    territory = part
+                    territory_name = part
 
-            if script == "Hant" or territory in ("TW", "HK", "MO"):
+            if script_name == "Hant" or territory_name in ("TW", "HK", "MO"):
                 return "zh_TW"
 
-            if script == "Hans" or territory in ("CN", "SG"):
+            if script_name == "Hans" or territory_name in ("CN", "SG"):
                 return "zh_CN"
 
-    return QLocale.system().name()
+    return locale.name()
 
 
 def language_base(language: str) -> str:

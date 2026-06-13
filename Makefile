@@ -5,7 +5,7 @@ TS_DIR   := .\remaku\resources\locales
 TS_FILES := $(TS_DIR)\zh_TW.ts $(TS_DIR)\zh_CN.ts
 TAG ?= v0.1.0
 
-.PHONY: setup sync clean lint format format-check typecheck test check-all lupdate lrelease translate build release-note
+.PHONY: setup sync clean lint format format-check typecheck test check-all lupdate lrelease translate dev build release-note
 
 setup:
 	@uv venv

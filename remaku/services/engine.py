@@ -176,16 +176,33 @@ class Engine:
         if elapsed < period and self.stop_event.wait(period - elapsed):
             raise Stopped
 
+    def refresh_found_window(self) -> bool:
+        if not self.target_window:
+            return False
+
+        found = window.find_target_window(self.target_window)
+        if found is not None:
+            self.found_window = found
+            self.capture_rect = window.client_rect(found)
+            return True
+
+        return False
+
     def foreground_tick(self) -> None:
         if not window.is_foreground(self.found_window):
+            self.refresh_found_window()
             self.update(state="waiting_foreground")
 
         while not window.is_foreground(self.found_window):
+            self.refresh_found_window()
             self.sleep(250)
 
         self.update(state="running")
 
     def capture_tick(self):
+        if not window.is_foreground(self.found_window):
+            self.refresh_found_window()
+
         if not window.is_foreground(self.found_window):
             self.update(state="waiting_foreground")
             self.sleep(250)

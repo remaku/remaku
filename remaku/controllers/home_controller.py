@@ -605,6 +605,8 @@ class HomeController(QObject):
 
         self.macro_model.save(self.current_macro)
 
+        self.sync_runner_macro_from_current()
+
         if field in ("hotkey", "enabled"):
             self.register_hotkeys()
 

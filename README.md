@@ -20,22 +20,27 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Open source** -- fully public source code, auditable and community-contributable
 - **JSON workflow format** -- import/export as ZIP, ready to share with the community
 - **Global hotkeys** -- assign independent hotkeys to each macro for one-key activation
+- **Keyboard and mouse automation** -- send key combinations, type Unicode text, click, move, and scroll
+- **Branch-friendly editor** -- nested steps and branches are shown in a tree, with direct add buttons inside branches
 - **Status bar** -- shows current step, template name, and total elapsed time after execution
 - **Status overlay** -- floating mini status bar on top of fullscreen games with play/stop controls, position remembered and kept within screen bounds
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
+- **Pack Explorer** -- browse official macro packs and import compatible macros from inside the app
 
 ## Supported Step Types
 
-| Type                                      | Description                                                                             |
-| ----------------------------------------- | --------------------------------------------------------------------------------------- |
-| Key (key)                                 | Press a specified key with configurable hold duration                                   |
-| Delay (delay)                             | A fixed millisecond pause                                                               |
-| Wait Image (wait_image)                   | Wait for a template image to appear, with configurable similarity threshold and timeout |
-| Wait Any Image (if_any_image)             | Monitor multiple templates simultaneously, execute the matching branch                  |
-| Conditional Branch (if_image)             | Execute then or else path depending on whether the template appears                     |
-| Repeat Loop (repeat)                      | Repeat child steps N times                                                              |
-| Hold Key Until Gone (hold_key_until_gone) | Hold a key until the template image disappears                                          |
-| Grid Navigation (grid_nav)                | Step through grid cells in rotation (e.g., inventory menus)                             |
+| Type                                      | Description                                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Key (key)                                 | Press a specified key or modifier combination, with configurable hold duration                        |
+| Text Input (text_input)                   | Type custom Unicode text, with an optional delay between characters                                   |
+| Mouse Action (mouse_action)               | Click a coordinate or image center, move the cursor to a position, or scroll the mouse wheel          |
+| Delay (delay)                             | A fixed millisecond pause                                                                             |
+| Wait Image (wait_image)                   | Wait for a template image to appear, with configurable similarity threshold, timeout, and next action |
+| Wait Any Image (if_any_image)             | Monitor multiple templates simultaneously, execute the matching branch                                |
+| Conditional Branch (if_image)             | Execute then or else path depending on whether the template appears                                   |
+| Repeat Loop (repeat)                      | Repeat child steps N times                                                                            |
+| Hold Key Until Gone (hold_key_until_gone) | Hold a key until the template image disappears                                                        |
+| Grid Navigation (grid_nav)                | Step through grid cells in rotation (e.g., inventory menus)                                           |
 
 ## Step Editing
 
@@ -44,13 +49,15 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Copy & paste**: cut/copy/paste steps between macros, template images carried along
 - **Move steps**: Alt+Up/Down moves steps, with smart handling for entering, leaving, and crossing block boundaries
 - **Wrap in repeat**: wrap selected steps into a repeat block
+- **Branch editing**: then/else, template, and grid-navigation branches have their own details panel and add button
+- **Tree view**: nested steps and branches can be expanded or collapsed for easier navigation
 - **Undo/redo**: 50-step history, Ctrl+Z / Ctrl+Y
 - **Skip toggle**: each step can be individually set to skip without deleting
 - **Notes**: add optional notes to steps for documentation, shown inline in the step list
 
 ## Image Recognition
 
-Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is larger than the frame, it is automatically scaled down. The similarity threshold (0--100%) is adjustable in the properties panel.
+Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is larger than the frame, it is automatically scaled down when Gaming Mode is enabled. Turn Gaming Mode off for desktop automation where the window size stays the same. The similarity threshold (0--100%) is adjustable in the properties panel, and color mode can be enabled when distinct colors matter.
 
 ### Template Management
 
@@ -58,6 +65,7 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 - Pick a PNG file from the filesystem as a template
 - Template preview in the properties panel
 - Capture resolution display: shows width and height at which the template was captured
+- Optional color matching for templates with visually distinct colors
 - Rename and delete templates
 - Templates are stored alongside macros and bundled on export
 
@@ -67,9 +75,18 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 - Dropdown listing all visible windows for easy selection
 - Captures the client area (excluding borders and title bar)
 - Foreground detection: auto-waits when not in foreground
+- Automatically re-finds the target window if it is closed and reopened during macro execution
 - Elevation mismatch warning: warns if the target window runs as administrator while Remaku does not (UIPI blocks SendInput)
 
 ## Settings
+
+### Macro
+
+| Item        | Description                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Target      | The window title Remaku should find before running the macro                               |
+| Hotkey      | Independent global hotkey for this macro                                                   |
+| Gaming Mode | Enable template scaling for games; turn it off for fixed-size desktop automation workflows |
 
 ### General
 
@@ -96,6 +113,12 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 ### Other
 
 - Shows the currently skipped update version, with a one-click clear to re-prompt
+
+## Macro Packs
+
+- Open Pack Explorer from the File menu
+- Browse official macro packs from inside Remaku
+- Import compatible macros directly into your local macro folder
 
 ## Auto Update
 

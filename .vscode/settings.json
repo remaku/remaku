@@ -14,7 +14,7 @@
   "ruff.interpreter": ["${workspaceFolder}/.venv/Scripts/python.exe"],
 
   "files.associations": {
-    "**/locales/*.ts": "xml",
+    "**/locales/*.ts": "plaintext",
     "*.qrc": "xml"
   }
 }

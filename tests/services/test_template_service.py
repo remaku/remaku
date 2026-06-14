@@ -51,6 +51,28 @@ def test_pick_template_copies_file_and_rewrites_any_image_branch(tmp_path: Path)
     assert macro.templates["new"].label == "Template new"
 
 
+def test_pick_template_sets_default_match_mode_without_old_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    step = {"type": "wait_image", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"new": TemplateInfo(match_mode="")})
+    service = make_service(tmp_path)
+
+    assert service.pick_template(macro, step, "old", str(source), 1024, 768) == "new"
+    assert macro.templates["new"].match_mode == "grayscale"
+
+
+def test_pick_template_preserves_existing_match_mode_without_old_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    step = {"type": "wait_image", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"new": TemplateInfo(match_mode="color")})
+    service = make_service(tmp_path)
+
+    assert service.pick_template(macro, step, "old", str(source), 1024, 768) == "new"
+    assert macro.templates["new"].match_mode == "color"
+
+
 def test_delete_template_removes_files_metadata_and_step_refs(tmp_path: Path) -> None:
     steps = [
         {"type": "wait_image", "template": "button"},
@@ -103,13 +125,14 @@ def test_update_template_meta_updates_valid_fields_and_rejects_invalid_values(tm
 
     assert service.update_template_meta(macro, "button", "label", "Button") is True
     assert service.update_template_meta(macro, "button", "capture_width", "320") is True
+    assert service.update_template_meta(macro, "button", "capture_height", "240") is True
     assert service.update_template_meta(macro, "button", "match_mode", "color") is True
     assert service.update_template_meta(macro, "button", "match_mode", "bad") is False
     assert service.update_template_meta(macro, "button", "capture_height", "bad") is False
     assert service.update_template_meta(macro, "missing", "label", "Missing") is False
     assert macro.templates["button"].label == "Button"
     assert macro.templates["button"].capture_width == 320
-    assert macro.templates["button"].capture_height == 0
+    assert macro.templates["button"].capture_height == 240
     assert macro.templates["button"].match_mode == "color"
 
 

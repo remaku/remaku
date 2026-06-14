@@ -547,6 +547,25 @@ def test_right_panel_capture_key_includes_modifier_keys(monkeypatch, qtbot) -> N
     assert blocker.args == ["key", "ctrl+shift+s"]
 
 
+def test_right_panel_capture_key_includes_alt_and_win_modifiers(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    edit = LineEdit()
+    qtbot.addWidget(edit)
+    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "alt+win+a")
+    event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_A,
+        Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.MetaModifier,
+    )
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        panel.capture_key(event, edit)
+
+    assert edit.text() == "alt+win+a"
+    assert blocker.args == ["key", "alt+win+a"]
+
+
 def test_right_panel_capture_key_ignores_modifier_only_key(qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)

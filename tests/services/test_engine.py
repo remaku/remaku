@@ -134,6 +134,33 @@ def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
     assert sleeps == [250]
 
 
+def test_refresh_found_window_updates_handle_and_capture_rect(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    found_window = object()
+    rect = Rect(1, 2, 3, 4)
+
+    monkeypatch.setattr(engine.window, "find_target_window", lambda title: found_window)
+    monkeypatch.setattr(engine.window, "client_rect", lambda handle: rect)
+
+    assert runner.refresh_found_window() is True
+    assert runner.found_window is found_window
+    assert runner.capture_rect == rect
+
+
+def test_refresh_found_window_returns_false_without_target_or_match(monkeypatch) -> None:
+    runner = SampleEngine()
+    find_calls = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda title: find_calls.append(title))
+
+    assert runner.refresh_found_window() is False
+    assert find_calls == []
+
+    runner.target_window = "Missing"
+    assert runner.refresh_found_window() is False
+    assert find_calls == ["Missing"]
+
+
 def test_capture_tick_returns_raw_frame_when_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     frame = np.ones((2, 2, 3), dtype=np.uint8)

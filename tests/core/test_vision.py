@@ -35,6 +35,16 @@ def test_to_bgr_converts_gray_frame(monkeypatch) -> None:
     assert calls == [(frame, vision.cv2.COLOR_GRAY2BGR)]
 
 
+def test_to_bgr_converts_bgra_frame(monkeypatch) -> None:
+    frame = np.zeros((2, 2, 4), dtype=np.uint8)
+    converted = np.ones((2, 2, 3), dtype=np.uint8)
+    calls = []
+    monkeypatch.setattr(vision.cv2, "cvtColor", lambda image, code: calls.append((image, code)) or converted)
+
+    assert vision.to_bgr(frame) is converted
+    assert calls == [(frame, vision.cv2.COLOR_BGRA2BGR)]
+
+
 def test_prepare_match_inputs_uses_color_when_both_inputs_are_color() -> None:
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
     template = np.ones((1, 1, 3), dtype=np.uint8)

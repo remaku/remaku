@@ -754,6 +754,23 @@ def test_handle_macro_running_changed_reports_terminal_status() -> None:
     assert cast(Any, controller.view).statuses == ["Done: Runner"]
 
 
+def test_translate_status_message_formats_known_failures() -> None:
+    controller = make_controller()
+
+    assert controller.translate_status_message("missing_templates: A, B") == "Missing templates: A, B"
+    assert controller.translate_status_message("Error: boom") == "Error: boom"
+    assert controller.translate_status_message("macro_format: bad step") == "Macro format error: bad step"
+    assert controller.translate_status_message("wait_timeout: Button") == "Wait timeout: Button"
+    assert controller.translate_status_message("wait_any_timeout: A, B") == "Wait any timeout: A, B"
+    assert controller.translate_status_message("mouse_click: empty") == "Mouse click: empty template"
+    assert controller.translate_status_message("mouse_click_timeout: Button") == "Mouse click timeout: Button"
+    assert controller.translate_status_message("mouse_move: empty") == "Mouse move: empty template"
+    assert controller.translate_status_message("mouse_move_timeout: Button") == "Mouse move timeout: Button"
+    assert controller.translate_status_message("window_not_found") == "Window not found"
+    assert controller.translate_status_message("elevation_mismatch") == "Elevation mismatch, do not run target app as admin"
+    assert controller.translate_status_message("other: value") == "other: value"
+
+
 def test_parse_step_property_converts_known_types() -> None:
     controller = make_controller()
 

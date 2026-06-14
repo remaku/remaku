@@ -84,6 +84,21 @@ def test_validate_steps_accepts_existing_templates(tmp_path: Path) -> None:
     assert validate_steps([{"type": "wait_image", "template": "start"}], template_root=tmp_path) == []
 
 
+def test_validate_steps_accepts_text_input_and_checks_interval() -> None:
+    errors = validate_steps(
+        [
+            {"type": "text_input", "text": "哈囉", "interval_ms": 25},
+            {"type": "text_input"},
+            {"type": "text_input", "text": "hello", "interval_ms": "bad"},
+        ]
+    )
+
+    assert errors == [
+        "Step 2 (text_input): missing field 'text'",
+        "Step 3 (text_input): bad format for 'interval_ms'",
+    ]
+
+
 def test_exec_step_skips_marked_step() -> None:
     runner = make_runner([])
     calls = []
@@ -112,6 +127,19 @@ def test_exec_step_runs_delay() -> None:
     runner.exec_step({"type": "delay", "ms": 250}, (("steps", 0),))
 
     assert sleeps == [250]
+
+
+def test_exec_step_types_text_with_interval(monkeypatch) -> None:
+    runner = make_runner([])
+    calls = []
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.type_text",
+        lambda text, interval_ms: calls.append((text, interval_ms)),
+    )
+
+    runner.exec_step({"type": "text_input", "text": "哈囉", "interval_ms": 25}, (("steps", 0),))
+
+    assert calls == [("哈囉", 25)]
 
 
 def test_repeat_step_updates_progress_and_runs_children() -> None:

@@ -27,6 +27,7 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
     assert [item["id"] for item in items] == [
         "key",
         "delay",
+        "text_input",
         "wait_image",
         "hold_key_until_gone",
         "repeat",
@@ -37,6 +38,7 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
     assert [item["label"] for item in items] == [
         "Key",
         "Delay",
+        "Text Input",
         "Wait Image",
         "Hold Key Until Gone",
         "Repeat",
@@ -57,7 +59,7 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
     step_menu.show_step_menu(parent, anchor, picked.append)
     menu = FakeMenu.instances[0]
 
-    assert len(menu.actions) == 8
+    assert len(menu.actions) == 9
     assert menu.exec_positions == [anchor.mapToGlobal(anchor.rect().bottomLeft())]
 
     for action in menu.actions:
@@ -66,6 +68,7 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
     assert picked == [
         "key",
         "delay",
+        "text_input",
         "wait_image",
         "hold_key_until_gone",
         "repeat",

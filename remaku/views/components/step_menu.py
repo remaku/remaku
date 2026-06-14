@@ -9,6 +9,7 @@ def step_type_items() -> list[dict[str, str]]:
     return [
         {"id": "key", "label": QCoreApplication.translate("StepMenu", "Key")},
         {"id": "delay", "label": QCoreApplication.translate("StepMenu", "Delay")},
+        {"id": "text_input", "label": QCoreApplication.translate("StepMenu", "Text Input")},
         {"id": "wait_image", "label": QCoreApplication.translate("StepMenu", "Wait Image")},
         {"id": "hold_key_until_gone", "label": QCoreApplication.translate("StepMenu", "Hold Key Until Gone")},
         {"id": "repeat", "label": QCoreApplication.translate("StepMenu", "Repeat")},

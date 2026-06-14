@@ -759,6 +759,7 @@ def test_parse_step_property_converts_known_types() -> None:
 
     assert controller.parse_step_property("skip", "true") is True
     assert controller.parse_step_property("ms", "150") == 150
+    assert controller.parse_step_property("interval_ms", "25") == 25
     assert controller.parse_step_property("threshold", "87") == 0.87
     assert controller.parse_step_property("key", "enter") == "enter"
 
@@ -880,6 +881,7 @@ def test_describe_step_formats_core_step_types() -> None:
 
     assert controller.describe_step({"type": "key", "key": "enter"}) == "Press enter"
     assert controller.describe_step({"type": "delay", "ms": 250}) == "Wait 250 ms"
+    assert controller.describe_step({"type": "text_input", "text": "哈囉\nworld"}) == "Type text: 哈囉 world"
     assert (
         controller.describe_step({"type": "wait_image", "template": "start", "note": "ready"})
         == "Wait for Start Button (ready)"
@@ -937,6 +939,7 @@ def test_add_step_factory_returns_supported_steps() -> None:
     controller = make_controller()
 
     assert controller.add_step_factory("key") is not None
+    assert controller.add_step_factory("text_input") is not None
     assert controller.add_step_factory("missing") is None
 
 

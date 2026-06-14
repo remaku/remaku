@@ -16,6 +16,8 @@ from remaku.models.macro_model import (
     DEFAULT_LOAD_DELAY_MS,
     DEFAULT_ON_TIMEOUT,
     DEFAULT_REPEAT_COUNT,
+    DEFAULT_TEXT_INPUT_INTERVAL_MS,
+    DEFAULT_TEXT_INPUT_TEXT,
     DEFAULT_THRESHOLD,
     DelayStep,
     GridNavStep,
@@ -26,12 +28,14 @@ from remaku.models.macro_model import (
     Macro,
     MacroModel,
     RepeatStep,
+    TextInputStep,
     WaitImageStep,
     get_step_count,
     get_step_find_timeout,
     get_step_gone_grace,
     get_step_hard_timeout,
     get_step_hold_ms,
+    get_step_interval_ms,
     get_step_key,
     get_step_load_delay,
     get_step_ms,
@@ -40,6 +44,7 @@ from remaku.models.macro_model import (
     get_step_start,
     get_step_template,
     get_step_templates,
+    get_step_text,
     get_step_threshold,
     get_step_timeout,
     parse_step,
@@ -138,6 +143,14 @@ def test_hold_key_until_gone_parses_string_values() -> None:
     assert step.threshold == 0.7
 
 
+def test_text_input_parses_string_values() -> None:
+    step = parse_step({"type": "text_input", "text": "哈囉\nworld", "interval_ms": "25"})
+
+    assert isinstance(step, TextInputStep)
+    assert step.text == "哈囉\nworld"
+    assert step.interval_ms == 25
+
+
 def test_step_getters_return_defaults_for_missing_values() -> None:
     step = {}
 
@@ -156,6 +169,8 @@ def test_step_getters_return_defaults_for_missing_values() -> None:
     assert get_step_on_timeout(step) == DEFAULT_ON_TIMEOUT
     assert get_step_template(step) == ""
     assert get_step_templates(step) == []
+    assert get_step_text(step) == DEFAULT_TEXT_INPUT_TEXT
+    assert get_step_interval_ms(step) == DEFAULT_TEXT_INPUT_INTERVAL_MS
 
 
 def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
@@ -164,6 +179,7 @@ def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
         DelayStep(ms=10),
         WaitImageStep(template="start"),
         HoldKeyUntilGoneStep(key="space", template="loading"),
+        TextInputStep(text="hello", interval_ms=20),
         RepeatStep(steps=[KeyStep(key="tab")]),
         IfImageStep(then=[KeyStep(key="a")], else_=[DelayStep(ms=1)]),
         IfAnyImageStep(templates=["one"], branches={"one": [KeyStep(key="b")]}),

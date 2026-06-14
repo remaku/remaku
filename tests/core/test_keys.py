@@ -53,6 +53,110 @@ def test_tap_logs_key_up_failure(monkeypatch) -> None:
     assert calls == [("down", "enter"), ("sleep", 120, 10)]
 
 
+def test_type_text_types_unicode_characters_with_interval(monkeypatch) -> None:
+    calls = []
+    sleeps = []
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", lambda char, _pause=False: calls.append(("unicode", char, _pause)))
+    monkeypatch.setattr(keys.pdi, "press", lambda key, _pause=False: calls.append(("press", key, _pause)))
+    monkeypatch.setattr(keys.time, "sleep", sleeps.append)
+
+    keys.type_text("哈囉", interval_ms=25)
+
+    assert calls == [("unicode", "哈", False), ("unicode", "囉", False)]
+    assert sleeps == [0.025]
+
+
+def test_type_text_preserves_empty_text(monkeypatch) -> None:
+    calls = []
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", lambda char, _pause=False: calls.append(("unicode", char, _pause)))
+    monkeypatch.setattr(keys.pdi, "press", lambda key, _pause=False: calls.append(("press", key, _pause)))
+
+    keys.type_text("", interval_ms=0)
+
+    assert calls == []
+
+
+def test_type_text_converts_newlines_to_enter(monkeypatch) -> None:
+    calls = []
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", lambda char, _pause=False: calls.append(("unicode", char, _pause)))
+    monkeypatch.setattr(keys.pdi, "press", lambda key, _pause=False: calls.append(("press", key, _pause)))
+
+    keys.type_text("test\n\n\nasd", interval_ms=0)
+
+    assert calls == [
+        ("unicode", "t", False),
+        ("unicode", "e", False),
+        ("unicode", "s", False),
+        ("unicode", "t", False),
+        ("press", "enter", False),
+        ("press", "enter", False),
+        ("press", "enter", False),
+        ("unicode", "a", False),
+        ("unicode", "s", False),
+        ("unicode", "d", False),
+    ]
+
+
+def test_type_text_normalizes_windows_newlines(monkeypatch) -> None:
+    calls = []
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", lambda char, _pause=False: calls.append(("unicode", char, _pause)))
+    monkeypatch.setattr(keys.pdi, "press", lambda key, _pause=False: calls.append(("press", key, _pause)))
+
+    keys.type_text("first\r\nsecond\rold", interval_ms=0)
+
+    assert calls == [
+        ("unicode", "f", False),
+        ("unicode", "i", False),
+        ("unicode", "r", False),
+        ("unicode", "s", False),
+        ("unicode", "t", False),
+        ("press", "enter", False),
+        ("unicode", "s", False),
+        ("unicode", "e", False),
+        ("unicode", "c", False),
+        ("unicode", "o", False),
+        ("unicode", "n", False),
+        ("unicode", "d", False),
+        ("press", "enter", False),
+        ("unicode", "o", False),
+        ("unicode", "l", False),
+        ("unicode", "d", False),
+    ]
+
+
+def test_type_text_clamps_negative_interval(monkeypatch) -> None:
+    calls = []
+    sleeps = []
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", lambda char, _pause=False: calls.append(("unicode", char, _pause)))
+    monkeypatch.setattr(keys.pdi, "press", lambda key, _pause=False: calls.append(("press", key, _pause)))
+    monkeypatch.setattr(keys.time, "sleep", sleeps.append)
+
+    keys.type_text("hello", interval_ms=-100)
+
+    assert calls == [
+        ("unicode", "h", False),
+        ("unicode", "e", False),
+        ("unicode", "l", False),
+        ("unicode", "l", False),
+        ("unicode", "o", False),
+    ]
+    assert sleeps == []
+
+
+def test_type_text_logs_failure(monkeypatch) -> None:
+    def raise_unicode_press(char: str, _pause: bool = False) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "unicode_press", raise_unicode_press)
+
+    keys.type_text("hello")
+
+
 def test_held_releases_key_after_context(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))

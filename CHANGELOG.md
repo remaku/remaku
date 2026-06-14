@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Added
+
+- Text input steps can now type custom Unicode text with an optional delay between characters
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 文字輸入步驟現在可輸入自訂 Unicode 文字，並可設定每個字元之間的延遲
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 文字输入步骤现在可输入自定义 Unicode 文字，并可设置每个字符之间的延迟
+
 ## v0.6.1
 
 <!-- lang:en -->

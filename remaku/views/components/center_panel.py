@@ -11,6 +11,7 @@ from remaku.resources.icon import RemakuIcon
 STEP_TYPE_ICONS = {
     "key": RemakuIcon.KEYBOARD,
     "delay": RemakuIcon.CLOCK,
+    "text_input": RemakuIcon.KEYBOARD,
     "wait_image": RemakuIcon.IMAGE,
     "hold_key_until_gone": RemakuIcon.HAND,
     "repeat": RemakuIcon.REPEAT,

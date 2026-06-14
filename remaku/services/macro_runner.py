@@ -13,6 +13,7 @@ from remaku.models.macro_model import (
     get_step_gone_grace,
     get_step_hard_timeout,
     get_step_hold_ms,
+    get_step_interval_ms,
     get_step_key,
     get_step_load_delay,
     get_step_ms,
@@ -21,6 +22,7 @@ from remaku.models.macro_model import (
     get_step_start,
     get_step_template,
     get_step_templates,
+    get_step_text,
     get_step_threshold,
     get_step_timeout,
 )
@@ -33,6 +35,7 @@ REQUIRED_FIELDS: dict[str, list[tuple[str, type | tuple[type, ...]]]] = {
     "if_image": [("template", str)],
     "if_any_image": [("templates", list)],
     "hold_key_until_gone": [("key", str), ("template", str)],
+    "text_input": [("text", str)],
     "repeat": [],
     "grid_nav": [],
 }
@@ -71,6 +74,12 @@ def validate_steps(steps: list[dict], template_root: Path | None = None, offset:
                 for template_id in value:
                     if not (template_root / f"{template_id}.png").exists():
                         errors.append(f"Step {index} ({step_type}): template '{template_id}' not found on disk")
+
+        if step_type == "text_input" and "interval_ms" in step:
+            interval_ms = step.get("interval_ms")
+
+            if not isinstance(interval_ms, int | float):
+                errors.append(f"Step {index} ({step_type}): bad format for 'interval_ms'")
 
         for key in ("steps", "then", "else"):
             if sub := step.get(key):
@@ -171,6 +180,8 @@ class MacroRunner(Engine):
         elif action == "grid_nav":
             counter = self.grid_counters.get(id(step), 0)
             details = f"pos={counter + get_step_start(step)}"
+        elif action == "text_input":
+            details = f"{len(get_step_text(step))} chars"
         logger.info("{}: {} {}", self.engine_id, action, details)
 
         if action == "key":
@@ -178,6 +189,9 @@ class MacroRunner(Engine):
 
         elif action == "delay":
             self.sleep(get_step_ms(step))
+
+        elif action == "text_input":
+            keys.type_text(get_step_text(step), get_step_interval_ms(step))
 
         elif action == "wait_image":
             timeout = get_step_timeout(step)

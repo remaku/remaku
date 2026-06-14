@@ -1,9 +1,9 @@
 from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import QModelIndex, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QMouseEvent
+from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QWidget
-from qfluentwidgets import BodyLabel, ComboBox, LineEdit
+from qfluentwidgets import BodyLabel, ComboBox, LineEdit, TextEdit
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
@@ -604,6 +604,7 @@ def test_right_panel_show_step_properties_for_common_step_types(monkeypatch, qtb
     for step in [
         KeyStep(key="enter"),
         DelayStep(ms=250),
+        right_panel.TextInputStep(text="hello", interval_ms=25),
         WaitImageStep(template="button", threshold=0.9),
         RepeatStep(count=3),
         IfAnyImageStep(templates=["button"]),
@@ -735,6 +736,19 @@ def test_right_panel_non_numeric_text_input_emits_on_editing_finished(qtbot) -> 
         field.editingFinished.emit()
 
     assert blocker.args == ["on_timeout", "continue"]
+
+
+def test_right_panel_multiline_text_input_emits_on_focus_out(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.add_multiline_text_input("Text", "old", "text")
+    field = panel.findChildren(TextEdit)[-1]
+    field.setPlainText("哈囉\nworld")
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        field.focusOutEvent(QFocusEvent(QFocusEvent.Type.FocusOut))
+
+    assert blocker.args == ["text", "哈囉\nworld"]
 
 
 def test_right_panel_hotkey_text_clear_emits_empty_value(qtbot) -> None:

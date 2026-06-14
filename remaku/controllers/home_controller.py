@@ -30,6 +30,7 @@ from remaku.models.macro_model import (
     MacroSummary,
     RepeatStep,
     Step,
+    TextInputStep,
     WaitImageStep,
     parse_step,
     step_to_dict,
@@ -632,6 +633,7 @@ class HomeController(QObject):
             "count",
             "rows",
             "start",
+            "interval_ms",
         ):
             return int(value)
 
@@ -868,6 +870,12 @@ class HomeController(QObject):
                     key=step.get("key", ""),
                     template=self.get_template_label(step.get("template", "")),
                 )
+            case "text_input":
+                text = str(step.get("text", ""))
+                preview = text.replace("\r", " ").replace("\n", " ")
+                if len(preview) > 20:
+                    preview = f"{preview[:20]}..."
+                label = self.tr("Type text: {text}").format(text=preview) if preview else self.tr("Type text")
             case "repeat":
                 label = self.tr("Repeat {count} times").format(count=step.get("count", 1))
             case "if_image":
@@ -1058,6 +1066,7 @@ class HomeController(QObject):
             "delay": DelayStep,
             "wait_image": WaitImageStep,
             "hold_key_until_gone": HoldKeyUntilGoneStep,
+            "text_input": TextInputStep,
             "repeat": RepeatStep,
             "if_image": IfImageStep,
             "if_any_image": IfAnyImageStep,

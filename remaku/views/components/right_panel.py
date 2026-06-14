@@ -1,6 +1,6 @@
 import pydirectinput as pdi
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from PySide6.QtGui import QIntValidator, QKeyEvent, QKeySequence
+from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal
+from PySide6.QtGui import QFocusEvent, QIntValidator, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -12,6 +12,7 @@ from qfluentwidgets import (
     PushButton,
     ScrollArea,
     Slider,
+    TextEdit,
 )
 
 from remaku.core import window
@@ -26,12 +27,22 @@ from remaku.models.macro_model import (
     Macro,
     RepeatStep,
     Step,
+    TextInputStep,
     WaitImageStep,
 )
 from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
 from remaku.views.components.step_menu import show_step_menu
 from remaku.views.components.template_editor import TemplateEditor
+
+
+class CommitOnFocusOutTextEdit(TextEdit):
+    text_committed = Signal(str)
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.text_committed.emit(self.toPlainText())
+        super().focusOutEvent(event)
+
 
 NUMERIC_PROPERTY_KEYS = frozenset(
     {
@@ -45,6 +56,7 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "count",
         "rows",
         "start",
+        "interval_ms",
     }
 )
 
@@ -75,6 +87,17 @@ class PropertyFormMixin:
                 field.editingFinished.connect(
                     lambda pk=property_key, w=field: event_bus.step_property_changed.emit(pk, w.text())
                 )
+
+        self.content_layout.addWidget(field)
+
+    def add_multiline_text_input(self, label: str, value: str, property_key: str = "") -> None:
+        self.add_field_label(label)
+        field = CommitOnFocusOutTextEdit(self.content_widget)
+        field.setPlainText(value)
+        field.setMinimumHeight(120)
+
+        if property_key:
+            field.text_committed.connect(lambda text, pk=property_key: event_bus.step_property_changed.emit(pk, text))
 
         self.content_layout.addWidget(field)
 
@@ -432,6 +455,18 @@ class HoldKeyUntilGoneStepPropertiesWidget(StepPropertiesWidget):
         )
 
 
+class TextInputStepPropertiesWidget(StepPropertiesWidget):
+    step: TextInputStep
+
+    def add_step_fields(self) -> None:
+        self.add_multiline_text_input(QCoreApplication.translate("RightPanel", "Text"), self.step.text, "text")
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Interval (ms)"),
+            str(self.step.interval_ms),
+            "interval_ms",
+        )
+
+
 class RepeatStepPropertiesWidget(StepPropertiesWidget):
     step: RepeatStep
 
@@ -487,6 +522,7 @@ STEP_PROPERTIES_WIDGETS: dict[type[Step], type[StepPropertiesWidget]] = {
     DelayStep: DelayStepPropertiesWidget,
     WaitImageStep: WaitImageStepPropertiesWidget,
     HoldKeyUntilGoneStep: HoldKeyUntilGoneStepPropertiesWidget,
+    TextInputStep: TextInputStepPropertiesWidget,
     RepeatStep: RepeatStepPropertiesWidget,
     IfImageStep: IfImageStepPropertiesWidget,
     IfAnyImageStep: IfAnyImageStepPropertiesWidget,

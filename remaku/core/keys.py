@@ -32,6 +32,26 @@ def tap(key: str, hold_ms: int = 90, jitter_ms: int = 60) -> None:
         logger.error("keys: keyUp('{}') failed: {}", key, error)
 
 
+def type_text(text: str, interval_ms: int = 0) -> None:
+    safe_interval_ms = max(0, interval_ms)
+    interval_seconds = safe_interval_ms / 1000
+    normalized_text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    try:
+        for index, char in enumerate(normalized_text):
+            if index > 0 and interval_seconds > 0:
+                time.sleep(interval_seconds)
+
+            if char == "\n":
+                pdi.press("enter", _pause=False)
+            else:
+                pdi.unicode_press(char, _pause=False)
+
+        logger.debug("keys: type_text ok (chars={}, interval={}ms)", len(normalized_text), safe_interval_ms)
+    except Exception as error:
+        logger.error("keys: type_text failed: {}", error)
+
+
 @contextmanager
 def held(key: str) -> Generator[None, None, None]:
     try:

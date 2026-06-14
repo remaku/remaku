@@ -17,6 +17,8 @@ DEFAULT_GRID_ROWS = 1
 DEFAULT_GRID_START = 0
 DEFAULT_ON_TIMEOUT = "stop"
 DEFAULT_KEY = "enter"
+DEFAULT_TEXT_INPUT_TEXT = ""
+DEFAULT_TEXT_INPUT_INTERVAL_MS = 0
 DEFAULT_STEP_SKIP = False
 DEFAULT_STEP_NOTE = ""
 
@@ -141,8 +143,39 @@ class HoldKeyUntilGoneStep:
         return step_to_dict(self)
 
 
+@dataclass(slots=True)
+class TextInputStep:
+    type: str = "text_input"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    text: str = DEFAULT_TEXT_INPUT_TEXT
+    interval_ms: int = DEFAULT_TEXT_INPUT_INTERVAL_MS
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TextInputStep":
+        default = cls()
+
+        return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
+            text=str(data.get("text", default.text)),
+            interval_ms=int(data.get("interval_ms", default.interval_ms)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
 type Step = (
-    KeyStep | DelayStep | WaitImageStep | HoldKeyUntilGoneStep | RepeatStep | IfImageStep | IfAnyImageStep | GridNavStep
+    KeyStep
+    | DelayStep
+    | WaitImageStep
+    | HoldKeyUntilGoneStep
+    | TextInputStep
+    | RepeatStep
+    | IfImageStep
+    | IfAnyImageStep
+    | GridNavStep
 )
 
 
@@ -267,6 +300,7 @@ STEP_TYPE_REGISTRY: dict[str, type[Step]] = {
     "delay": DelayStep,
     "wait_image": WaitImageStep,
     "hold_key_until_gone": HoldKeyUntilGoneStep,
+    "text_input": TextInputStep,
     "repeat": RepeatStep,
     "if_image": IfImageStep,
     "if_any_image": IfAnyImageStep,
@@ -476,3 +510,11 @@ def get_step_template(step: dict) -> str:
 
 def get_step_templates(step: dict) -> list[str]:
     return step.get("templates", [])
+
+
+def get_step_text(step: dict) -> str:
+    return step.get("text", DEFAULT_TEXT_INPUT_TEXT)
+
+
+def get_step_interval_ms(step: dict) -> int:
+    return step.get("interval_ms", DEFAULT_TEXT_INPUT_INTERVAL_MS)

@@ -20,6 +20,7 @@ clean:
 	@if (Test-Path .venv) { Remove-Item -Recurse -Force .venv }
 	@if (Test-Path build) { Remove-Item -Recurse -Force build }
 	@if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+	@if (Test-Path htmlcov) { Remove-Item -Recurse -Force htmlcov }
 	@if (Test-Path output) { Remove-Item -Recurse -Force output }
 	@if (Test-Path .coverage) { Remove-Item -Recurse -Force .coverage }
 	@if (Test-Path RELEASE_BODY.md) { Remove-Item -Recurse -Force RELEASE_BODY.md }

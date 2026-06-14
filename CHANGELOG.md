@@ -7,18 +7,21 @@
 ### Added
 
 - Text input steps can now type custom Unicode text with an optional delay between characters
+- New mouse action steps: click at a coordinate or image center, move the cursor to a position, and scroll the mouse wheel
 
 <!-- lang:zh_tw -->
 
 ### 新增
 
 - 文字輸入步驟現在可輸入自訂 Unicode 文字，並可設定每個字元之間的延遲
+- 新增滑鼠動作步驟：點擊座標或圖片中心、移動游標到指定位置、滾動滑鼠滾輪
 
 <!-- lang:zh_cn -->
 
 ### 新增
 
 - 文字输入步骤现在可输入自定义 Unicode 文字，并可设置每个字符之间的延迟
+- 新增鼠标动作步骤：点击坐标或图片中心、移动光标到指定位置、滚动鼠标滚轮
 
 ## v0.6.1
 

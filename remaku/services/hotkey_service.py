@@ -7,9 +7,11 @@ import win32api
 import win32con
 import win32gui
 
+from remaku.models.config_model import config_model
 from remaku.models.macro_model import Macro, MacroSummary
 
 logger = logging.getLogger(__name__)
+PAUSE_HOTKEY_ID = 0xBEFE
 
 
 class HotkeyMacroModel(Protocol):
@@ -40,6 +42,8 @@ class HotkeyService:
         self.hotkey_ids = []
         self.hotkey_map = {}
 
+        self.register_pause_hotkey(window_id)
+
         for index, summary in enumerate(self.macro_model.list_macros()):
             macro = self.macro_model.load(summary.id)
             if macro is None or not macro.meta.enabled or not macro.meta.hotkey:
@@ -58,6 +62,22 @@ class HotkeyService:
                 logger.info("Registered hotkey: %s -> %s", macro.meta.hotkey, summary.label)
             except Exception:
                 logger.warning("Hotkey registration failed: %s", macro.meta.hotkey)
+
+    def register_pause_hotkey(self, window_id: int) -> None:
+        hotkey = config_model.config.general.pause_hotkey.strip()
+        if not hotkey:
+            return
+
+        mods, vk = self.parse_hotkey(hotkey)
+        if vk == 0:
+            return
+
+        try:
+            win32gui.RegisterHotKey(window_id, PAUSE_HOTKEY_ID, mods, vk)
+            self.hotkey_ids.append(PAUSE_HOTKEY_ID)
+            logger.info("Registered pause hotkey: %s", hotkey)
+        except Exception:
+            logger.warning("Pause hotkey registration failed: %s", hotkey)
 
     def parse_hotkey(self, hotkey: str) -> tuple[int, int]:
         mods = 0
@@ -91,6 +111,8 @@ class HotkeyService:
             "f11": 0x7A,
             "f12": 0x7B,
             "space": 0x20,
+            "break": 0x03,
+            "pause": 0x13,
             "enter": 0x0D,
             "return": 0x0D,
             "tab": 0x09,
@@ -118,3 +140,6 @@ class HotkeyService:
 
     def macro_id_for_hotkey(self, hid: int) -> str | None:
         return self.hotkey_map.get(hid)
+
+    def is_pause_hotkey(self, hid: int) -> bool:
+        return hid == PAUSE_HOTKEY_ID

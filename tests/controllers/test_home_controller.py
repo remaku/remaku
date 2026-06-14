@@ -215,9 +215,15 @@ class FakeRunner:
         self.current_step_path: Any = None
         self.start_calls = 0
         self.stop_calls = 0
+        self.pause_calls = 0
+        self.resume_calls = 0
+        self.paused = False
 
     def is_running(self) -> bool:
         return self.running
+
+    def is_paused(self) -> bool:
+        return self.paused
 
     def start(self) -> None:
         self.start_calls += 1
@@ -226,6 +232,14 @@ class FakeRunner:
     def stop(self) -> None:
         self.stop_calls += 1
         self.running = False
+
+    def pause(self) -> None:
+        self.pause_calls += 1
+        self.paused = True
+
+    def resume(self) -> None:
+        self.resume_calls += 1
+        self.paused = False
 
     def get_status(self) -> Status:
         return self.status
@@ -300,7 +314,10 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     def fake_register_hotkey(hwnd: int, hid: int, mods: int, vk: int) -> None:
         register_calls.append((hwnd, hid, mods, vk))
 
+    hotkey_config = AppConfig()
+    hotkey_config.general.pause_hotkey = ""
     monkeypatch.setattr(home_controller, "config_model", fake_config)
+    monkeypatch.setattr(hotkey_service.config_model, "config", hotkey_config)
     monkeypatch.setattr(home_controller, "QShortcut", make_shortcut)
     monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register_hotkey)
     monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", lambda hwnd, hid: None)
@@ -418,8 +435,11 @@ def test_register_hotkeys_unregisters_previous_and_skips_invalid(monkeypatch) ->
     def fake_unregister(hwnd: int, hid: int) -> None:
         unregister_calls.append((hwnd, hid))
 
+    hotkey_config = AppConfig()
+    hotkey_config.general.pause_hotkey = ""
     monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register)
     monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", fake_unregister)
+    monkeypatch.setattr(hotkey_service.config_model, "config", hotkey_config)
     macros = {
         "enabled": Macro(meta=MacroMeta(id="enabled", label="Enabled", hotkey="ctrl+f1", enabled=True)),
         "disabled": Macro(meta=MacroMeta(id="disabled", label="Disabled", hotkey="ctrl+f2", enabled=False)),
@@ -447,8 +467,11 @@ def test_register_hotkeys_does_not_store_failed_registration(monkeypatch) -> Non
         register_calls.append((hwnd, hid, mods, vk))
         raise Exception("failed")
 
+    hotkey_config = AppConfig()
+    hotkey_config.general.pause_hotkey = ""
     monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", fake_register)
     monkeypatch.setattr(hotkey_service.win32gui, "UnregisterHotKey", lambda hwnd, hid: None)
+    monkeypatch.setattr(hotkey_service.config_model, "config", hotkey_config)
     model = FakeMacroModel(macros={"macro": Macro(meta=MacroMeta(id="macro", label="Macro", hotkey="ctrl+f1"))})
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
@@ -742,6 +765,29 @@ def test_run_current_macro_starts_and_stops_runner(qtbot) -> None:
     assert cast(Any, controller.view).statuses == ["Running macro: Runner", "Stopping macro: Runner"]
 
 
+def test_toggle_current_macro_pause_pauses_and_resumes_running_runner() -> None:
+    controller = make_controller()
+    runner = FakeRunner(running=True)
+    controller.current_runner = cast(Any, runner)
+
+    controller.toggle_current_macro_pause()
+    controller.toggle_current_macro_pause()
+
+    assert runner.pause_calls == 1
+    assert runner.resume_calls == 1
+
+
+def test_toggle_current_macro_pause_ignores_stopped_runner() -> None:
+    controller = make_controller()
+    runner = FakeRunner(running=False)
+    controller.current_runner = cast(Any, runner)
+
+    controller.toggle_current_macro_pause()
+
+    assert runner.pause_calls == 0
+    assert runner.resume_calls == 0
+
+
 def test_handle_macro_running_changed_reports_terminal_status() -> None:
     controller = make_controller()
     calls = []
@@ -752,6 +798,17 @@ def test_handle_macro_running_changed_reports_terminal_status() -> None:
 
     assert calls == [("locked", False)]
     assert cast(Any, controller.view).statuses == ["Done: Runner"]
+
+
+def test_handle_macro_paused_changed_updates_status_text() -> None:
+    controller = make_controller()
+    runner = FakeRunner(running=True)
+    controller.current_runner = cast(Any, runner)
+
+    controller.handle_macro_paused_changed(True)
+    controller.handle_macro_paused_changed(False)
+
+    assert cast(Any, controller.view).statuses == ["Paused", "Running macro: Runner"]
 
 
 def test_translate_status_message_formats_known_failures() -> None:
@@ -767,7 +824,10 @@ def test_translate_status_message_formats_known_failures() -> None:
     assert controller.translate_status_message("mouse_move: empty") == "Mouse move: empty template"
     assert controller.translate_status_message("mouse_move_timeout: Button") == "Mouse move timeout: Button"
     assert controller.translate_status_message("window_not_found") == "Window not found"
-    assert controller.translate_status_message("elevation_mismatch") == "Elevation mismatch, do not run target app as admin"
+    assert (
+        controller.translate_status_message("elevation_mismatch")
+        == "Elevation mismatch, do not run target app as admin"
+    )
     assert controller.translate_status_message("other: value") == "other: value"
 
 
@@ -1400,6 +1460,16 @@ def test_handle_hotkey_triggered_ignores_missing_disabled_and_stops_running(qtbo
     assert stopped.args == [False]
     assert running_runner.stop_calls == 1
     assert cast(Any, controller.view).statuses == []
+
+
+def test_handle_hotkey_triggered_toggles_pause_hotkey() -> None:
+    controller = make_controller()
+    runner = FakeRunner(running=True)
+    controller.current_runner = cast(Any, runner)
+
+    controller.handle_hotkey_triggered(hotkey_service.PAUSE_HOTKEY_ID)
+
+    assert runner.pause_calls == 1
 
 
 def test_import_macro_returns_when_no_file_selected(monkeypatch) -> None:

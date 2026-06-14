@@ -27,7 +27,10 @@ class SettingsController(QObject):
                 widget.currentIndexChanged.connect(lambda index, k=key: self.on_combo_changed(k))
 
             elif isinstance(widget, LineEdit):
-                widget.editingFinished.connect(lambda k=key: self.on_text_changed(k))
+                if key == "general.pause_hotkey":
+                    widget.textChanged.connect(lambda k=key: self.on_text_changed(k))
+                else:
+                    widget.editingFinished.connect(lambda k=key: self.on_text_changed(k))
 
     def on_checkbox_changed(self, key: str, state: Qt.CheckState) -> None:
         value = state == Qt.CheckState.Checked
@@ -49,6 +52,10 @@ class SettingsController(QObject):
 
         assert isinstance(widget, LineEdit)
         text = widget.text().strip()
+        if key == "general.pause_hotkey":
+            self.apply_setting(key, text.lower())
+            return
+
         value = self.validate_int(key, text)
 
         if value is None:
@@ -104,7 +111,7 @@ class SettingsController(QObject):
         elif key == "general.theme":
             apply_theme(str(value))
 
-        elif key == "general.overlay_enabled":
+        elif key in ("general.overlay_enabled", "general.pause_hotkey"):
             event_bus.settings_changed.emit()
 
     def restart_application(self) -> None:

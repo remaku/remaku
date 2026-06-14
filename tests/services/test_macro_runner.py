@@ -7,6 +7,7 @@ import pytest
 from remaku.core.capture import Grabber
 from remaku.core.window import Rect
 from remaku.models.macro_model import Macro
+from remaku.services import engine
 from remaku.services.engine import Stopped, StopReason
 from remaku.services.macro_runner import MacroRunner, validate_steps
 
@@ -91,6 +92,63 @@ def test_validate_steps_accepts_existing_templates(tmp_path: Path) -> None:
     assert validate_steps([{"type": "wait_image", "template": "start"}], template_root=tmp_path) == []
 
 
+def test_pause_resume_are_idempotent() -> None:
+    runner = make_runner([])
+
+    runner.pause()
+    runner.pause()
+
+    assert runner.is_paused()
+    assert not runner.resume_event.is_set()
+
+    runner.resume()
+    runner.resume()
+
+    assert not runner.is_paused()
+    assert runner.resume_event.is_set()
+
+
+def test_stop_clears_paused_state(qtbot) -> None:
+    runner = make_runner([])
+    runner.pause()
+
+    with qtbot.waitSignal(engine.event_bus.macro_paused_changed, timeout=100) as blocker:
+        runner.stop()
+
+    assert runner.stop_event.is_set()
+    assert not runner.is_paused()
+    assert runner.resume_event.is_set()
+    assert blocker.args == [False]
+
+
+def test_stop_does_not_run_resume_callback_after_paused() -> None:
+    runner = make_runner([])
+    calls = []
+    runner.pause()
+
+    runner.stop()
+
+    with pytest.raises(Stopped):
+        runner.checkpoint(resume_callback=lambda: calls.append("resume"))
+
+    assert calls == []
+
+
+def test_elapsed_time_freezes_while_paused(monkeypatch) -> None:
+    times = iter([105.0, 106.0, 108.0, 113.0])
+    runner = make_runner([])
+    runner.start_time = 100.0
+    monkeypatch.setattr(engine.time, "monotonic", lambda: next(times))
+
+    runner.pause()
+    paused_status = runner.get_status()
+    runner.resume()
+    resumed_status = runner.get_status()
+
+    assert paused_status.elapsed_s == 5.0
+    assert resumed_status.elapsed_s == 10.0
+
+
 def test_validate_steps_accepts_text_input_and_checks_interval() -> None:
     errors = validate_steps(
         [
@@ -139,7 +197,7 @@ def test_exec_step_taps_modifier_key_combo() -> None:
 def test_exec_step_runs_delay() -> None:
     runner = make_runner([])
     sleeps = []
-    runner.sleep = lambda ms: sleeps.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms)
 
     runner.exec_step({"type": "delay", "ms": 250}, (("steps", 0),))
 
@@ -397,7 +455,7 @@ def test_hold_key_until_gone_releases_when_template_never_found(qtbot, monkeypat
         "remaku.services.macro_runner.vision.match_template",
         lambda frame, template, match_mode="grayscale": (0.3, (0, 0)),
     )
-    runner.sleep = lambda ms: sleep_calls.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleep_calls.append(ms)
     runner.update = lambda **fields: updates.append(fields)
 
     runner.do_hold_key_until_gone(
@@ -425,11 +483,16 @@ def test_hold_key_until_gone_stops_when_runner_stops(monkeypatch) -> None:
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
     sleep_calls = []
 
-    def stop_after_tick(tick_start: float, period: float) -> None:
+    def stop_after_tick(
+        tick_start: float,
+        period: float,
+        pause_callback=None,
+        resume_callback=None,
+    ) -> None:
         sleep_calls.append(period)
         runner.status.running = False
 
-    runner.sleep = lambda ms: None
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
     runner.sleep_remaining = stop_after_tick
 
     runner.do_hold_key_until_gone(
@@ -449,7 +512,7 @@ def test_hold_key_until_gone_releases_after_grace_period(monkeypatch) -> None:
 
     monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", fake_match)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    runner.sleep = lambda ms: sleep_calls.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleep_calls.append(ms)
 
     runner.do_hold_key_until_gone(
         {
@@ -480,8 +543,8 @@ def test_hold_key_until_gone_returns_when_window_loses_foreground(monkeypatch) -
         "remaku.services.macro_runner.vision.match_template",
         lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
     )
-    runner.sleep = lambda ms: None
-    runner.sleep_remaining = lambda tick_start, period: None
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: None
 
     runner.do_hold_key_until_gone(
         {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0, "threshold": 0.8}
@@ -740,7 +803,7 @@ def test_hold_key_until_gone_raises_when_stop_requested(monkeypatch) -> None:
     runner = make_hold_key_runner()
     runner.stop_event.set()
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    runner.sleep = lambda ms: None
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
 
     with pytest.raises(Stopped):
         runner.do_hold_key_until_gone(
@@ -765,7 +828,7 @@ def test_hold_key_until_gone_sleeps_when_frame_is_missing(monkeypatch) -> None:
         lambda frame, template, match_mode="grayscale": (0.0, (0, 0)),
     )
     runner.grabber.grab = fake_grab
-    runner.sleep = lambda ms: sleep_calls.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleep_calls.append(ms)
 
     runner.do_hold_key_until_gone(
         {
@@ -799,8 +862,8 @@ def test_hold_key_until_gone_scales_template_and_releases_after_grace(monkeypatc
         "remaku.services.macro_runner.vision.match_template",
         lambda frame, template, match_mode="grayscale": next(match_returns),
     )
-    runner.sleep = lambda ms: None
-    runner.sleep_remaining = lambda tick_start, period: None
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: None
 
     runner.do_hold_key_until_gone(
         {
@@ -826,7 +889,7 @@ def test_hold_key_until_gone_releases_on_hard_timeout(monkeypatch) -> None:
         lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
     )
     monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
-    runner.sleep = lambda ms: None
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
 
     runner.do_hold_key_until_gone(
         {
@@ -873,7 +936,7 @@ def test_wait_for_template_position_handles_missing_frame_timeout_and_stop(monke
     sleeps = []
     frames = iter([None, np.ones((20, 30), dtype=np.uint8)])
     runner.capture_tick = lambda: next(frames)
-    runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: sleeps.append(period)
     monkeypatch.setattr(
         "remaku.services.macro_runner.vision.match_template",
         lambda frame, template, match_mode="grayscale": (0.0, (0, 0)),
@@ -898,7 +961,7 @@ def test_wait_for_template_position_sleeps_after_missed_match(monkeypatch) -> No
     sleeps = []
     times = iter([0.0, 0.0, 0.0, 0.2])
     runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
-    runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: sleeps.append(period)
     monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
     monkeypatch.setattr(
         "remaku.services.macro_runner.vision.match_template",

@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -29,6 +30,7 @@ class StopReason(StrEnum):
 @dataclass
 class Status:
     running: bool = False
+    paused: bool = False
     state: str = "-"
     score: float = 0.0
     match_id: str = ""
@@ -47,17 +49,26 @@ class Engine:
     def __init__(self) -> None:
         self.template_ids: list[str] = []
         self.stop_event = threading.Event()
+        self.resume_event = threading.Event()
+        self.control_event = threading.Event()
         self.thread: threading.Thread | None = None
         self.status = Status()
         self.lock = threading.Lock()
         self.start_time: float | None = None
+        self.paused_total_s = 0.0
+        self.paused_started_at: float | None = None
+        self.resume_event.set()
 
     def start(self) -> None:
         if self.thread and self.thread.is_alive():
             return
 
         self.stop_event.clear()
+        self.resume_event.set()
+        self.control_event.clear()
         self.start_time = time.monotonic()
+        self.paused_total_s = 0.0
+        self.paused_started_at = None
 
         with self.lock:
             self.status = Status(running=True)
@@ -67,15 +78,77 @@ class Engine:
 
     def stop(self) -> None:
         self.stop_event.set()
+        was_paused = self.clear_paused_state()
+        self.control_event.set()
+
+        if was_paused:
+            event_bus.macro_paused_changed.emit(False)
 
     def is_running(self) -> bool:
         return bool(self.thread and self.thread.is_alive())
+
+    def is_paused(self) -> bool:
+        with self.lock:
+            return self.status.paused
+
+    def pause(self) -> None:
+        with self.lock:
+            if not self.status.running or self.status.paused:
+                return
+
+            self.status.paused = True
+            self.status.state = "paused"
+            self.paused_started_at = time.monotonic()
+            self.resume_event.clear()
+
+        self.control_event.set()
+        event_bus.macro_paused_changed.emit(True)
+
+    def resume(self) -> None:
+        if not self.clear_paused_state():
+            return
+
+        event_bus.macro_paused_changed.emit(False)
+
+    def clear_paused_state(self) -> bool:
+        changed = False
+
+        with self.lock:
+            if self.status.paused:
+                now = time.monotonic()
+
+                if self.paused_started_at is not None:
+                    self.paused_total_s += now - self.paused_started_at
+
+                self.paused_started_at = None
+                self.status.paused = False
+
+                if self.status.state == "paused":
+                    self.status.state = "running"
+
+                changed = True
+
+        self.resume_event.set()
+        self.control_event.set()
+        return changed
+
+    def active_monotonic(self) -> float:
+        now = time.monotonic()
+
+        with self.lock:
+            paused_total_s = self.paused_total_s
+            paused_started_at = self.paused_started_at
+
+        if paused_started_at is not None:
+            paused_total_s += now - paused_started_at
+
+        return now - paused_total_s
 
     def get_status(self) -> Status:
         with self.lock:
             status = Status(**self.status.__dict__)
         if status.running and self.start_time is not None:
-            status.elapsed_s = time.monotonic() - self.start_time
+            status.elapsed_s = max(0.0, self.active_monotonic() - self.start_time)
         return status
 
     def run(self) -> None:
@@ -86,9 +159,9 @@ class Engine:
                 waiting_state = "waiting_window" if found_window is None else "waiting_foreground"
 
                 self.update(state=waiting_state)
+                self.checkpoint()
 
-                if self.stop_event.wait(1):
-                    raise Stopped
+                self.sleep(1000)
 
                 found_window = window.find_target_window(self.target_window)
         else:
@@ -148,13 +221,23 @@ class Engine:
     def finish(self, reason: StopReason, message: str) -> None:
         logger.info("{} finished: {} ({})", self.engine_id, reason.value, message)
 
+        elapsed_s = 0.0
+        if self.start_time is not None:
+            elapsed_s = max(0.0, self.active_monotonic() - self.start_time)
+
         with self.lock:
             self.status.running = False
+            self.status.paused = False
             self.status.last_reason = reason.value
             self.status.message = message
-            if self.start_time is not None:
-                self.status.elapsed_s = time.monotonic() - self.start_time
+            self.status.elapsed_s = elapsed_s
+            was_paused = self.paused_started_at is not None
+            self.paused_started_at = None
 
+        self.resume_event.set()
+        self.control_event.set()
+        if was_paused:
+            event_bus.macro_paused_changed.emit(False)
         event_bus.macro_running_changed.emit(False)
 
     def finish_user_stopped(self) -> None:
@@ -167,14 +250,72 @@ class Engine:
             jitter_ms=config_model.config.input.jitter_ms,
         )
 
-    def sleep(self, ms: float) -> None:
-        if self.stop_event.wait(ms / 1000):
+    def checkpoint(
+        self,
+        pause_callback: Callable[[], None] | None = None,
+        resume_callback: Callable[[], None] | None = None,
+    ) -> None:
+        if self.stop_event.is_set():
             raise Stopped
 
-    def sleep_remaining(self, tick_start: float, period: float) -> None:
-        elapsed = time.monotonic() - tick_start
-        if elapsed < period and self.stop_event.wait(period - elapsed):
+        if self.resume_event.is_set():
+            return
+
+        if pause_callback is not None:
+            pause_callback()
+
+        while not self.resume_event.is_set():
+            self.control_event.clear()
+
+            if self.stop_event.is_set():
+                raise Stopped
+
+            if self.resume_event.is_set():
+                break
+
+            self.control_event.wait()
+
+        if self.stop_event.is_set():
             raise Stopped
+
+        if resume_callback is not None:
+            resume_callback()
+
+    def sleep(
+        self,
+        ms: float,
+        pause_callback: Callable[[], None] | None = None,
+        resume_callback: Callable[[], None] | None = None,
+    ) -> None:
+        remaining = max(0.0, ms / 1000)
+
+        while remaining > 0:
+            self.control_event.clear()
+            self.checkpoint(pause_callback, resume_callback)
+            started_at = time.monotonic()
+
+            if not self.control_event.wait(remaining):
+                return
+
+            elapsed = time.monotonic() - started_at
+            remaining = max(0.0, remaining - elapsed)
+
+            if self.stop_event.is_set():
+                raise Stopped
+
+            if not self.resume_event.is_set():
+                self.checkpoint(pause_callback, resume_callback)
+
+    def sleep_remaining(
+        self,
+        tick_start: float,
+        period: float,
+        pause_callback: Callable[[], None] | None = None,
+        resume_callback: Callable[[], None] | None = None,
+    ) -> None:
+        elapsed = time.monotonic() - tick_start
+        if elapsed < period:
+            self.sleep((period - elapsed) * 1000, pause_callback, resume_callback)
 
     def refresh_found_window(self) -> bool:
         if not self.target_window:
@@ -195,6 +336,7 @@ class Engine:
 
         while not window.is_foreground(self.found_window):
             self.refresh_found_window()
+            self.checkpoint()
             self.sleep(250)
 
         self.update(state="running")
@@ -231,13 +373,12 @@ class Engine:
     def wait_for_template(self, template_id: str, timeout_ms: int, threshold: float) -> bool:
         period = 1.0 / max(1, config_model.config.capture.fps)
         template = self.templates[template_id]
-        deadline = time.monotonic() + timeout_ms / 1000.0
+        deadline = self.active_monotonic() + timeout_ms / 1000.0
         scaled_template: np.ndarray | None = None
 
         while True:
-            if self.stop_event.is_set():
-                raise Stopped
-            if time.monotonic() >= deadline:
+            self.checkpoint()
+            if self.active_monotonic() >= deadline:
                 return False
 
             tick_start = time.monotonic()
@@ -260,13 +401,12 @@ class Engine:
     def wait_for_any(self, template_ids: list[str], timeout_ms: int, threshold: float) -> str | None:
         period = 1.0 / max(1, config_model.config.capture.fps)
         template_list = [(template_id, self.templates[template_id]) for template_id in template_ids]
-        deadline = time.monotonic() + timeout_ms / 1000.0
+        deadline = self.active_monotonic() + timeout_ms / 1000.0
         scaled_list: list[tuple[str, np.ndarray]] | None = None
 
         while True:
-            if self.stop_event.is_set():
-                raise Stopped
-            if time.monotonic() >= deadline:
+            self.checkpoint()
+            if self.active_monotonic() >= deadline:
                 return None
 
             tick_start = time.monotonic()

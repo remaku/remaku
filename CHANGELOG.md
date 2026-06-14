@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Added
+
+- Macro execution can now be paused and resumed using a configurable hotkey (default: Ctrl+Alt+P) or the new pause button on the status overlay
+- New "Pause/Resume Hotkey" setting in General settings for customizing the global pause hotkey
+
+### Changed
+
+- Status overlay now has separate pause and stop buttons instead of a single toggle button
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 巨集執行現在可使用可自訂的熱鍵（預設：Ctrl+Alt+P）或狀態浮窗上的暫停按鈕來暫停和恢復
+- 通用設定中新增「暫停/繼續熱鍵」設定，可用於自訂全域暫停熱鍵
+
+### 變更
+
+- 狀態浮窗現在有獨立的暫停和停止按鈕，取代原本的單一切換按鈕
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 宏执行现在可使用可自定义的快捷键（默认：Ctrl+Alt+P）或状态浮窗上的暂停按钮来暂停和恢复
+- 通用设置中新增「暂停/继续快捷键」设置，可用于自定义全局暂停快捷键
+
+### 变更
+
+- 状态浮窗现在有独立的暂停和停止按钮，取代原本的单一切换按钮
+
 ## v0.7.0
 
 <!-- lang:en -->

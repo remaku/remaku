@@ -34,6 +34,7 @@ from remaku.models.macro_model import (
 )
 from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
+from remaku.views.components.hotkey_edit import HotkeyEdit
 from remaku.views.components.step_menu import show_step_menu
 from remaku.views.components.template_editor import TemplateEditor
 
@@ -205,46 +206,14 @@ class PropertyFormMixin:
 
     def add_hotkey_text_input(self, macro: Macro) -> None:
         self.add_field_label(QCoreApplication.translate("RightPanel", "Hotkey"))
-        hotkey_edit = LineEdit(self.content_widget)
+        hotkey_edit = HotkeyEdit(self.content_widget)
         hotkey_edit.setText(macro.meta.hotkey)
-        hotkey_edit.setPlaceholderText(QCoreApplication.translate("RightPanel", "Press a hotkey"))
-        hotkey_edit.setReadOnly(True)
-        hotkey_edit.setClearButtonEnabled(True)
 
         hotkey_edit.textChanged.connect(
-            lambda text: event_bus.macro_meta_changed.emit("hotkey", "") if not text else None
+            lambda text: event_bus.macro_meta_changed.emit("hotkey", text)
         )
-        hotkey_edit.keyPressEvent = lambda e: self.capture_hotkey(e, hotkey_edit)
 
         self.content_layout.addWidget(hotkey_edit)
-
-    def capture_hotkey(self, event: QKeyEvent, edit: LineEdit) -> None:
-        key = event.key()
-
-        if key in (
-            Qt.Key.Key_Shift,
-            Qt.Key.Key_Control,
-            Qt.Key.Key_Alt,
-            Qt.Key.Key_Meta,
-        ):
-            return
-
-        parts: list[str] = []
-        mods = event.modifiers()
-
-        if mods & Qt.KeyboardModifier.ControlModifier:
-            parts.append("ctrl")
-        if mods & Qt.KeyboardModifier.AltModifier:
-            parts.append("alt")
-        if mods & Qt.KeyboardModifier.ShiftModifier:
-            parts.append("shift")
-
-        key_name = QKeySequence(key).toString().lower()
-        parts.append(key_name)
-
-        hotkey_str = "+".join(parts)
-        edit.setText(hotkey_str)
-        event_bus.macro_meta_changed.emit("hotkey", hotkey_str)
 
     def add_key_input(self, label: str, value: str) -> None:
         self.add_field_label(label)

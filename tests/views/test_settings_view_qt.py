@@ -20,6 +20,7 @@ def test_settings_view_creates_expected_setting_widgets(monkeypatch, qtbot) -> N
     assert set(view.widgets) == {
         "general.always_on_top",
         "general.overlay_enabled",
+        "general.pause_hotkey",
         "general.check_update_on_startup",
         "general.update_channel",
         "general.theme",
@@ -29,12 +30,14 @@ def test_settings_view_creates_expected_setting_widgets(monkeypatch, qtbot) -> N
     }
     assert view.widgets["capture.fps"].text() == "10"
     assert view.widgets["input.jitter_ms"].text() == "60"
+    assert view.widgets["general.pause_hotkey"].text() == "ctrl+alt+p"
 
 
 def test_settings_view_applies_config_values_to_widgets(monkeypatch, qtbot) -> None:
     fake_config = FakeConfigModel()
     fake_config.config.general.always_on_top = True
     fake_config.config.general.overlay_enabled = False
+    fake_config.config.general.pause_hotkey = "ctrl+break"
     fake_config.config.general.update_channel = "beta"
     fake_config.config.general.theme = "dark"
     fake_config.config.general.language = "zh_TW"
@@ -47,6 +50,7 @@ def test_settings_view_applies_config_values_to_widgets(monkeypatch, qtbot) -> N
 
     always_on_top = view.widgets["general.always_on_top"]
     overlay_enabled = view.widgets["general.overlay_enabled"]
+    pause_hotkey = view.widgets["general.pause_hotkey"]
     update_channel = view.widgets["general.update_channel"]
     theme = view.widgets["general.theme"]
     language = view.widgets["general.language"]
@@ -57,6 +61,8 @@ def test_settings_view_applies_config_values_to_widgets(monkeypatch, qtbot) -> N
     assert always_on_top.isChecked()
     assert isinstance(overlay_enabled, CheckBox)
     assert not overlay_enabled.isChecked()
+    assert isinstance(pause_hotkey, LineEdit)
+    assert pause_hotkey.text() == "ctrl+break"
     assert isinstance(update_channel, ComboBox)
     assert update_channel.currentData() == "beta"
     assert isinstance(theme, ComboBox)

@@ -125,7 +125,7 @@ def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
     foreground_states = iter([False, False, True])
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: next(foreground_states))
     sleeps = []
-    runner.sleep = lambda ms: sleeps.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms)
 
     runner.foreground_tick()
 
@@ -180,7 +180,7 @@ def test_capture_tick_returns_none_when_window_not_foreground(monkeypatch) -> No
     runner.grabber = cast(Grabber, FakeGrabber(None))
     sleeps = []
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: False)
-    runner.sleep = lambda ms: sleeps.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms)
 
     assert runner.capture_tick() is None
     assert runner.status.state == "waiting_foreground"
@@ -289,7 +289,7 @@ def test_foreground_tick_does_nothing_without_window(monkeypatch) -> None:
         return True
 
     monkeypatch.setattr(engine.window, "is_foreground", is_foreground_side_effect)
-    runner.sleep = lambda ms: sleep_calls.append(ms)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleep_calls.append(ms)
 
     runner.foreground_tick()
 
@@ -381,10 +381,12 @@ def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
     found_window = object()
     windows = iter([None, found_window, found_window])
     foreground = iter([False, True])
-    waits = []
+    sleeps = []
     monkeypatch.setattr(engine.window, "find_target_window", lambda *args: next(windows))
     monkeypatch.setattr(engine.window, "is_foreground", lambda window: next(foreground))
-    monkeypatch.setattr(runner.stop_event, "wait", lambda seconds: waits.append(seconds) or False)
+    monkeypatch.setattr(
+        runner, "sleep", lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms) or None
+    )
     monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: False)
     monkeypatch.setattr(engine.window, "client_rect", lambda window: Rect(1, 2, 3, 4))
     monkeypatch.setattr(engine.capture, "make_grabber", lambda: ClosingGrabber())
@@ -392,7 +394,7 @@ def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
 
     runner.run()
 
-    assert waits == [1, 1]
+    assert sleeps == [1000, 1000]
     assert runner.status.state == "waiting_foreground"
 
 
@@ -400,7 +402,7 @@ def test_run_stops_while_waiting_for_named_target(monkeypatch) -> None:
     runner = SampleEngine()
     runner.target_window = "Game"
     monkeypatch.setattr(engine.window, "find_target_window", lambda *args: None)
-    monkeypatch.setattr(runner.stop_event, "wait", lambda seconds: True)
+    runner.stop()
 
     with pytest.raises(Stopped):
         runner.run()

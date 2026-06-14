@@ -10,6 +10,7 @@ def test_app_config_from_dict_merges_defaults_and_coerces_values() -> None:
                 "always_on_top": 1,
                 "macro_order": ["alpha", 123, "beta"],
                 "overlay_position": [12, "34"],
+                "pause_hotkey": "ctrl+break",
             },
             "capture": {"fps": "30"},
             "input": {"jitter_ms": "75"},
@@ -19,6 +20,7 @@ def test_app_config_from_dict_merges_defaults_and_coerces_values() -> None:
     assert config.general.always_on_top is True
     assert config.general.macro_order == ["alpha", "beta"]
     assert config.general.overlay_position == (12, 34)
+    assert config.general.pause_hotkey == "ctrl+break"
     assert config.capture.fps == 30
     assert config.input.jitter_ms == 75
 

@@ -4,6 +4,7 @@ from PySide6.QtCore import QObject, Signal
 class EventBus(QObject):
     switch_page_requested = Signal(str)
     overlay_toggled = Signal()
+    overlay_pause_toggled = Signal()
     overlay_position_changed = Signal(int, int)
     check_updates_requested = Signal()
     settings_changed = Signal()
@@ -15,6 +16,7 @@ class EventBus(QObject):
     macro_delete_requested = Signal(str)
     macro_duplicate_requested = Signal(str)
     macro_running_changed = Signal(bool)
+    macro_paused_changed = Signal(bool)
     step_selected = Signal(object)
     branch_selected = Signal(object, str)
     template_capture_requested = Signal(str)

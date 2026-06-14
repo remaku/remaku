@@ -58,6 +58,7 @@ class MainController(QObject):
 
     def translated_status_state(self, state: str) -> str:
         labels = {
+            "paused": self.tr("Paused"),
             "waiting_window": self.tr("Open the selected window to continue"),
             "waiting_foreground": self.tr("Switch back to the selected window to continue"),
         }
@@ -77,6 +78,7 @@ class MainController(QObject):
             return
 
         self.home_controller.highlight_current_step()
+        self.overlay.set_paused(status.paused)
 
         label = runner.label
         elapsed_prefix = ""
@@ -84,10 +86,15 @@ class MainController(QObject):
             elapsed = int(status.elapsed_s)
             elapsed_prefix = f"{elapsed // 60:02d}:{elapsed % 60:02d} | "
 
-        message = self.tr("Running: {label}").format(label=label)
-        message = f"{elapsed_prefix}{message}"
+        if status.paused:
+            message = f"{elapsed_prefix}{self.tr('Paused')}"
+        else:
+            message = self.tr("Running: {label}").format(label=label)
+            message = f"{elapsed_prefix}{message}"
 
-        if status.state and status.state not in ("-", "running"):
+        if status.paused:
+            pass
+        elif status.state and status.state not in ("-", "running"):
             message = f"{elapsed_prefix}{self.translated_status_state(status.state)}"
         else:
             if status.progress and status.repeat_total:

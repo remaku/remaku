@@ -161,6 +161,16 @@ def test_apply_setting_emits_overlay_change(monkeypatch, qtbot) -> None:
     assert fake_config.save_calls == 1
 
 
+def test_apply_setting_emits_change_for_pause_hotkey(monkeypatch, qtbot) -> None:
+    controller, fake_config, _main_window = make_controller(monkeypatch)
+
+    with qtbot.waitSignal(settings_controller.event_bus.settings_changed, timeout=100):
+        controller.apply_setting("general.pause_hotkey", "ctrl+break")
+
+    assert fake_config.config.general.pause_hotkey == "ctrl+break"
+    assert fake_config.save_calls == 1
+
+
 def test_on_checkbox_changed_converts_qt_state(monkeypatch) -> None:
     controller, fake_config, main_window = make_controller(monkeypatch)
 
@@ -202,6 +212,19 @@ def test_on_text_changed_applies_valid_integer(monkeypatch, qtbot) -> None:
     controller.on_text_changed("capture.fps")
 
     assert fake_config.config.capture.fps == 45
+    assert fake_config.save_calls == 1
+
+
+def test_on_text_changed_applies_pause_hotkey_text(monkeypatch, qtbot) -> None:
+    controller, fake_config, _main_window = make_controller(monkeypatch)
+    edit = LineEdit()
+    qtbot.addWidget(edit)
+    edit.setText(" Ctrl+Break ")
+    controller.view.widgets = {"general.pause_hotkey": edit}
+
+    controller.on_text_changed("general.pause_hotkey")
+
+    assert fake_config.config.general.pause_hotkey == "ctrl+break"
     assert fake_config.save_calls == 1
 
 

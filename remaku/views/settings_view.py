@@ -4,6 +4,7 @@ from qfluentwidgets import BodyLabel, CardWidget, CheckBox, ComboBox, LineEdit, 
 
 from remaku.core.i18n import settings_language_options
 from remaku.models.config_model import config_model
+from remaku.views.components.hotkey_edit import HotkeyEdit
 
 
 class SettingsView(ScrollArea):
@@ -11,7 +12,7 @@ class SettingsView(ScrollArea):
         super().__init__(parent)
 
         self.setObjectName("settings")
-        self.widgets: dict[str, CheckBox | ComboBox | LineEdit] = {}
+        self.widgets: dict[str, CheckBox | ComboBox | LineEdit | HotkeyEdit] = {}
 
         self.init_ui()
 
@@ -57,6 +58,11 @@ class SettingsView(ScrollArea):
             self.tr("Language"),
             config_model.config.general.language,
             settings_language_options(self.tr("System")),
+        )
+        self.add_hotkey_input(
+            "general.pause_hotkey",
+            self.tr("Pause/Resume Hotkey"),
+            config_model.config.general.pause_hotkey,
         )
 
         self.add_section(self.tr("Capture"))
@@ -114,6 +120,21 @@ class SettingsView(ScrollArea):
         layout.addStretch(1)
 
         edit = LineEdit(card)
+        edit.setText(value)
+        layout.addWidget(edit)
+
+        self.content_layout.addWidget(card)
+        self.widgets[key] = edit
+
+    def add_hotkey_input(self, key: str, label: str, value: str) -> None:
+        card = CardWidget(self.content_widget)
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(16, 12, 16, 12)
+
+        layout.addWidget(BodyLabel(label, card))
+        layout.addStretch(1)
+
+        edit = HotkeyEdit(card)
         edit.setText(value)
         layout.addWidget(edit)
 

@@ -25,14 +25,26 @@ class OverlayWidget(QWidget):
         layout.setContentsMargins(8, 6, 12, 6)
         layout.setSpacing(6)
 
-        self.button = QPushButton(self)
-        self.button.setFixedSize(24, 24)
-        self.button.setIconSize(QSize(16, 16))
-        self.button.setIcon(white_icon("pause"))
-        self.button.setStyleSheet(
+        button_style = (
             "QPushButton { background: rgba(255, 255, 255, 40); border: none; border-radius: 4px; }"
             "QPushButton:hover { background: rgba(255, 255, 255, 80); }"
         )
+
+        self.pause_button = QPushButton(self)
+        self.pause_button.setFixedSize(24, 24)
+        self.pause_button.setIconSize(QSize(16, 16))
+        self.pause_button.setIcon(white_icon("pause"))
+        self.pause_button.setToolTip(self.tr("Pause"))
+        self.pause_button.setStyleSheet(button_style)
+        self.pause_button.clicked.connect(event_bus.overlay_pause_toggled.emit)
+        layout.addWidget(self.pause_button)
+
+        self.button = QPushButton(self)
+        self.button.setFixedSize(24, 24)
+        self.button.setIconSize(QSize(16, 16))
+        self.button.setIcon(white_icon("stop"))
+        self.button.setToolTip(self.tr("Stop"))
+        self.button.setStyleSheet(button_style)
         self.button.clicked.connect(event_bus.overlay_toggled.emit)
         layout.addWidget(self.button)
 
@@ -45,6 +57,12 @@ class OverlayWidget(QWidget):
     def set_text(self, text: str) -> None:
         self.label.setText(text)
         self.adjustSize()
+
+    def set_paused(self, paused: bool) -> None:
+        icon_name = "play" if paused else "pause"
+        tooltip = self.tr("Resume") if paused else self.tr("Pause")
+        self.pause_button.setIcon(white_icon(icon_name))
+        self.pause_button.setToolTip(tooltip)
 
     def show(self) -> None:
         super().show()

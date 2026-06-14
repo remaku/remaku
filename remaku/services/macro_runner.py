@@ -1,4 +1,5 @@
 import time
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +34,7 @@ from remaku.models.macro_model import (
     get_step_threshold,
     get_step_timeout,
 )
-from remaku.services.engine import Engine, Stopped, StopReason
+from remaku.services.engine import Engine, StopReason
 
 REQUIRED_FIELDS: dict[str, list[tuple[str, type | tuple[type, ...]]]] = {
     "key": [("key", str)],
@@ -172,8 +173,8 @@ class MacroRunner(Engine):
         branch_key: str = "steps",
     ) -> None:
         for index, step in enumerate(steps):
-            if self.stop_event.is_set():
-                raise Stopped
+            self.checkpoint()
+
             if not self.status.running:
                 return
 
@@ -189,6 +190,7 @@ class MacroRunner(Engine):
         if step.get("skip"):
             return
 
+        self.checkpoint()
         action = step["type"]
 
         details = ""
@@ -214,12 +216,15 @@ class MacroRunner(Engine):
 
         if action == "key":
             self.tap(get_step_key(step), hold_ms=get_step_hold_ms(step))
+            self.checkpoint()
 
         elif action == "delay":
             self.sleep(get_step_ms(step))
 
         elif action == "text_input":
+            self.checkpoint()
             keys.type_text(get_step_text(step), get_step_interval_ms(step))
+            self.checkpoint()
 
         elif action == "wait_image":
             timeout = get_step_timeout(step)
@@ -375,7 +380,9 @@ class MacroRunner(Engine):
                 keys.mouse_move(*position)
 
         elif action == "mouse_scroll":
+            self.checkpoint()
             keys.mouse_scroll(get_step_scroll_clicks(step), get_step_interval_ms(step))
+            self.checkpoint()
 
         else:
             logger.warning("macro: unknown action type '{}'", action)
@@ -395,17 +402,38 @@ class MacroRunner(Engine):
 
         self.sleep(load_delay_ms)
 
-        drive_start = time.monotonic()
+        drive_start = self.active_monotonic()
         last_seen_at: float | None = None
 
         logger.info(
             "{}: holding {}, waiting for {} to disappear", self.engine_id, key, self.template_label(template_id)
         )
 
-        with keys.held(key):
+        held_context: AbstractContextManager | None = None
+
+        def press_key() -> None:
+            nonlocal held_context
+
+            if held_context is not None:
+                return
+
+            held_context = keys.held(key)
+            held_context.__enter__()
+
+        def release_key() -> None:
+            nonlocal held_context
+
+            if held_context is None:
+                return
+
+            held_context.__exit__(None, None, None)
+            held_context = None
+
+        press_key()
+
+        try:
             while True:
-                if self.stop_event.is_set():
-                    raise Stopped
+                self.checkpoint(release_key, press_key)
 
                 if not self.status.running:
                     return
@@ -418,7 +446,7 @@ class MacroRunner(Engine):
 
                 frame = self.grabber.grab(self.capture_rect)
                 if frame is None:
-                    self.sleep(period * 1000)
+                    self.sleep(period * 1000, release_key, press_key)
                     continue
 
                 if scaled_template is None:
@@ -431,7 +459,7 @@ class MacroRunner(Engine):
                 score, _ = vision.match_template(frame, scaled_template, self.template_match_mode(template_id))
                 self.update(score=score, match_id=template_id)
 
-                now = time.monotonic()
+                now = self.active_monotonic()
                 elapsed_ms = (now - drive_start) * 1000
 
                 if score >= threshold:
@@ -468,7 +496,9 @@ class MacroRunner(Engine):
                     )
                     return
 
-                self.sleep_remaining(tick_start, period)
+                self.sleep_remaining(tick_start, period, release_key, press_key)
+        finally:
+            release_key()
 
     def resolve_mouse_position(self, step: dict) -> tuple[int, int] | None:
         x = get_step_mouse_x(step)
@@ -483,13 +513,12 @@ class MacroRunner(Engine):
     def wait_for_template_position(self, template_id: str, timeout_ms: int, threshold: float) -> tuple[bool, int, int]:
         period = 1.0 / max(1, config_model.config.capture.fps)
         template = self.templates[template_id]
-        deadline = time.monotonic() + timeout_ms / 1000.0
+        deadline = self.active_monotonic() + timeout_ms / 1000.0
         scaled_template: np.ndarray | None = None
 
         while True:
-            if self.stop_event.is_set():
-                raise Stopped
-            if time.monotonic() >= deadline:
+            self.checkpoint()
+            if self.active_monotonic() >= deadline:
                 return False, 0, 0
 
             tick_start = time.monotonic()

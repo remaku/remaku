@@ -22,6 +22,7 @@ from remaku.models.macro_model import (
 )
 from remaku.views.components import center_panel, left_panel, right_panel
 from remaku.views.components.center_panel import CenterPanel
+from remaku.views.components.hotkey_edit import HotkeyEdit
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
 
@@ -579,10 +580,9 @@ def test_right_panel_capture_key_ignores_modifier_only_key(qtbot) -> None:
 
 
 def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
+    edit = HotkeyEdit()
     qtbot.addWidget(edit)
+    edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
     event = QKeyEvent(
         QKeyEvent.Type.KeyPress,
         Qt.Key.Key_F1,
@@ -590,34 +590,31 @@ def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
     )
 
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
-        panel.capture_hotkey(event, edit)
+        edit.keyPressEvent(event)
 
     assert edit.text() == "ctrl+alt+f1"
     assert blocker.args == ["hotkey", "ctrl+alt+f1"]
 
 
 def test_right_panel_capture_hotkey_includes_shift_modifier(qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
+    edit = HotkeyEdit()
     qtbot.addWidget(edit)
+    edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
     event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_F2, Qt.KeyboardModifier.ShiftModifier)
 
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
-        panel.capture_hotkey(event, edit)
+        edit.keyPressEvent(event)
 
     assert edit.text() == "shift+f2"
     assert blocker.args == ["hotkey", "shift+f2"]
 
 
 def test_right_panel_capture_hotkey_ignores_modifier_only_key(qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
+    edit = HotkeyEdit()
     qtbot.addWidget(edit)
     event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Control, Qt.KeyboardModifier.ControlModifier)
 
-    panel.capture_hotkey(event, edit)
+    edit.keyPressEvent(event)
 
     assert edit.text() == ""
 

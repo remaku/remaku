@@ -136,6 +136,7 @@ class HomeController(QObject):
         }
 
         event_bus.overlay_toggled.connect(self.run_current_macro)
+        event_bus.overlay_pause_toggled.connect(self.toggle_current_macro_pause)
         event_bus.action_triggered.connect(self.handle_action)
         event_bus.new_macro_requested.connect(self.handle_new_macro)
         event_bus.macro_selected.connect(self.handle_macro_selected)
@@ -156,6 +157,8 @@ class HomeController(QObject):
         event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
         event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
         event_bus.macros_changed.connect(self.refresh_macro_list)
+        event_bus.macro_paused_changed.connect(self.handle_macro_paused_changed)
+        event_bus.settings_changed.connect(self.register_hotkeys)
 
         self.view.center_panel.step_list.itemSelectionChanged.connect(self.update_step_action_state)
 
@@ -1266,6 +1269,16 @@ class HomeController(QObject):
         event_bus.macro_running_changed.emit(True)
         self.view.set_status_text(self.tr("Running macro: {name}").format(name=self.current_runner.label))
 
+    def toggle_current_macro_pause(self) -> None:
+        if self.current_runner is None or not self.current_runner.is_running():
+            return
+
+        if self.current_runner.is_paused():
+            self.current_runner.resume()
+            return
+
+        self.current_runner.pause()
+
     def handle_macro_running_changed(self, is_running: bool) -> None:
         self.set_editing_locked(is_running)
 
@@ -1283,6 +1296,17 @@ class HomeController(QObject):
             elif status.message:
                 translated = self.translate_status_message(status.message)
                 self.view.set_status_text(f"{self.current_runner.label}: {translated}")
+
+    def handle_macro_paused_changed(self, is_paused: bool) -> None:
+        if self.current_runner is None:
+            return
+
+        if is_paused:
+            self.view.set_status_text(self.tr("Paused"))
+            return
+
+        if self.current_runner.is_running():
+            self.view.set_status_text(self.tr("Running macro: {name}").format(name=self.current_runner.label))
 
     def translate_status_message(self, message: str) -> str:
         if ": " in message:
@@ -1414,6 +1438,10 @@ class HomeController(QObject):
         self.hotkey_service.register_hotkeys()
 
     def handle_hotkey_triggered(self, hid: int) -> None:
+        if self.hotkey_service.is_pause_hotkey(hid):
+            self.toggle_current_macro_pause()
+            return
+
         macro_id = self.hotkey_service.macro_id_for_hotkey(hid)
         if macro_id is None:
             return

@@ -24,12 +24,16 @@ class FakeOverlay:
         self.text = ""
         self.show_calls = 0
         self.hide_calls = 0
+        self.paused_values: list[bool] = []
 
     def move(self, x: int, y: int) -> None:
         self.moved_to = (x, y)
 
     def set_text(self, text: str) -> None:
         self.text = text
+
+    def set_paused(self, paused: bool) -> None:
+        self.paused_values.append(paused)
 
     def show(self) -> None:
         self.show_calls += 1
@@ -231,6 +235,7 @@ def test_refresh_overlay_shows_running_status(monkeypatch) -> None:
 
     assert home.highlight_calls == 1
     assert overlay.show_calls == 1
+    assert overlay.paused_values == [False]
     assert "Sample" in overlay.text
     assert "Loop 1/3" in overlay.text
     assert "step:key" in overlay.text
@@ -248,16 +253,17 @@ def test_refresh_overlay_uses_waiting_state_message(monkeypatch) -> None:
     assert overlay.text == "Open the selected window to continue"
 
 
-def test_refresh_overlay_uses_elapsed_time_and_unknown_state(monkeypatch) -> None:
+def test_refresh_overlay_uses_elapsed_time_and_paused_state(monkeypatch) -> None:
     controller, fake_config, home, overlay, _window = make_controller(monkeypatch)
     fake_config.config.general.overlay_enabled = True
-    runner = FakeRunner(Status(running=True, state="paused", elapsed_s=125))
+    runner = FakeRunner(Status(running=True, paused=True, state="paused", elapsed_s=125))
     runner.start_time = object()
     home.current_runner = runner
 
     controller.refresh_overlay()
 
-    assert overlay.text == "02:05 | paused"
+    assert overlay.text == "02:05 | Paused"
+    assert overlay.paused_values == [True]
     assert overlay.show_calls == 1
 
 

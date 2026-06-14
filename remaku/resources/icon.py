@@ -26,6 +26,7 @@ class RemakuIcon(FluentIconBase, Enum):
     REDO = "redo-2"
     REPEAT = "repeat"
     SCAN_SEARCH = "scan-search"
+    STOP = "stop"
     TRASH = "trash-2"
     UNDO = "undo-2"
 

@@ -24,6 +24,14 @@ def test_overlay_button_emits_toggle(qtbot) -> None:
         qtbot.mouseClick(overlay.button, Qt.MouseButton.LeftButton)
 
 
+def test_overlay_pause_button_emits_pause_toggle(qtbot) -> None:
+    overlay = OverlayWidget()
+    qtbot.addWidget(overlay)
+
+    with qtbot.waitSignal(event_bus.overlay_pause_toggled, timeout=100):
+        qtbot.mouseClick(overlay.pause_button, Qt.MouseButton.LeftButton)
+
+
 def test_overlay_mouse_release_emits_position(qtbot) -> None:
     overlay = OverlayWidget()
     qtbot.addWidget(overlay)
@@ -102,6 +110,17 @@ def test_white_icon_uses_white_svg_resource_path(monkeypatch) -> None:
     white_icon("pause")
 
     assert paths == [":/remaku/icons/pause-white.svg"]
+
+
+def test_overlay_set_paused_switches_pause_button_tooltip(qtbot) -> None:
+    widget = OverlayWidget()
+    qtbot.addWidget(widget)
+
+    widget.set_paused(True)
+    assert widget.pause_button.toolTip() == "Resume"
+
+    widget.set_paused(False)
+    assert widget.pause_button.toolTip() == "Pause"
 
 
 def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) -> None:

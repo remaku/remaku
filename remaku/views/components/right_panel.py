@@ -209,9 +209,7 @@ class PropertyFormMixin:
         hotkey_edit = HotkeyEdit(self.content_widget)
         hotkey_edit.setText(macro.meta.hotkey)
 
-        hotkey_edit.textChanged.connect(
-            lambda text: event_bus.macro_meta_changed.emit("hotkey", text)
-        )
+        hotkey_edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
 
         self.content_layout.addWidget(hotkey_edit)
 

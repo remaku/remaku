@@ -289,6 +289,21 @@ def test_build_template_capture_sizes_uses_template_metadata(monkeypatch) -> Non
     assert sizes == {"start": (320, 180), "full": (1920, 1080)}
 
 
+def test_build_template_capture_sizes_returns_empty_for_non_gaming_mode() -> None:
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "runner", "label": "Runner"},
+            "gaming_mode": False,
+            "templates": {"start": {"capture_width": 320, "capture_height": 180}},
+            "steps": [],
+        }
+    )
+    runner = MacroRunner(macro)
+    runner.templates = {"start": np.zeros((10, 10))}
+
+    assert runner.build_template_capture_sizes() == {}
+
+
 def test_grid_nav_chooses_row_then_col_branches() -> None:
     runner = make_runner([])
     calls = []
@@ -568,7 +583,9 @@ def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
     runner = make_runner([])
     runner.capture_rect = Rect(100, 200, 300, 400)
     calls = []
-    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: calls.append((button, x, y)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: calls.append((button, x, y))
+    )
 
     runner.exec_step(
         {"type": "mouse_click", "button": "right", "target": "coordinate", "x": 10, "y": 20, "relative": True},
@@ -583,7 +600,9 @@ def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_
     clicks = []
     finishes = []
     runner.finish = lambda reason, message: finishes.append((reason, message))
-    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: clicks.append((button, x, y)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: clicks.append((button, x, y))
+    )
 
     runner.exec_step(
         {"type": "mouse_click", "button": "left", "target": "template", "template": "", "on_timeout": "stop"},
@@ -651,7 +670,10 @@ def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch)
 def test_exec_step_mouse_scroll_uses_clicks_and_interval(monkeypatch) -> None:
     runner = make_runner([])
     calls = []
-    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_scroll", lambda clicks, interval_ms: calls.append((clicks, interval_ms)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.mouse_scroll",
+        lambda clicks, interval_ms: calls.append((clicks, interval_ms)),
+    )
 
     runner.exec_step({"type": "mouse_scroll", "clicks": -5, "interval_ms": 25}, (("steps", 0),))
 

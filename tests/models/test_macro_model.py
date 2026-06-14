@@ -93,8 +93,18 @@ def test_macro_to_dict_keeps_legacy_name_key(sample_macro_dict: dict) -> None:
     data = macro.to_dict()
 
     assert data["meta"]["name"] == "sample"
+    assert data["gaming_mode"] is True
     assert data["steps"][1]["steps"][1]["template"] == "start"
     assert data["steps"][2]["else_"][0]["ms"] == 50
+
+
+def test_macro_gaming_mode_defaults_and_round_trips(sample_macro_dict: dict) -> None:
+    legacy_macro = Macro.from_dict(sample_macro_dict)
+    non_gaming_macro = Macro.from_dict({**sample_macro_dict, "gaming_mode": False})
+
+    assert legacy_macro.gaming_mode is True
+    assert non_gaming_macro.gaming_mode is False
+    assert Macro.from_dict(non_gaming_macro.to_dict()).gaming_mode is False
 
 
 def test_grid_nav_parses_nested_branches() -> None:

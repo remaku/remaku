@@ -778,11 +778,13 @@ def test_handle_macro_meta_changed_saves_and_registers_hotkeys() -> None:
     controller.register_hotkeys = lambda: calls.append("register")
 
     controller.handle_macro_meta_changed("enabled", "True")
+    controller.handle_macro_meta_changed("gaming_mode", "False")
     controller.handle_macro_meta_changed("label", "Renamed")
 
     assert macro.meta.enabled is True
+    assert macro.gaming_mode is False
     assert macro.meta.label == "Renamed"
-    assert model.saved == [macro, macro]
+    assert model.saved == [macro, macro, macro]
     assert calls == ["register"]
 
 

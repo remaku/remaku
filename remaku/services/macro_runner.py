@@ -146,6 +146,9 @@ class MacroRunner(Engine):
             self.finish(StopReason.DONE, "done")
 
     def build_template_capture_sizes(self) -> dict[str, tuple[int, int] | None]:
+        if not self.macro.get("gaming_mode", True):
+            return {}
+
         screen_width, screen_height = window.screen_resolution()
         templates_meta = self.macro.get("templates", {})
         result: dict[str, tuple[int, int] | None] = {}

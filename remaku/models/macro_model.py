@@ -443,6 +443,7 @@ def parse_steps(raw_steps: Any) -> list[Step]:
 @dataclass(slots=True)
 class Macro:
     meta: MacroMeta = field(default_factory=MacroMeta)
+    gaming_mode: bool = True
     templates: dict[str, TemplateInfo] = field(default_factory=dict)
     steps: list[Step] = field(default_factory=list)
 
@@ -471,7 +472,12 @@ class Macro:
 
         steps = parse_steps(data.get("steps", []))
 
-        return cls(meta=meta, templates=templates, steps=steps)
+        return cls(
+            meta=meta,
+            gaming_mode=bool(data.get("gaming_mode", True)),
+            templates=templates,
+            steps=steps,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -482,6 +488,7 @@ class Macro:
                 "hotkey": self.meta.hotkey,
                 "enabled": self.meta.enabled,
             },
+            "gaming_mode": self.gaming_mode,
             "templates": {
                 template_id: {
                     "label": template_data.label,

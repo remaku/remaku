@@ -823,6 +823,11 @@
     </message>
     <message>
         <location filename="../../views/components/right_panel.py" line="302"/>
+        <source>Gaming Mode</source>
+        <translation>遊戲模式</translation>
+    </message>
+    <message>
+        <location filename="../../views/components/right_panel.py" line="302"/>
         <source>Skip</source>
         <translation>跳過</translation>
     </message>

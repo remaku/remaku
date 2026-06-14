@@ -298,6 +298,16 @@ class PropertyFormMixin:
 
         self.content_layout.addWidget(enabled_checkbox)
 
+    def add_gaming_mode_checkbox(self, macro: Macro) -> None:
+        gaming_mode_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Gaming Mode"), self.content_widget)
+        gaming_mode_checkbox.setChecked(macro.gaming_mode)
+
+        gaming_mode_checkbox.checkStateChanged.connect(
+            lambda state: event_bus.macro_meta_changed.emit("gaming_mode", str(state == Qt.CheckState.Checked))
+        )
+
+        self.content_layout.addWidget(gaming_mode_checkbox)
+
     def add_skip_checkbox(self, value: bool, enabled: bool = True) -> None:
         skip_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Skip"), self.content_widget)
         skip_checkbox.setChecked(value)
@@ -714,6 +724,7 @@ class RightPanel(ScrollArea, PropertyFormMixin):
         self.add_target_window_combo(macro)
         self.add_hotkey_text_input(macro)
         self.add_enabled_checkbox(macro)
+        self.add_gaming_mode_checkbox(macro)
 
     def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
         self.clear_content()

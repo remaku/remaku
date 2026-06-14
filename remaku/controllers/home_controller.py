@@ -598,6 +598,8 @@ class HomeController(QObject):
 
         if field == "enabled":
             setattr(self.current_macro.meta, field, value.lower() == "true")
+        elif field == "gaming_mode":
+            self.current_macro.gaming_mode = value.lower() == "true"
         else:
             setattr(self.current_macro.meta, field, value)
 

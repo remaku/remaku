@@ -708,6 +708,22 @@ def test_right_panel_enabled_checkbox_emits_macro_meta(qtbot) -> None:
     assert blocker.args == ["enabled", "True"]
 
 
+def test_right_panel_gaming_mode_checkbox_emits_macro_meta(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(gaming_mode=False)
+    panel.add_gaming_mode_checkbox(macro)
+    item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
+    assert item is not None
+    checkbox = item.widget()
+    assert checkbox is not None
+
+    with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
+        qtbot.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+
+    assert blocker.args == ["gaming_mode", "True"]
+
+
 def test_right_panel_show_step_properties_for_remaining_step_types(monkeypatch, qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)

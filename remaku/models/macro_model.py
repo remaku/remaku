@@ -21,6 +21,12 @@ DEFAULT_TEXT_INPUT_TEXT = ""
 DEFAULT_TEXT_INPUT_INTERVAL_MS = 0
 DEFAULT_STEP_SKIP = False
 DEFAULT_STEP_NOTE = ""
+DEFAULT_MOUSE_BUTTON = "left"
+DEFAULT_MOUSE_X = 0
+DEFAULT_MOUSE_Y = 0
+DEFAULT_MOUSE_TARGET = "coordinate"
+DEFAULT_MOUSE_RELATIVE = True
+DEFAULT_MOUSE_SCROLL_CLICKS = 3
 
 
 @dataclass(slots=True)
@@ -176,6 +182,9 @@ type Step = (
     | IfImageStep
     | IfAnyImageStep
     | GridNavStep
+    | MouseClickStep
+    | MouseMoveStep
+    | MouseScrollStep
 )
 
 
@@ -295,6 +304,101 @@ class GridNavStep:
         return step_to_dict(self)
 
 
+@dataclass(slots=True)
+class MouseClickStep:
+    type: str = "mouse_click"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    button: str = DEFAULT_MOUSE_BUTTON
+    target: str = DEFAULT_MOUSE_TARGET
+    x: int = DEFAULT_MOUSE_X
+    y: int = DEFAULT_MOUSE_Y
+    relative: bool = DEFAULT_MOUSE_RELATIVE
+    template: str = ""
+    threshold: float = DEFAULT_THRESHOLD
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    on_timeout: str = DEFAULT_ON_TIMEOUT
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MouseClickStep":
+        default = cls()
+
+        return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
+            button=str(data.get("button", default.button)),
+            target=str(data.get("target", default.target)),
+            x=int(data.get("x", default.x)),
+            y=int(data.get("y", default.y)),
+            relative=bool(data.get("relative", default.relative)),
+            template=str(data.get("template", default.template)),
+            threshold=float(data.get("threshold", default.threshold)),
+            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            on_timeout=str(data.get("on_timeout", default.on_timeout)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
+@dataclass(slots=True)
+class MouseMoveStep:
+    type: str = "mouse_move"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    target: str = DEFAULT_MOUSE_TARGET
+    x: int = DEFAULT_MOUSE_X
+    y: int = DEFAULT_MOUSE_Y
+    relative: bool = DEFAULT_MOUSE_RELATIVE
+    template: str = ""
+    threshold: float = DEFAULT_THRESHOLD
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    on_timeout: str = DEFAULT_ON_TIMEOUT
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MouseMoveStep":
+        default = cls()
+
+        return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
+            target=str(data.get("target", default.target)),
+            x=int(data.get("x", default.x)),
+            y=int(data.get("y", default.y)),
+            relative=bool(data.get("relative", default.relative)),
+            template=str(data.get("template", default.template)),
+            threshold=float(data.get("threshold", default.threshold)),
+            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            on_timeout=str(data.get("on_timeout", default.on_timeout)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
+@dataclass(slots=True)
+class MouseScrollStep:
+    type: str = "mouse_scroll"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    clicks: int = DEFAULT_MOUSE_SCROLL_CLICKS
+    interval_ms: int = DEFAULT_TEXT_INPUT_INTERVAL_MS
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MouseScrollStep":
+        default = cls()
+
+        return cls(
+            skip=bool(data.get("skip", default.skip)),
+            note=str(data.get("note", default.note)),
+            clicks=int(data.get("clicks", default.clicks)),
+            interval_ms=int(data.get("interval_ms", default.interval_ms)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
 STEP_TYPE_REGISTRY: dict[str, type[Step]] = {
     "key": KeyStep,
     "delay": DelayStep,
@@ -305,6 +409,9 @@ STEP_TYPE_REGISTRY: dict[str, type[Step]] = {
     "if_image": IfImageStep,
     "if_any_image": IfAnyImageStep,
     "grid_nav": GridNavStep,
+    "mouse_click": MouseClickStep,
+    "mouse_move": MouseMoveStep,
+    "mouse_scroll": MouseScrollStep,
 }
 
 
@@ -518,3 +625,27 @@ def get_step_text(step: dict) -> str:
 
 def get_step_interval_ms(step: dict) -> int:
     return step.get("interval_ms", DEFAULT_TEXT_INPUT_INTERVAL_MS)
+
+
+def get_step_button(step: dict) -> str:
+    return step.get("button", DEFAULT_MOUSE_BUTTON)
+
+
+def get_step_mouse_target(step: dict) -> str:
+    return step.get("target", DEFAULT_MOUSE_TARGET)
+
+
+def get_step_mouse_x(step: dict) -> int:
+    return step.get("x", DEFAULT_MOUSE_X)
+
+
+def get_step_mouse_y(step: dict) -> int:
+    return step.get("y", DEFAULT_MOUSE_Y)
+
+
+def get_step_mouse_relative(step: dict) -> bool:
+    return step.get("relative", DEFAULT_MOUSE_RELATIVE)
+
+
+def get_step_scroll_clicks(step: dict) -> int:
+    return step.get("clicks", DEFAULT_MOUSE_SCROLL_CLICKS)

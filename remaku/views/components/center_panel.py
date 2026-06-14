@@ -18,6 +18,9 @@ STEP_TYPE_ICONS = {
     "if_image": RemakuIcon.SCAN_SEARCH,
     "if_any_image": RemakuIcon.IMAGES,
     "grid_nav": RemakuIcon.GRID_3X3,
+    "mouse_click": RemakuIcon.MOUSE_POINTER_CLICK,
+    "mouse_move": RemakuIcon.MOUSE_POINTER,
+    "mouse_scroll": RemakuIcon.CHEVRONS_UP_DOWN,
 }
 
 

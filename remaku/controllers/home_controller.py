@@ -28,6 +28,9 @@ from remaku.models.macro_model import (
     MacroMeta,
     MacroModel,
     MacroSummary,
+    MouseClickStep,
+    MouseMoveStep,
+    MouseScrollStep,
     RepeatStep,
     Step,
     TextInputStep,
@@ -619,7 +622,7 @@ class HomeController(QObject):
         self.refresh_selected_step()
 
     def parse_step_property(self, key: str, value: str) -> int | float | bool | str:
-        if key == "skip":
+        if key in ("skip", "relative"):
             return value.lower() == "true"
 
         if key in (
@@ -634,6 +637,9 @@ class HomeController(QObject):
             "rows",
             "start",
             "interval_ms",
+            "clicks",
+            "x",
+            "y",
         ):
             return int(value)
 
@@ -887,6 +893,37 @@ class HomeController(QObject):
                 label = self.tr("If any image {templates}").format(templates=templates)
             case "grid_nav":
                 label = self.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
+            case "mouse_click":
+                button = step.get("button", "left")
+                button_labels = {"left": self.tr("Left"), "right": self.tr("Right"), "middle": self.tr("Middle")}
+                button_display = button_labels.get(button, button)
+                target = step.get("target", "coordinate")
+
+                if target == "template":
+                    label = self.tr("Click {button} at {template}").format(
+                        button=button_display,
+                        template=self.get_template_label(step.get("template", "")),
+                    )
+                else:
+                    label = self.tr("Click {button} at ({x}, {y})").format(
+                        button=button_display,
+                        x=step.get("x", 0),
+                        y=step.get("y", 0),
+                    )
+            case "mouse_move":
+                target = step.get("target", "coordinate")
+
+                if target == "template":
+                    label = self.tr("Move to {template}").format(
+                        template=self.get_template_label(step.get("template", "")),
+                    )
+                else:
+                    label = self.tr("Move to ({x}, {y})").format(
+                        x=step.get("x", 0),
+                        y=step.get("y", 0),
+                    )
+            case "mouse_scroll":
+                label = self.tr("Scroll {clicks}").format(clicks=step.get("clicks", 3))
             case _:
                 label = step_type
 
@@ -1071,6 +1108,9 @@ class HomeController(QObject):
             "if_image": IfImageStep,
             "if_any_image": IfAnyImageStep,
             "grid_nav": GridNavStep,
+            "mouse_click": MouseClickStep,
+            "mouse_move": MouseMoveStep,
+            "mouse_scroll": MouseScrollStep,
         }
 
         factory = factories.get(step_type)

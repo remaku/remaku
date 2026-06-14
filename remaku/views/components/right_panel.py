@@ -25,6 +25,9 @@ from remaku.models.macro_model import (
     IfImageStep,
     KeyStep,
     Macro,
+    MouseClickStep,
+    MouseMoveStep,
+    MouseScrollStep,
     RepeatStep,
     Step,
     TextInputStep,
@@ -57,6 +60,9 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "rows",
         "start",
         "interval_ms",
+        "clicks",
+        "x",
+        "y",
     }
 )
 
@@ -517,6 +523,131 @@ class GridNavStepPropertiesWidget(StepPropertiesWidget):
         self.add_text_input(QCoreApplication.translate("RightPanel", "Start Cell"), str(self.step.start), "start")
 
 
+class MouseClickStepPropertiesWidget(StepPropertiesWidget):
+    step: MouseClickStep
+
+    def add_step_fields(self) -> None:
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "Button"),
+            self.step.button,
+            [
+                (QCoreApplication.translate("RightPanel", "Left"), "left"),
+                (QCoreApplication.translate("RightPanel", "Right"), "right"),
+                (QCoreApplication.translate("RightPanel", "Middle"), "middle"),
+            ],
+            "button",
+        )
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "Target"),
+            self.step.target,
+            [
+                (QCoreApplication.translate("RightPanel", "Coordinate"), "coordinate"),
+                (QCoreApplication.translate("RightPanel", "Image Center"), "template"),
+            ],
+            "target",
+        )
+
+        if self.step.target == "coordinate":
+            self.add_text_input("X", str(self.step.x), "x")
+            self.add_text_input("Y", str(self.step.y), "y")
+            self.add_dropdown(
+                QCoreApplication.translate("RightPanel", "Relative"),
+                "true" if self.step.relative else "false",
+                [
+                    (QCoreApplication.translate("RightPanel", "Client"), "true"),
+                    (QCoreApplication.translate("RightPanel", "Absolute"), "false"),
+                ],
+                "relative",
+            )
+        else:
+            self.add_template_editor(self.macro, self.step.template)
+            self.add_slider(
+                QCoreApplication.translate("RightPanel", "Threshold"),
+                self.step.threshold,
+                property_key="threshold",
+            )
+            self.add_text_input(
+                QCoreApplication.translate("RightPanel", "Timeout (ms)"),
+                str(self.step.timeout_ms),
+                "timeout_ms",
+            )
+            self.add_dropdown(
+                QCoreApplication.translate("RightPanel", "On Timeout"),
+                self.step.on_timeout,
+                [
+                    (QCoreApplication.translate("RightPanel", "Stop"), "stop"),
+                    (QCoreApplication.translate("RightPanel", "Continue"), "continue"),
+                ],
+                "on_timeout",
+            )
+
+
+class MouseMoveStepPropertiesWidget(StepPropertiesWidget):
+    step: MouseMoveStep
+
+    def add_step_fields(self) -> None:
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "Target"),
+            self.step.target,
+            [
+                (QCoreApplication.translate("RightPanel", "Coordinate"), "coordinate"),
+                (QCoreApplication.translate("RightPanel", "Image Center"), "template"),
+            ],
+            "target",
+        )
+
+        if self.step.target == "coordinate":
+            self.add_text_input("X", str(self.step.x), "x")
+            self.add_text_input("Y", str(self.step.y), "y")
+            self.add_dropdown(
+                QCoreApplication.translate("RightPanel", "Relative"),
+                "true" if self.step.relative else "false",
+                [
+                    (QCoreApplication.translate("RightPanel", "Client"), "true"),
+                    (QCoreApplication.translate("RightPanel", "Absolute"), "false"),
+                ],
+                "relative",
+            )
+        else:
+            self.add_template_editor(self.macro, self.step.template)
+            self.add_slider(
+                QCoreApplication.translate("RightPanel", "Threshold"),
+                self.step.threshold,
+                property_key="threshold",
+            )
+            self.add_text_input(
+                QCoreApplication.translate("RightPanel", "Timeout (ms)"),
+                str(self.step.timeout_ms),
+                "timeout_ms",
+            )
+            self.add_dropdown(
+                QCoreApplication.translate("RightPanel", "On Timeout"),
+                self.step.on_timeout,
+                [
+                    (QCoreApplication.translate("RightPanel", "Stop"), "stop"),
+                    (QCoreApplication.translate("RightPanel", "Continue"), "continue"),
+                ],
+                "on_timeout",
+            )
+
+
+class MouseScrollStepPropertiesWidget(StepPropertiesWidget):
+    step: MouseScrollStep
+
+    def add_step_fields(self) -> None:
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Scroll Clicks"), str(self.step.clicks), "clicks")
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Interval (ms)"),
+            str(self.step.interval_ms),
+            "interval_ms",
+        )
+        hint = BodyLabel(
+            QCoreApplication.translate("RightPanel", "Positive = scroll up, negative = scroll down"),
+            self.content_widget,
+        )
+        self.content_layout.addWidget(hint)
+
+
 STEP_PROPERTIES_WIDGETS: dict[type[Step], type[StepPropertiesWidget]] = {
     KeyStep: KeyStepPropertiesWidget,
     DelayStep: DelayStepPropertiesWidget,
@@ -527,6 +658,9 @@ STEP_PROPERTIES_WIDGETS: dict[type[Step], type[StepPropertiesWidget]] = {
     IfImageStep: IfImageStepPropertiesWidget,
     IfAnyImageStep: IfAnyImageStepPropertiesWidget,
     GridNavStep: GridNavStepPropertiesWidget,
+    MouseClickStep: MouseClickStepPropertiesWidget,
+    MouseMoveStep: MouseMoveStepPropertiesWidget,
+    MouseScrollStep: MouseScrollStepPropertiesWidget,
 }
 
 

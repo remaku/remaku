@@ -34,6 +34,9 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
         "if_image",
         "if_any_image",
         "grid_nav",
+        "mouse_click",
+        "mouse_move",
+        "mouse_scroll",
     ]
     assert [item["label"] for item in items] == [
         "Key",
@@ -45,6 +48,9 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
         "If Image",
         "If Any Image",
         "Grid Navigation",
+        "Mouse Click",
+        "Mouse Move",
+        "Mouse Scroll",
     ]
 
 
@@ -59,7 +65,7 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
     step_menu.show_step_menu(parent, anchor, picked.append)
     menu = FakeMenu.instances[0]
 
-    assert len(menu.actions) == 9
+    assert len(menu.actions) == 12
     assert menu.exec_positions == [anchor.mapToGlobal(anchor.rect().bottomLeft())]
 
     for action in menu.actions:
@@ -75,4 +81,7 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
         "if_image",
         "if_any_image",
         "grid_nav",
+        "mouse_click",
+        "mouse_move",
+        "mouse_scroll",
     ]

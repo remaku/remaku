@@ -73,3 +73,48 @@ def held(key: str) -> Generator[None, None, None]:
 
 def is_valid_key(key: str) -> bool:
     return pdi.isValidKey(key)
+
+
+def mouse_click(button: str, x: int, y: int) -> None:
+    try:
+        pdi.moveTo(x, y)
+        logger.debug("keys: moveTo({}, {}) ok", x, y)
+    except Exception as error:
+        logger.error("keys: moveTo({}, {}) failed: {}", x, y, error)
+        return
+
+    try:
+        if button == "left":
+            pdi.leftClick()
+        elif button == "right":
+            pdi.rightClick()
+        elif button == "middle":
+            pdi.middleClick()
+        logger.debug("keys: {} click ok", button)
+    except Exception as error:
+        logger.error("keys: {} click failed: {}", button, error)
+
+
+def mouse_move(x: int, y: int) -> None:
+    try:
+        pdi.moveTo(x, y)
+        logger.debug("keys: moveTo({}, {}) ok", x, y)
+    except Exception as error:
+        logger.error("keys: moveTo({}, {}) failed: {}", x, y, error)
+
+
+def mouse_scroll(clicks: int, interval_ms: int = 0) -> None:
+    step = 1 if clicks > 0 else -1
+    remaining = abs(clicks)
+
+    for _ in range(remaining):
+        try:
+            pdi.scroll(step)
+        except Exception as error:
+            logger.error("keys: scroll({}) failed: {}", step, error)
+            return
+
+        if interval_ms > 0:
+            sleep_ms(interval_ms)
+
+    logger.debug("keys: scroll({} clicks, interval={}ms) ok", clicks, interval_ms)

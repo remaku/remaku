@@ -8,6 +8,7 @@ from remaku.core import keys, vision, window
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import (
     Macro,
+    get_step_button,
     get_step_count,
     get_step_find_timeout,
     get_step_gone_grace,
@@ -16,9 +17,14 @@ from remaku.models.macro_model import (
     get_step_interval_ms,
     get_step_key,
     get_step_load_delay,
+    get_step_mouse_relative,
+    get_step_mouse_target,
+    get_step_mouse_x,
+    get_step_mouse_y,
     get_step_ms,
     get_step_on_timeout,
     get_step_rows,
+    get_step_scroll_clicks,
     get_step_start,
     get_step_template,
     get_step_templates,
@@ -38,6 +44,9 @@ REQUIRED_FIELDS: dict[str, list[tuple[str, type | tuple[type, ...]]]] = {
     "text_input": [("text", str)],
     "repeat": [],
     "grid_nav": [],
+    "mouse_click": [("button", str)],
+    "mouse_move": [],
+    "mouse_scroll": [("clicks", (int, float))],
 }
 
 
@@ -80,6 +89,14 @@ def validate_steps(steps: list[dict], template_root: Path | None = None, offset:
 
             if not isinstance(interval_ms, int | float):
                 errors.append(f"Step {index} ({step_type}): bad format for 'interval_ms'")
+
+        if step_type in ("mouse_click", "mouse_move") and step.get("target") == "template":
+            template_value = step.get("template")
+
+            if not template_value:
+                errors.append(f"Step {index} ({step_type}): empty template for template target")
+            elif template_root is not None and not (template_root / f"{template_value}.png").exists():
+                errors.append(f"Step {index} ({step_type}): template '{template_value}' not found on disk")
 
         for key in ("steps", "then", "else"):
             if sub := step.get(key):
@@ -182,6 +199,10 @@ class MacroRunner(Engine):
             details = f"pos={counter + get_step_start(step)}"
         elif action == "text_input":
             details = f"{len(get_step_text(step))} chars"
+        elif action == "mouse_click":
+            details = get_step_button(step)
+        elif action == "mouse_scroll":
+            details = f"{get_step_scroll_clicks(step)} clicks"
         logger.info("{}: {} {}", self.engine_id, action, details)
 
         if action == "key":
@@ -270,6 +291,84 @@ class MacroRunner(Engine):
 
         elif action == "hold_key_until_gone":
             self.do_hold_key_until_gone(step)
+
+        elif action == "mouse_click":
+            button = get_step_button(step)
+            target = get_step_mouse_target(step)
+
+            if target == "template":
+                template_id = get_step_template(step)
+
+                if not template_id:
+                    logger.warning("{}: mouse_click template is empty", self.engine_id)
+                    on_timeout = get_step_on_timeout(step)
+
+                    if on_timeout == "stop":
+                        self.finish(StopReason.STALE, "mouse_click: empty template")
+
+                    return
+
+                timeout = get_step_timeout(step)
+                threshold = get_step_threshold(step)
+                found, center_x, center_y = self.wait_for_template_position(template_id, timeout, threshold)
+
+                if not found:
+                    on_timeout = get_step_on_timeout(step)
+
+                    if on_timeout == "stop":
+                        self.finish(StopReason.STALE, f"mouse_click_timeout: {self.template_label(template_id)}")
+
+                    return
+
+                keys.mouse_click(button, center_x, center_y)
+            else:
+                position = self.resolve_mouse_position(step)
+
+                if position is None:
+                    logger.warning("{}: mouse_click could not resolve position", self.engine_id)
+                    return
+
+                keys.mouse_click(button, *position)
+
+        elif action == "mouse_move":
+            target = get_step_mouse_target(step)
+
+            if target == "template":
+                template_id = get_step_template(step)
+
+                if not template_id:
+                    logger.warning("{}: mouse_move template is empty", self.engine_id)
+                    on_timeout = get_step_on_timeout(step)
+
+                    if on_timeout == "stop":
+                        self.finish(StopReason.STALE, "mouse_move: empty template")
+
+                    return
+
+                timeout = get_step_timeout(step)
+                threshold = get_step_threshold(step)
+                found, center_x, center_y = self.wait_for_template_position(template_id, timeout, threshold)
+
+                if not found:
+                    on_timeout = get_step_on_timeout(step)
+
+                    if on_timeout == "stop":
+                        self.finish(StopReason.STALE, f"mouse_move_timeout: {self.template_label(template_id)}")
+
+                    return
+
+                keys.mouse_move(center_x, center_y)
+            else:
+                position = self.resolve_mouse_position(step)
+
+                if position is None:
+                    logger.warning("{}: mouse_move could not resolve position", self.engine_id)
+                    return
+
+                keys.mouse_move(*position)
+
+        elif action == "mouse_scroll":
+            keys.mouse_scroll(get_step_scroll_clicks(step), get_step_interval_ms(step))
 
         else:
             logger.warning("macro: unknown action type '{}'", action)
@@ -365,3 +464,45 @@ class MacroRunner(Engine):
                     return
 
                 self.sleep_remaining(tick_start, period)
+
+    def resolve_mouse_position(self, step: dict) -> tuple[int, int] | None:
+        x = get_step_mouse_x(step)
+        y = get_step_mouse_y(step)
+
+        if get_step_mouse_relative(step):
+            x += self.capture_rect.left
+            y += self.capture_rect.top
+
+        return x, y
+
+    def wait_for_template_position(self, template_id: str, timeout_ms: int, threshold: float) -> tuple[bool, int, int]:
+        period = 1.0 / max(1, config_model.config.capture.fps)
+        template = self.templates[template_id]
+        deadline = time.monotonic() + timeout_ms / 1000.0
+        scaled_template: np.ndarray | None = None
+
+        while True:
+            if self.stop_event.is_set():
+                raise Stopped
+            if time.monotonic() >= deadline:
+                return False, 0, 0
+
+            tick_start = time.monotonic()
+            frame = self.capture_tick()
+            if frame is None:
+                self.sleep_remaining(tick_start, period)
+                continue
+
+            if scaled_template is None:
+                scaled_template = self.scale_template(template_id, template, frame)
+
+            score, (match_x, match_y) = vision.match_template(frame, scaled_template)
+            self.update(score=score, match_id=template_id)
+
+            if score >= threshold:
+                h, w = scaled_template.shape[:2]
+                center_x = self.capture_rect.left + match_x + w // 2
+                center_y = self.capture_rect.top + match_y + h // 2
+                return True, center_x, center_y
+
+            self.sleep_remaining(tick_start, period)

@@ -11,6 +11,8 @@
     <file>icons/chevron-down-white.svg</file>
     <file>icons/chevron-right-black.svg</file>
     <file>icons/chevron-right-white.svg</file>
+    <file>icons/chevrons-up-down-black.svg</file>
+    <file>icons/chevrons-up-down-white.svg</file>
     <file>icons/clock-black.svg</file>
     <file>icons/clock-white.svg</file>
     <file>icons/corner-down-right-black.svg</file>
@@ -27,6 +29,10 @@
     <file>icons/images-white.svg</file>
     <file>icons/keyboard-black.svg</file>
     <file>icons/keyboard-white.svg</file>
+    <file>icons/mouse-pointer-black.svg</file>
+    <file>icons/mouse-pointer-white.svg</file>
+    <file>icons/mouse-pointer-click-black.svg</file>
+    <file>icons/mouse-pointer-click-white.svg</file>
     <file>icons/pause-black.svg</file>
     <file>icons/pause-white.svg</file>
     <file>icons/play-black.svg</file>

@@ -16,6 +16,9 @@ def step_type_items() -> list[dict[str, str]]:
         {"id": "if_image", "label": QCoreApplication.translate("StepMenu", "If Image")},
         {"id": "if_any_image", "label": QCoreApplication.translate("StepMenu", "If Any Image")},
         {"id": "grid_nav", "label": QCoreApplication.translate("StepMenu", "Grid Navigation")},
+        {"id": "mouse_click", "label": QCoreApplication.translate("StepMenu", "Mouse Click")},
+        {"id": "mouse_move", "label": QCoreApplication.translate("StepMenu", "Mouse Move")},
+        {"id": "mouse_scroll", "label": QCoreApplication.translate("StepMenu", "Mouse Scroll")},
     ]
 
 

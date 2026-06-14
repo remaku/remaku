@@ -9,6 +9,7 @@ from loguru import logger
 from remaku.core import capture, keys, vision, window
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
+from remaku.models.macro_model import DEFAULT_TEMPLATE_MATCH_MODE
 
 
 class Stopped(Exception):
@@ -197,7 +198,7 @@ class Engine:
         if frame is None:
             return None
 
-        return vision.to_gray(frame)
+        return frame
 
     def scale_template(self, template_id: str, template: np.ndarray, frame: np.ndarray) -> np.ndarray:
         capture_size = self.template_capture_sizes.get(template_id)
@@ -206,6 +207,9 @@ class Engine:
             return template
 
         return vision.scale_template(template, frame.shape, capture_size)
+
+    def template_match_mode(self, template_id: str) -> str:
+        return DEFAULT_TEMPLATE_MATCH_MODE
 
     def wait_for_template(self, template_id: str, timeout_ms: int, threshold: float) -> bool:
         period = 1.0 / max(1, config_model.config.capture.fps)
@@ -228,7 +232,7 @@ class Engine:
             if scaled_template is None:
                 scaled_template = self.scale_template(template_id, template, frame)
 
-            score, _ = vision.match_template(frame, scaled_template)
+            score, _ = vision.match_template(frame, scaled_template, self.template_match_mode(template_id))
             self.update(score=score, match_id=template_id)
 
             if score >= threshold:
@@ -262,7 +266,7 @@ class Engine:
 
             best_template_id, best_score = template_ids[0], -1.0
             for template_id, scaled_template in scaled_list:
-                score, _ = vision.match_template(frame, scaled_template)
+                score, _ = vision.match_template(frame, scaled_template, self.template_match_mode(template_id))
                 if score > best_score:
                     best_score = score
                     best_template_id = template_id

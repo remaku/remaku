@@ -124,16 +124,22 @@ def test_region_selector_paint_event_skips_selection_when_not_selecting(monkeypa
 def test_region_selector_save_region_writes_template_and_emits_signal(tmp_path, monkeypatch, qtbot) -> None:
     selector = make_selector(monkeypatch, qtbot)
     encoded = np.array([1, 2, 3], dtype=np.uint8)
+    encoded_inputs = []
     monkeypatch.setattr(region_selector.time, "time", lambda: 123.0)
     monkeypatch.setattr(region_selector, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
-    monkeypatch.setattr(region_selector.cv2, "cvtColor", lambda image, code: image[:, :, 0])
-    monkeypatch.setattr(region_selector.cv2, "imencode", lambda extension, image: (True, encoded))
+    monkeypatch.setattr(
+        region_selector.cv2,
+        "imencode",
+        lambda extension, image: encoded_inputs.append((extension, image.copy())) or (True, encoded),
+    )
 
     with qtbot.waitSignal(selector.region_selected, timeout=100) as blocker:
         selector.save_region(QRect(0, 0, 2, 2))
 
     assert blocker.args == ["123", 8, 6]
     assert (tmp_path / "templates" / "macro" / "123.png").read_bytes() == encoded.tobytes()
+    assert encoded_inputs[0][0] == ".png"
+    assert encoded_inputs[0][1].shape == (4, 4, 3)
 
 
 def test_region_selector_escape_emits_cancelled(monkeypatch, qtbot) -> None:

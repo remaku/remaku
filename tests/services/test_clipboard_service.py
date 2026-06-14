@@ -32,7 +32,14 @@ def test_copy_selected_steps_includes_template_data_and_meta(tmp_path: Path) -> 
     assert clipboard is not None
     assert clipboard["steps"] == [{"type": "wait_image", "template": "button"}]
     assert clipboard["templates"] == {"button": b"png"}
-    assert clipboard["template_meta"] == {"button": {"label": "Button", "capture_width": 320, "capture_height": 0}}
+    assert clipboard["template_meta"] == {
+        "button": {
+            "label": "Button",
+            "capture_width": 320,
+            "capture_height": 0,
+            "match_mode": "grayscale",
+        }
+    }
 
 
 def test_paste_steps_writes_template_and_merges_existing_meta(tmp_path: Path) -> None:

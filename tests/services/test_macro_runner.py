@@ -320,6 +320,13 @@ def test_build_template_capture_sizes_returns_empty_for_non_gaming_mode() -> Non
     assert runner.build_template_capture_sizes() == {}
 
 
+def test_template_match_mode_uses_template_metadata() -> None:
+    runner = make_runner([], templates={"start": {"match_mode": "color"}})
+
+    assert runner.template_match_mode("start") == "color"
+    assert runner.template_match_mode("missing") == "grayscale"
+
+
 def test_grid_nav_chooses_row_then_col_branches() -> None:
     runner = make_runner([])
     calls = []
@@ -385,7 +392,10 @@ def test_hold_key_until_gone_releases_when_template_never_found(qtbot, monkeypat
     updates = []
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.3, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (0.3, (0, 0)),
+    )
     runner.sleep = lambda ms: sleep_calls.append(ms)
     runner.update = lambda **fields: updates.append(fields)
 
@@ -407,7 +417,10 @@ def test_hold_key_until_gone_releases_when_template_never_found(qtbot, monkeypat
 def test_hold_key_until_gone_stops_when_runner_stops(monkeypatch) -> None:
     runner = make_hold_key_runner()
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (1.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
+    )
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
     sleep_calls = []
 
@@ -430,7 +443,7 @@ def test_hold_key_until_gone_releases_after_grace_period(monkeypatch) -> None:
     sleep_calls = []
     match_returns = iter([(1.0, (0, 0)), (0.3, (0, 0)), (0.3, (0, 0))])
 
-    def fake_match(frame, template):
+    def fake_match(frame, template, match_mode="grayscale"):
         return next(match_returns)
 
     monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", fake_match)
@@ -462,7 +475,10 @@ def test_hold_key_until_gone_returns_when_window_loses_foreground(monkeypatch) -
 
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", fake_is_foreground)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (1.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
+    )
     runner.sleep = lambda ms: None
     runner.sleep_remaining = lambda tick_start, period: None
 
@@ -720,7 +736,10 @@ def test_hold_key_until_gone_sleeps_when_frame_is_missing(monkeypatch) -> None:
 
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (0.0, (0, 0)),
+    )
     runner.grabber.grab = fake_grab
     runner.sleep = lambda ms: sleep_calls.append(ms)
 
@@ -753,7 +772,8 @@ def test_hold_key_until_gone_scales_template_and_releases_after_grace(monkeypatc
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
     monkeypatch.setattr("remaku.services.macro_runner.vision.scale_template", fake_scale)
     monkeypatch.setattr(
-        "remaku.services.macro_runner.vision.match_template", lambda frame, template: next(match_returns)
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": next(match_returns),
     )
     runner.sleep = lambda ms: None
     runner.sleep_remaining = lambda tick_start, period: None
@@ -769,7 +789,7 @@ def test_hold_key_until_gone_scales_template_and_releases_after_grace(monkeypatc
         }
     )
 
-    assert scale_calls == [(runner.templates["start"], (10, 10), (5, 5))]
+    assert scale_calls == [(runner.templates["start"], (10, 10, 3), (5, 5))]
 
 
 def test_hold_key_until_gone_releases_on_hard_timeout(monkeypatch) -> None:
@@ -777,7 +797,10 @@ def test_hold_key_until_gone_releases_on_hard_timeout(monkeypatch) -> None:
     times = iter([0.0, 0.0, 2.0])
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", lambda window: True)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (1.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
+    )
     monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
     runner.sleep = lambda ms: None
 
@@ -801,12 +824,23 @@ def test_wait_for_template_position_returns_center_and_updates_score(monkeypatch
     updates = []
     runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
     runner.update = lambda **fields: updates.append(fields)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.9, (7, 8)))
+    match_calls = []
+
+    def fake_match(frame, template, match_mode="grayscale"):
+        match_calls.append((frame, template, match_mode))
+        return (0.9, (7, 8))
+
+    runner.macro["templates"]["start"]["match_mode"] = "color"
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", fake_match)
 
     found, x, y = runner.wait_for_template_position("start", 1000, 0.8)
 
     assert (found, x, y) == (True, 110, 210)
     assert updates == [{"score": 0.9, "match_id": "start"}]
+    assert len(match_calls) == 1
+    assert match_calls[0][0].shape == (20, 30)
+    assert match_calls[0][1] is runner.templates["start"]
+    assert match_calls[0][2] == "color"
 
 
 def test_wait_for_template_position_handles_missing_frame_timeout_and_stop(monkeypatch) -> None:
@@ -816,7 +850,10 @@ def test_wait_for_template_position_handles_missing_frame_timeout_and_stop(monke
     frames = iter([None, np.ones((20, 30), dtype=np.uint8)])
     runner.capture_tick = lambda: next(frames)
     runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (0.0, (0, 0)),
+    )
 
     assert runner.wait_for_template_position("start", 0, 0.8) == (False, 0, 0)
 
@@ -839,7 +876,10 @@ def test_wait_for_template_position_sleeps_after_missed_match(monkeypatch) -> No
     runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
     runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
     monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
-    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.0, (0, 0)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.vision.match_template",
+        lambda frame, template, match_mode="grayscale": (0.0, (0, 0)),
+    )
 
     assert runner.wait_for_template_position("start", 100, 0.8) == (False, 0, 0)
     assert sleeps == [0.1]

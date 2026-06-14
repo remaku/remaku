@@ -1,5 +1,6 @@
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QPixmap, QResizeEvent
+from qfluentwidgets import ComboBox
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import Macro, MacroMeta, TemplateInfo
@@ -10,7 +11,7 @@ from remaku.views.components.template_editor import TemplateEditor
 def make_macro() -> Macro:
     return Macro(
         meta=MacroMeta(id="macro"),
-        templates={"button": TemplateInfo(label="Button", capture_width=320, capture_height=180)},
+        templates={"button": TemplateInfo(label="Button", capture_width=320, capture_height=180, match_mode="color")},
     )
 
 
@@ -23,6 +24,7 @@ def test_template_editor_shows_metadata_and_missing_preview(monkeypatch, qtbot) 
     assert editor.template_label == "Button"
     assert editor.capture_width == 320
     assert editor.capture_height == 180
+    assert editor.match_mode == "color"
     assert editor.preview_label is not None
     assert editor.preview_label.text() == "No template available"
 
@@ -121,6 +123,20 @@ def test_template_editor_capture_size_inputs_emit_meta_changes(monkeypatch, qtbo
         width_edit.editingFinished.emit()
 
     assert blocker.args == ["button", "capture_width", "640"]
+
+
+def test_template_editor_match_mode_combo_emits_template_meta(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(template_editor, "template_path", lambda macro_id, template_id: "missing.png")
+    editor = TemplateEditor(make_macro(), "button")
+    qtbot.addWidget(editor)
+    combo = editor.findChild(ComboBox)
+    assert combo is not None
+    assert combo.currentData() == "color"
+
+    with qtbot.waitSignal(event_bus.template_meta_changed, timeout=100) as blocker:
+        combo.setCurrentIndex(combo.findData("grayscale"))
+
+    assert blocker.args == ["button", "match_mode", "grayscale"]
 
 
 def test_template_editor_handles_template_without_info(monkeypatch, qtbot) -> None:

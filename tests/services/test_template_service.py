@@ -17,7 +17,7 @@ def make_service(tmp_path: Path) -> TemplateService:
 
 def test_apply_captured_template_replaces_step_ref_and_preserves_label(tmp_path: Path) -> None:
     step = {"type": "wait_image", "template": "old"}
-    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="Old label")})
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="Old label", match_mode="color")})
     old_file = tmp_path / "templates" / "macro" / "old.png"
     old_file.parent.mkdir(parents=True)
     old_file.write_bytes(b"old")
@@ -31,6 +31,7 @@ def test_apply_captured_template_replaces_step_ref_and_preserves_label(tmp_path:
     assert macro.templates["new"].label == "Old label"
     assert macro.templates["new"].capture_width == 320
     assert macro.templates["new"].capture_height == 180
+    assert macro.templates["new"].match_mode == "color"
 
 
 def test_pick_template_copies_file_and_rewrites_any_image_branch(tmp_path: Path) -> None:
@@ -102,11 +103,14 @@ def test_update_template_meta_updates_valid_fields_and_rejects_invalid_values(tm
 
     assert service.update_template_meta(macro, "button", "label", "Button") is True
     assert service.update_template_meta(macro, "button", "capture_width", "320") is True
+    assert service.update_template_meta(macro, "button", "match_mode", "color") is True
+    assert service.update_template_meta(macro, "button", "match_mode", "bad") is False
     assert service.update_template_meta(macro, "button", "capture_height", "bad") is False
     assert service.update_template_meta(macro, "missing", "label", "Missing") is False
     assert macro.templates["button"].label == "Button"
     assert macro.templates["button"].capture_width == 320
     assert macro.templates["button"].capture_height == 0
+    assert macro.templates["button"].match_mode == "color"
 
 
 def test_update_template_meta_rejects_unknown_field(tmp_path: Path) -> None:

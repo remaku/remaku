@@ -1,10 +1,10 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QResizeEvent
 from PySide6.QtWidgets import QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel, LineEdit, PushButton
+from qfluentwidgets import BodyLabel, ComboBox, LineEdit, PushButton
 
 from remaku.core.event_bus import event_bus
-from remaku.models.macro_model import Macro
+from remaku.models.macro_model import DEFAULT_TEMPLATE_MATCH_MODE, Macro
 from remaku.paths import template_path
 
 
@@ -22,6 +22,7 @@ class TemplateEditor(QWidget):
         self.template_label = self.template_info.label if self.template_info else ""
         self.capture_width = self.template_info.capture_width if self.template_info else 0
         self.capture_height = self.template_info.capture_height if self.template_info else 0
+        self.match_mode = self.template_info.match_mode if self.template_info else DEFAULT_TEMPLATE_MATCH_MODE
         self.original_pixmap: QPixmap | None = None
         self.preview_label: BodyLabel | None = None
         self.init_ui()
@@ -34,6 +35,7 @@ class TemplateEditor(QWidget):
         self.add_field_label(self.tr("Template"))
         self.add_template_preview(self.template_id)
         self.add_text_input(value=self.template_label, field_key="label")
+        self.add_match_mode_input()
 
         capture_screen_button = PushButton(self.tr("Capture Screen"), self)
         capture_screen_button.clicked.connect(lambda: event_bus.template_capture_requested.emit(self.template_id))
@@ -49,6 +51,25 @@ class TemplateEditor(QWidget):
 
         self.add_text_input(self.tr("Capture Width"), str(self.capture_width), field_key="capture_width")
         self.add_text_input(self.tr("Capture Height"), str(self.capture_height), field_key="capture_height")
+
+    def add_match_mode_input(self) -> None:
+        self.add_field_label(self.tr("Match Mode"))
+
+        combo = ComboBox(self)
+        combo.addItem(self.tr("Fast: grayscale"), userData="grayscale")
+        combo.addItem(self.tr("Precise: color"), userData="color")
+
+        selected_index = combo.findData(self.match_mode)
+        combo.setCurrentIndex(max(0, selected_index))
+        combo.currentIndexChanged.connect(
+            lambda _index, tid=self.template_id, w=combo: event_bus.template_meta_changed.emit(
+                tid,
+                "match_mode",
+                str(w.currentData()),
+            )
+        )
+
+        self.content_layout.addWidget(combo)
 
     def add_field_label(self, text: str) -> None:
         label = BodyLabel(text, self)

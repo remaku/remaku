@@ -97,12 +97,11 @@ class RegionSelector(QWidget):
         physical = self.to_frame_rect(rect)
         x, y, width, height = physical.x(), physical.y(), physical.width(), physical.height()
         cropped = self.screenshot[y : y + height, x : x + width]
-        gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
         template_id = str(int(time.time()))
         template_dir = templates_dir(self.macro_id)
         template_dir.mkdir(parents=True, exist_ok=True)
         path = template_dir / f"{template_id}.png"
-        cv2.imencode(".png", gray)[1].tofile(str(path))
+        cv2.imencode(".png", cropped)[1].tofile(str(path))
 
         self.region_selected.emit(template_id, self.frame_width, self.frame_height)

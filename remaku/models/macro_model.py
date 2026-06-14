@@ -27,6 +27,8 @@ DEFAULT_MOUSE_Y = 0
 DEFAULT_MOUSE_TARGET = "coordinate"
 DEFAULT_MOUSE_RELATIVE = True
 DEFAULT_MOUSE_SCROLL_CLICKS = 3
+DEFAULT_TEMPLATE_MATCH_MODE = "grayscale"
+TEMPLATE_MATCH_MODES = ("grayscale", "color")
 
 
 @dataclass(slots=True)
@@ -43,6 +45,7 @@ class TemplateInfo:
     label: str = ""
     capture_width: int = 0
     capture_height: int = 0
+    match_mode: str = DEFAULT_TEMPLATE_MATCH_MODE
 
 
 @dataclass(slots=True)
@@ -464,10 +467,15 @@ class Macro:
         templates: dict[str, TemplateInfo] = {}
 
         for template_id, template_data in data.get("templates", {}).items():
+            match_mode = str(template_data.get("match_mode", DEFAULT_TEMPLATE_MATCH_MODE))
+            if match_mode not in TEMPLATE_MATCH_MODES:
+                match_mode = DEFAULT_TEMPLATE_MATCH_MODE
+
             templates[str(template_id)] = TemplateInfo(
                 label=str(template_data.get("label", "")),
                 capture_width=int(template_data.get("capture_width", 0)),
                 capture_height=int(template_data.get("capture_height", 0)),
+                match_mode=match_mode,
             )
 
         steps = parse_steps(data.get("steps", []))
@@ -494,6 +502,7 @@ class Macro:
                     "label": template_data.label,
                     "capture_width": template_data.capture_width,
                     "capture_height": template_data.capture_height,
+                    "match_mode": template_data.match_mode,
                 }
                 for template_id, template_data in self.templates.items()
             },

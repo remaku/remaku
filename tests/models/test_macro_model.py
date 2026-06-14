@@ -16,6 +16,7 @@ from remaku.models.macro_model import (
     DEFAULT_LOAD_DELAY_MS,
     DEFAULT_ON_TIMEOUT,
     DEFAULT_REPEAT_COUNT,
+    DEFAULT_TEMPLATE_MATCH_MODE,
     DEFAULT_TEXT_INPUT_INTERVAL_MS,
     DEFAULT_TEXT_INPUT_TEXT,
     DEFAULT_THRESHOLD,
@@ -81,6 +82,7 @@ def test_macro_from_dict_parses_nested_steps(sample_macro_dict: dict) -> None:
     assert macro.meta.id == "sample"
     assert macro.meta.label == "Sample Macro"
     assert macro.templates["start"].capture_width == 320
+    assert macro.templates["start"].match_mode == DEFAULT_TEMPLATE_MATCH_MODE
     assert isinstance(macro.steps[0], KeyStep)
     assert isinstance(macro.steps[1], RepeatStep)
     assert isinstance(macro.steps[1].steps[1], WaitImageStep)
@@ -105,6 +107,18 @@ def test_macro_gaming_mode_defaults_and_round_trips(sample_macro_dict: dict) -> 
     assert legacy_macro.gaming_mode is True
     assert non_gaming_macro.gaming_mode is False
     assert Macro.from_dict(non_gaming_macro.to_dict()).gaming_mode is False
+
+
+def test_template_match_mode_round_trips_and_rejects_unknown_value(sample_macro_dict: dict) -> None:
+    sample_macro_dict["templates"]["start"]["match_mode"] = "color"
+    sample_macro_dict["templates"]["done"]["match_mode"] = "bad"
+
+    macro = Macro.from_dict(sample_macro_dict)
+    data = macro.to_dict()
+
+    assert macro.templates["start"].match_mode == "color"
+    assert macro.templates["done"].match_mode == DEFAULT_TEMPLATE_MATCH_MODE
+    assert data["templates"]["start"]["match_mode"] == "color"
 
 
 def test_grid_nav_parses_nested_branches() -> None:

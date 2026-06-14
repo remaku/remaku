@@ -134,17 +134,15 @@ def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
     assert sleeps == [250]
 
 
-def test_capture_tick_returns_gray_frame_when_foreground(monkeypatch) -> None:
+def test_capture_tick_returns_raw_frame_when_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     frame = np.ones((2, 2, 3), dtype=np.uint8)
-    gray = np.ones((2, 2), dtype=np.uint8)
     runner.found_window = object()
     runner.capture_rect = Rect(0, 0, 2, 2)
     runner.grabber = cast(Grabber, FakeGrabber(frame))
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: True)
-    monkeypatch.setattr(engine.vision, "to_gray", lambda image: gray)
 
-    assert runner.capture_tick() is gray
+    assert runner.capture_tick() is frame
     assert runner.status.state == "running"
 
 
@@ -411,7 +409,7 @@ def test_wait_for_template_matches_and_updates_status(monkeypatch) -> None:
     monkeypatch.setattr(engine, "config_model", FakeConfigModel())
     monkeypatch.setattr(runner, "capture_tick", lambda: frame)
     monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: None)
-    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (0.95, (0, 0)))
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl, mode="grayscale": (0.95, (0, 0)))
 
     assert runner.wait_for_template("button", timeout_ms=1000, threshold=0.9) is True
     assert runner.status.score == 0.95
@@ -431,7 +429,7 @@ def test_wait_for_template_retries_empty_frame_and_low_score(monkeypatch) -> Non
     monkeypatch.setattr(engine.time, "monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(runner, "capture_tick", lambda: next(frames))
     monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: sleep_calls.append((tick_start, period)))
-    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (0.2, (0, 0)))
+    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl, mode="grayscale": (0.2, (0, 0)))
 
     assert runner.wait_for_template("button", timeout_ms=1000, threshold=0.9) is False
     assert runner.status.score == 0.2
@@ -460,7 +458,11 @@ def test_wait_for_any_returns_best_matching_template(monkeypatch) -> None:
     monkeypatch.setattr(engine, "config_model", FakeConfigModel())
     monkeypatch.setattr(runner, "capture_tick", lambda: frame)
     monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: None)
-    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (scores[tpl.shape[0]], (0, 0)))
+    monkeypatch.setattr(
+        engine.vision,
+        "match_template",
+        lambda image, tpl, mode="grayscale": (scores[tpl.shape[0]], (0, 0)),
+    )
 
     assert runner.wait_for_any(["one", "two"], timeout_ms=1000, threshold=0.9) == "two"
     assert runner.status.score == 0.91
@@ -480,7 +482,11 @@ def test_wait_for_any_retries_empty_frame_and_low_score(monkeypatch) -> None:
     monkeypatch.setattr(engine.time, "monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(runner, "capture_tick", lambda: next(frames))
     monkeypatch.setattr(runner, "sleep_remaining", lambda tick_start, period: sleep_calls.append((tick_start, period)))
-    monkeypatch.setattr(engine.vision, "match_template", lambda image, tpl: (scores[tpl.shape[0]], (0, 0)))
+    monkeypatch.setattr(
+        engine.vision,
+        "match_template",
+        lambda image, tpl, mode="grayscale": (scores[tpl.shape[0]], (0, 0)),
+    )
 
     assert runner.wait_for_any(["one", "two"], timeout_ms=1000, threshold=0.9) is None
     assert runner.status.score == 0.4

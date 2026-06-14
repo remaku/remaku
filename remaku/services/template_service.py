@@ -2,7 +2,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
-from remaku.models.macro_model import Macro, TemplateInfo
+from remaku.models.macro_model import DEFAULT_TEMPLATE_MATCH_MODE, TEMPLATE_MATCH_MODES, Macro, TemplateInfo
 from remaku.models.step_tree import StepTree
 from remaku.paths import template_path
 
@@ -99,6 +99,11 @@ class TemplateService:
         else:
             new_meta.label = self.label_provider(new_template_id)
 
+        if old_meta is not None:
+            new_meta.match_mode = old_meta.match_mode
+        elif not new_meta.match_mode:
+            new_meta.match_mode = DEFAULT_TEMPLATE_MATCH_MODE
+
         self.replace_step_template(selected_step, old_template_id, new_template_id)
 
     def replace_step_template(self, selected_step: dict, old_template_id: str, new_template_id: str) -> None:
@@ -159,6 +164,11 @@ class TemplateService:
                 setattr(template_info, field, int(value))
             except ValueError:
                 return False
+        elif field == "match_mode":
+            if value not in TEMPLATE_MATCH_MODES:
+                return False
+
+            template_info.match_mode = value
         else:
             return False
 

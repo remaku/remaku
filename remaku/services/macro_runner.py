@@ -7,6 +7,7 @@ from loguru import logger
 from remaku.core import keys, vision, window
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import (
+    DEFAULT_TEMPLATE_MATCH_MODE,
     Macro,
     get_step_button,
     get_step_count,
@@ -123,6 +124,9 @@ class MacroRunner(Engine):
 
     def template_label(self, template_id: str) -> str:
         return self.macro.get("templates", {}).get(template_id, {}).get("label", template_id)
+
+    def template_match_mode(self, template_id: str) -> str:
+        return self.macro.get("templates", {}).get(template_id, {}).get("match_mode", DEFAULT_TEMPLATE_MATCH_MODE)
 
     def loop(self) -> None:
         from remaku.paths import templates_dir
@@ -417,8 +421,6 @@ class MacroRunner(Engine):
                     self.sleep(period * 1000)
                     continue
 
-                frame = vision.to_gray(frame)
-
                 if scaled_template is None:
                     capture_size = self.template_capture_sizes.get(template_id)
                     if capture_size is not None:
@@ -426,7 +428,7 @@ class MacroRunner(Engine):
                     else:
                         scaled_template = template
 
-                score, _ = vision.match_template(frame, scaled_template)
+                score, _ = vision.match_template(frame, scaled_template, self.template_match_mode(template_id))
                 self.update(score=score, match_id=template_id)
 
                 now = time.monotonic()
@@ -499,7 +501,11 @@ class MacroRunner(Engine):
             if scaled_template is None:
                 scaled_template = self.scale_template(template_id, template, frame)
 
-            score, (match_x, match_y) = vision.match_template(frame, scaled_template)
+            score, (match_x, match_y) = vision.match_template(
+                frame,
+                scaled_template,
+                self.template_match_mode(template_id),
+            )
             self.update(score=score, match_id=template_id)
 
             if score >= threshold:

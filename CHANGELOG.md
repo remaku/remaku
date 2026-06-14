@@ -10,6 +10,7 @@
 - New mouse action steps: click at a coordinate or image center, move the cursor to a position, and scroll the mouse wheel
 - Each macro now has a Gaming Mode toggle that can be turned off to skip template image scaling, useful for desktop automation where the window size stays the same
 - Key steps now support modifier key combinations (Ctrl, Alt, Shift, Win), so you can record shortcuts like Ctrl+S or Ctrl+Shift+S with a single keystroke
+- Template matching now supports color mode for more precise matching when images have distinct colors
 
 <!-- lang:zh_tw -->
 
@@ -19,6 +20,7 @@
 - 新增滑鼠動作步驟：點擊座標或圖片中心、移動游標到指定位置、滾動滑鼠滾輪
 - 每個巨集現在具有遊戲模式開關，關閉後將跳過模板圖片縮放，適合視窗大小不變的桌面自動化場景
 - 按鍵步驟現在支援修飾鍵組合（Ctrl、Alt、Shift、Win），可一次錄製 Ctrl+S 或 Ctrl+Shift+S 等快捷鍵
+- 模板匹配現在支援彩色模式，當圖片具有明顯色彩時可提供更精確的匹配
 
 <!-- lang:zh_cn -->
 
@@ -28,6 +30,7 @@
 - 新增鼠标动作步骤：点击坐标或图片中心、移动光标到指定位置、滚动鼠标滚轮
 - 每个宏现在具有游戏模式开关，关闭后将跳过模板图片缩放，适合窗口大小不变的桌面自动化场景
 - 按键步骤现在支持修饰键组合（Ctrl、Alt、Shift、Win），可一次录制 Ctrl+S 或 Ctrl+Shift+S 等快捷键
+- 模板匹配现在支持彩色模式，当图片具有明显色彩时可提供更精确的匹配
 
 ## v0.6.1
 

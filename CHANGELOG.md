@@ -9,6 +9,7 @@
 - If-image steps now correctly save the else branch so it is not lost after saving and reloading the macro
 - Changing the target window for a macro now takes effect immediately without needing to restart the application
 - When a target window is closed and reopened during macro execution, the macro now automatically re-finds it instead of getting stuck
+- Error messages shown in the status bar when a macro finishes are now properly translated instead of showing raw internal codes like "window_not_found" or "wait_timeout"
 
 ### Added
 
@@ -25,6 +26,7 @@
 - if-image 步驟現在能正確儲存 else 分支，儲存後重新載入巨集不再遺失 else 中的步驟
 - 變更巨集的目標視窗現在會立即生效，不需要重啟應用程式
 - 巨集執行期間若目標視窗被關閉再重新開啟，現在能自動重新找到視窗，不再卡住
+- 巨集執行完成後顯示在狀態列的錯誤訊息現在已正確翻譯，不再顯示 "window_not_found" 或 "wait_timeout" 等內部程式碼
 
 ### 新增
 
@@ -41,6 +43,7 @@
 - if-image 步骤现在能正确保存 else 分支，保存后重新加载宏不再丢失 else 中的步骤
 - 变更宏的目标窗口现在会立即生效，不需要重启应用程序
 - 宏执行期间若目标窗口被关闭再重新打开，现在能自动重新找到窗口，不再卡住
+- 宏执行完成后显示在状态栏的错误消息现在已正确翻译，不再显示 "window_not_found" 或 "wait_timeout" 等内部代码
 
 ### 新增
 

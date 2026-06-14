@@ -1281,7 +1281,34 @@ class HomeController(QObject):
             elif status.last_reason == "done":
                 self.view.set_status_text(self.tr("Done: {name}").format(name=self.current_runner.label))
             elif status.message:
-                self.view.set_status_text(f"{self.current_runner.label}: {status.message}")
+                translated = self.translate_status_message(status.message)
+                self.view.set_status_text(f"{self.current_runner.label}: {translated}")
+
+    def translate_status_message(self, message: str) -> str:
+        if ": " in message:
+            key, value = message.split(": ", 1)
+            key_map: dict[str, str] = {
+                "missing_templates": self.tr("Missing templates: {names}").format(names=value),
+                "Error": self.tr("Error: {detail}").format(detail=value),
+                "macro_format": self.tr("Macro format error: {errors}").format(errors=value),
+                "wait_timeout": self.tr("Wait timeout: {template}").format(template=value),
+                "wait_any_timeout": self.tr("Wait any timeout: {templates}").format(templates=value),
+                "mouse_click": self.tr("Mouse click: empty template"),
+                "mouse_click_timeout": self.tr("Mouse click timeout: {template}").format(template=value),
+                "mouse_move": self.tr("Mouse move: empty template"),
+                "mouse_move_timeout": self.tr("Mouse move timeout: {template}").format(template=value),
+            }
+            if key in key_map:
+                return key_map[key]
+
+        simple_map: dict[str, str] = {
+            "window_not_found": self.tr("Window not found"),
+            "elevation_mismatch": self.tr("Elevation mismatch, do not run target app as admin"),
+        }
+        if message in simple_map:
+            return simple_map[message]
+
+        return message
 
     def open_logs_folder(self) -> None:
         target = log_dir()

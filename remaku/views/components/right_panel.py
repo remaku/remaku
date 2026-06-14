@@ -1,5 +1,5 @@
 import pydirectinput as pdi
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from PySide6.QtGui import QIntValidator, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
@@ -49,127 +49,9 @@ NUMERIC_PROPERTY_KEYS = frozenset(
 )
 
 
-class RightPanel(ScrollArea):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.init_ui()
-
-    def init_ui(self):
-        self.setMinimumWidth(220)
-        self.setMaximumWidth(350)
-        self.setWidgetResizable(True)
-        self.setFrameShape(ScrollArea.Shape.NoFrame)
-        self.setStyleSheet("background: transparent;")
-
-        self.content_widget = CardWidget(self)
-        self.content_layout = QVBoxLayout(self.content_widget)
-
-        self.content_layout.setContentsMargins(8, 8, 8, 8)
-        self.content_layout.setSpacing(12)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        self.setWidget(self.content_widget)
-        self.show_macro_properties(None)
-
-    def clear_content(self) -> None:
-        while self.content_layout.count():
-            item = self.content_layout.takeAt(0)
-
-            if item is None:
-                continue
-
-            widget = item.widget()
-
-            if widget is not None:
-                widget.deleteLater()
-
-    def show_macro_properties(self, macro: Macro | None) -> None:
-        self.clear_content()
-
-        self.add_title_label(self.tr("Macro Properties"))
-
-        if macro is None:
-            label = BodyLabel(self.tr("Select a macro to inspect its metadata."), self.content_widget)
-            label.setWordWrap(True)
-
-            self.content_layout.addWidget(label)
-            return
-
-        self.add_target_window_combo(macro)
-        self.add_hotkey_text_input(macro)
-        self.add_enabled_checkbox(macro)
-
-    def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
-        self.clear_content()
-
-        self.add_title_label(title_text)
-        self.add_skip_checkbox(step.skip, skip_enabled)
-        self.add_note_input(step.note)
-
-        match step:
-            case KeyStep():
-                self.add_key_input(self.tr("Key"), step.key)
-                self.add_text_input(self.tr("Hold (ms)"), str(step.hold_ms), "hold_ms")
-            case DelayStep():
-                self.add_text_input(self.tr("Duration (ms)"), str(step.ms), "ms")
-            case WaitImageStep():
-                self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
-                self.add_dropdown(
-                    self.tr("On Timeout"),
-                    step.on_timeout,
-                    [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
-                    "on_timeout",
-                )
-            case HoldKeyUntilGoneStep():
-                self.add_key_input(self.tr("Key"), step.key)
-                self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
-                self.add_text_input(self.tr("Load Delay (ms)"), str(step.load_delay_ms), "load_delay_ms")
-                self.add_text_input(self.tr("Find Timeout (ms)"), str(step.find_timeout_ms), "find_timeout_ms")
-                self.add_text_input(self.tr("Gone Grace (ms)"), str(step.gone_grace_ms), "gone_grace_ms")
-                self.add_text_input(self.tr("Hard Timeout (ms)"), str(step.hard_timeout_ms), "hard_timeout_ms")
-            case RepeatStep():
-                self.add_text_input(self.tr("Count"), str(step.count), "count")
-            case IfImageStep():
-                self.add_template_editor(macro, step.template)
-                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
-            case IfAnyImageStep():
-                self.add_template_list_editor(macro, step.templates)
-                self.add_slider(self.tr("Threshold"), step.threshold, property_key="threshold")
-                self.add_text_input(self.tr("Timeout (ms)"), str(step.timeout_ms), "timeout_ms")
-                self.add_dropdown(
-                    self.tr("On Timeout"),
-                    step.on_timeout,
-                    [(self.tr("Stop"), "stop"), (self.tr("Continue"), "continue")],
-                    "on_timeout",
-                )
-            case GridNavStep():
-                self.add_text_input(self.tr("Rows"), str(step.rows), "rows")
-                self.add_text_input(self.tr("Start Cell"), str(step.start), "start")
-
-    def show_branch_properties(self, macro: Macro, parent_title: str, branch_title: str, steps: list[Step]) -> None:
-        self.clear_content()
-
-        self.add_title_label(branch_title)
-
-        parent_label = ElidedBodyLabel(self.tr("Inside {parent}").format(parent=parent_title), self.content_widget)
-        parent_label.setWordWrap(True)
-        self.content_layout.addWidget(parent_label)
-
-        add_step_button = PushButton(RemakuIcon.PLUS, self.tr("Add Step"), self.content_widget)
-        add_step_button.clicked.connect(
-            lambda: show_step_menu(
-                self, add_step_button, lambda step_type: event_bus.step_add_requested.emit(step_type)
-            )
-        )
-        self.content_layout.addWidget(add_step_button)
-
-    def handle_add_step_requested(self, step_type: str) -> None:
-        event_bus.step_add_requested.emit(step_type)
+class PropertyFormMixin:
+    content_widget: QWidget
+    content_layout: QVBoxLayout
 
     def add_title_label(self, text: str) -> None:
         title = ElidedSubtitleLabel(text, self.content_widget)
@@ -243,7 +125,7 @@ class RightPanel(ScrollArea):
         combo = ComboBox(self.content_widget)
 
         for option_label, option_value in options:
-            combo.addItem(self.tr(option_label), userData=option_value)
+            combo.addItem(option_label, userData=option_value)
 
         index = combo.findData(value)
 
@@ -260,7 +142,7 @@ class RightPanel(ScrollArea):
     def refresh_target_windows(self, combo: ComboBox, selected_window: str) -> None:
         combo.blockSignals(True)
         combo.clear()
-        combo.addItem(self.tr("(Use foreground window)"), userData="")
+        combo.addItem(QCoreApplication.translate("RightPanel", "(Use foreground window)"), userData="")
 
         for title in window.list_visible_windows():
             combo.addItem(title, userData=title)
@@ -277,7 +159,7 @@ class RightPanel(ScrollArea):
         combo.blockSignals(False)
 
     def add_target_window_combo(self, macro: Macro) -> None:
-        self.add_field_label(self.tr("Target window"))
+        self.add_field_label(QCoreApplication.translate("RightPanel", "Target window"))
         target_combo = ComboBox(self.content_widget)
 
         self.refresh_target_windows(target_combo, macro.meta.target_window)
@@ -294,10 +176,10 @@ class RightPanel(ScrollArea):
         self.content_layout.addWidget(target_combo)
 
     def add_hotkey_text_input(self, macro: Macro) -> None:
-        self.add_field_label(self.tr("Hotkey"))
+        self.add_field_label(QCoreApplication.translate("RightPanel", "Hotkey"))
         hotkey_edit = LineEdit(self.content_widget)
         hotkey_edit.setText(macro.meta.hotkey)
-        hotkey_edit.setPlaceholderText(self.tr("Press a hotkey"))
+        hotkey_edit.setPlaceholderText(QCoreApplication.translate("RightPanel", "Press a hotkey"))
         hotkey_edit.setReadOnly(True)
         hotkey_edit.setClearButtonEnabled(True)
 
@@ -378,7 +260,7 @@ class RightPanel(ScrollArea):
         event_bus.step_property_changed.emit("key", key_name)
 
     def add_enabled_checkbox(self, macro: Macro) -> None:
-        enabled_checkbox = CheckBox(self.tr("Enabled"), self.content_widget)
+        enabled_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Enabled"), self.content_widget)
         enabled_checkbox.setChecked(macro.meta.enabled)
 
         enabled_checkbox.checkStateChanged.connect(
@@ -388,7 +270,7 @@ class RightPanel(ScrollArea):
         self.content_layout.addWidget(enabled_checkbox)
 
     def add_skip_checkbox(self, value: bool, enabled: bool = True) -> None:
-        skip_checkbox = CheckBox(self.tr("Skip"), self.content_widget)
+        skip_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Skip"), self.content_widget)
         skip_checkbox.setChecked(value)
         skip_checkbox.setEnabled(enabled)
 
@@ -399,10 +281,10 @@ class RightPanel(ScrollArea):
         self.content_layout.addWidget(skip_checkbox)
 
     def add_note_input(self, value: str) -> None:
-        self.add_field_label(self.tr("Note"))
+        self.add_field_label(QCoreApplication.translate("RightPanel", "Note"))
         note_edit = LineEdit(self.content_widget)
         note_edit.setText(value)
-        note_edit.setPlaceholderText(self.tr("Add a note for this step"))
+        note_edit.setPlaceholderText(QCoreApplication.translate("RightPanel", "Add a note for this step"))
 
         note_edit.editingFinished.connect(lambda w=note_edit: event_bus.step_property_changed.emit("note", w.text()))
 
@@ -416,7 +298,9 @@ class RightPanel(ScrollArea):
         for template_id in template_ids:
             self.add_template_card(macro, template_id)
 
-        add_template_button = PushButton(RemakuIcon.PLUS, self.tr("Add Template"), self.content_widget)
+        add_template_button = PushButton(
+            RemakuIcon.PLUS, QCoreApplication.translate("RightPanel", "Add Template"), self.content_widget
+        )
         add_template_button.clicked.connect(lambda: event_bus.template_add_requested.emit())
         self.content_layout.addWidget(add_template_button)
 
@@ -457,3 +341,236 @@ class RightPanel(ScrollArea):
         trigger.mousePressEvent = toggle_card
 
         self.content_layout.addWidget(card)
+
+
+class StepPropertiesWidget(QWidget, PropertyFormMixin):
+    def __init__(self, macro: Macro, step: Step, title_text: str, skip_enabled: bool = True, parent=None):
+        super().__init__(parent)
+
+        self.macro = macro
+        self.step = step
+        self.content_widget = self
+        self.content_layout = QVBoxLayout(self)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(12)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.add_title_label(title_text)
+        self.add_skip_checkbox(step.skip, skip_enabled)
+        self.add_note_input(step.note)
+        self.add_step_fields()
+
+    def add_step_fields(self) -> None:
+        raise NotImplementedError
+
+
+class KeyStepPropertiesWidget(StepPropertiesWidget):
+    step: KeyStep
+
+    def add_step_fields(self) -> None:
+        self.add_key_input(QCoreApplication.translate("RightPanel", "Key"), self.step.key)
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Hold (ms)"), str(self.step.hold_ms), "hold_ms")
+
+
+class DelayStepPropertiesWidget(StepPropertiesWidget):
+    step: DelayStep
+
+    def add_step_fields(self) -> None:
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Duration (ms)"), str(self.step.ms), "ms")
+
+
+class WaitImageStepPropertiesWidget(StepPropertiesWidget):
+    step: WaitImageStep
+
+    def add_step_fields(self) -> None:
+        self.add_template_editor(self.macro, self.step.template)
+        self.add_slider(
+            QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+        )
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "On Timeout"),
+            self.step.on_timeout,
+            [
+                (QCoreApplication.translate("RightPanel", "Stop"), "stop"),
+                (QCoreApplication.translate("RightPanel", "Continue"), "continue"),
+            ],
+            "on_timeout",
+        )
+
+
+class HoldKeyUntilGoneStepPropertiesWidget(StepPropertiesWidget):
+    step: HoldKeyUntilGoneStep
+
+    def add_step_fields(self) -> None:
+        self.add_key_input(QCoreApplication.translate("RightPanel", "Key"), self.step.key)
+        self.add_template_editor(self.macro, self.step.template)
+        self.add_slider(
+            QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Load Delay (ms)"),
+            str(self.step.load_delay_ms),
+            "load_delay_ms",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Find Timeout (ms)"),
+            str(self.step.find_timeout_ms),
+            "find_timeout_ms",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Gone Grace (ms)"),
+            str(self.step.gone_grace_ms),
+            "gone_grace_ms",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Hard Timeout (ms)"),
+            str(self.step.hard_timeout_ms),
+            "hard_timeout_ms",
+        )
+
+
+class RepeatStepPropertiesWidget(StepPropertiesWidget):
+    step: RepeatStep
+
+    def add_step_fields(self) -> None:
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Count"), str(self.step.count), "count")
+
+
+class IfImageStepPropertiesWidget(StepPropertiesWidget):
+    step: IfImageStep
+
+    def add_step_fields(self) -> None:
+        self.add_template_editor(self.macro, self.step.template)
+        self.add_slider(
+            QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+        )
+
+
+class IfAnyImageStepPropertiesWidget(StepPropertiesWidget):
+    step: IfAnyImageStep
+
+    def add_step_fields(self) -> None:
+        self.add_template_list_editor(self.macro, self.step.templates)
+        self.add_slider(
+            QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+        )
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "On Timeout"),
+            self.step.on_timeout,
+            [
+                (QCoreApplication.translate("RightPanel", "Stop"), "stop"),
+                (QCoreApplication.translate("RightPanel", "Continue"), "continue"),
+            ],
+            "on_timeout",
+        )
+
+
+class GridNavStepPropertiesWidget(StepPropertiesWidget):
+    step: GridNavStep
+
+    def add_step_fields(self) -> None:
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Rows"), str(self.step.rows), "rows")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Start Cell"), str(self.step.start), "start")
+
+
+STEP_PROPERTIES_WIDGETS: dict[type[Step], type[StepPropertiesWidget]] = {
+    KeyStep: KeyStepPropertiesWidget,
+    DelayStep: DelayStepPropertiesWidget,
+    WaitImageStep: WaitImageStepPropertiesWidget,
+    HoldKeyUntilGoneStep: HoldKeyUntilGoneStepPropertiesWidget,
+    RepeatStep: RepeatStepPropertiesWidget,
+    IfImageStep: IfImageStepPropertiesWidget,
+    IfAnyImageStep: IfAnyImageStepPropertiesWidget,
+    GridNavStep: GridNavStepPropertiesWidget,
+}
+
+
+class RightPanel(ScrollArea, PropertyFormMixin):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.init_ui()
+
+    def init_ui(self):
+        self.setMinimumWidth(220)
+        self.setMaximumWidth(350)
+        self.setWidgetResizable(True)
+        self.setFrameShape(ScrollArea.Shape.NoFrame)
+        self.setStyleSheet("background: transparent;")
+
+        self.content_widget = CardWidget(self)
+        self.content_layout = QVBoxLayout(self.content_widget)
+
+        self.content_layout.setContentsMargins(8, 8, 8, 8)
+        self.content_layout.setSpacing(12)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.setWidget(self.content_widget)
+        self.show_macro_properties(None)
+
+    def clear_content(self) -> None:
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
+
+            if item is None:
+                continue
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+    def show_macro_properties(self, macro: Macro | None) -> None:
+        self.clear_content()
+
+        self.add_title_label(self.tr("Macro Properties"))
+
+        if macro is None:
+            label = BodyLabel(self.tr("Select a macro to inspect its metadata."), self.content_widget)
+            label.setWordWrap(True)
+
+            self.content_layout.addWidget(label)
+            return
+
+        self.add_target_window_combo(macro)
+        self.add_hotkey_text_input(macro)
+        self.add_enabled_checkbox(macro)
+
+    def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
+        self.clear_content()
+
+        widget_class = STEP_PROPERTIES_WIDGETS.get(type(step))
+
+        if widget_class is None:
+            return
+
+        self.content_layout.addWidget(widget_class(macro, step, title_text, skip_enabled, self.content_widget))
+
+    def show_branch_properties(self, macro: Macro, parent_title: str, branch_title: str, steps: list[Step]) -> None:
+        self.clear_content()
+
+        self.add_title_label(branch_title)
+
+        parent_label = ElidedBodyLabel(self.tr("Inside {parent}").format(parent=parent_title), self.content_widget)
+        parent_label.setWordWrap(True)
+        self.content_layout.addWidget(parent_label)
+
+        add_step_button = PushButton(RemakuIcon.PLUS, self.tr("Add Step"), self.content_widget)
+        add_step_button.clicked.connect(
+            lambda: show_step_menu(
+                self, add_step_button, lambda step_type: event_bus.step_add_requested.emit(step_type)
+            )
+        )
+        self.content_layout.addWidget(add_step_button)
+
+    def handle_add_step_requested(self, step_type: str) -> None:
+        event_bus.step_add_requested.emit(step_type)

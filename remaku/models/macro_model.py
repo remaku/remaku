@@ -197,7 +197,9 @@ def step_to_dict(step: Step) -> dict[str, Any]:
 
 def normalize_step_keys(value: Any) -> Any:
     if isinstance(value, dict):
-        return {("else" if key == "else_" else key): normalize_step_keys(inner_value) for key, inner_value in value.items()}
+        return {
+            ("else" if key == "else_" else key): normalize_step_keys(inner_value) for key, inner_value in value.items()
+        }
 
     if isinstance(value, list):
         return [normalize_step_keys(item) for item in value]

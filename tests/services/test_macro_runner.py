@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from typing import cast
+
 import numpy as np
 import pytest
 
@@ -843,7 +845,7 @@ def test_wait_for_template_position_returns_center_and_updates_score(monkeypatch
     runner = make_hold_key_runner()
     runner.capture_rect = Rect(100, 200, 300, 400)
     runner.templates = {"start": np.ones((4, 6), dtype=np.uint8)}
-    runner.template_capture_sizes = {"start": None}
+    runner.template_capture_sizes = cast(dict[str, tuple[int, int] | None], {"start": None})
     updates = []
     runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
     runner.update = lambda **fields: updates.append(fields)

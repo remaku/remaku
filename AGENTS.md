@@ -44,7 +44,7 @@ Rules:
 
 - Tests live in `tests/` and mirror the package structure (e.g., `remaku/core/vision.py` → `tests/core/test_vision.py`).
 - Use `pytest` with `pytest-qt` for GUI tests and `pytest-cov` for coverage.
-- Run all tests: `make test` (or `uv run pytest --cov=remaku --cov-report=term-missing`).
+- Run all tests: `make test`.
 - Run a single test file: `uv run pytest tests/path/to/test_file.py`.
 - Test files are named `test_<module>.py`. Test functions are named `test_<behavior>`.
 
@@ -56,11 +56,17 @@ Rules:
 - `make translate` — Run both lupdate and lrelease.
 - When adding user-visible strings, wrap them in `self.tr()` or `QCoreApplication.translate()`.
 
-## Git Rules
+## Release Process
 
-- **STRICTLY PROHIBITED**: Never execute `git commit` or `git push` on your own under any circumstances. You do not have the authority to commit changes independently.
-- **Post-Modification Protocol**: After modifying code, running linters, and completing tests, you must **STOP IMMEDIATELY**. Report the exact files and changes made to the user, and explicitly ask: _"I have completed the modifications. Would you like me to commit these changes now?"_
-- **Dependency Updates**: After modifying `pyproject.toml`, run `uv sync` to update the lockfile. Once done, **STOP** and wait for explicit user instructions to commit them together. Do not proceed to commit automatically.
+When the user asks to prepare a release (e.g., "prepare for new stable release"):
+
+1. Determine the new version number based on the changes in the Unreleased section.
+2. Bump `version` in `pyproject.toml`.
+3. Rename `## Unreleased` to `## vX.Y.Z` in `CHANGELOG.md`.
+4. Run `uv sync` to update `uv.lock`.
+5. Run `make check-all` (lint, format-check, typecheck, test) and fix any issues.
+6. Commit the release with the message: `chore: prepare X.Y.Z release`
+   - The commit must include only `CHANGELOG.md`, `pyproject.toml`, and `uv.lock`.
 
 ## Development & Build
 

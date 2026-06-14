@@ -13,6 +13,9 @@ from remaku.models.macro_model import (
     KeyStep,
     Macro,
     MacroMeta,
+    MouseClickStep,
+    MouseMoveStep,
+    MouseScrollStep,
     RepeatStep,
     TemplateInfo,
     WaitImageStep,
@@ -609,9 +612,34 @@ def test_right_panel_show_step_properties_for_common_step_types(monkeypatch, qtb
         RepeatStep(count=3),
         IfAnyImageStep(templates=["button"]),
         GridNavStep(rows=2, start=1),
+        MouseClickStep(x=10, y=20),
+        MouseClickStep(target="template", template="button", threshold=0.9),
+        MouseMoveStep(x=30, y=40),
+        MouseMoveStep(target="template", template="button", threshold=0.8),
+        MouseScrollStep(clicks=-3, interval_ms=25),
     ]:
         panel.show_step_properties(macro, "Step", step)
         assert panel.content_layout.count() > 0
+
+
+def test_right_panel_show_step_properties_ignores_unknown_step_type(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(id="macro"))
+    unknown_step = cast(Any, object())
+
+    panel.show_step_properties(macro, "Step", unknown_step)
+
+    assert panel.content_layout.count() == 0
+
+
+def test_base_step_properties_widget_requires_fields(qtbot) -> None:
+    try:
+        right_panel.StepPropertiesWidget.add_step_fields(cast(Any, object()))
+    except NotImplementedError:
+        pass
+    else:
+        raise AssertionError("base StepPropertiesWidget should require add_step_fields")
 
 
 def test_right_panel_note_input_emits_step_property(qtbot) -> None:

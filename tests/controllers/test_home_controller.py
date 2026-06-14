@@ -760,6 +760,10 @@ def test_parse_step_property_converts_known_types() -> None:
     assert controller.parse_step_property("skip", "true") is True
     assert controller.parse_step_property("ms", "150") == 150
     assert controller.parse_step_property("interval_ms", "25") == 25
+    assert controller.parse_step_property("relative", "false") is False
+    assert controller.parse_step_property("clicks", "-3") == -3
+    assert controller.parse_step_property("x", "10") == 10
+    assert controller.parse_step_property("y", "20") == 20
     assert controller.parse_step_property("threshold", "87") == 0.87
     assert controller.parse_step_property("key", "enter") == "enter"
 
@@ -882,6 +886,9 @@ def test_describe_step_formats_core_step_types() -> None:
     assert controller.describe_step({"type": "key", "key": "enter"}) == "Press enter"
     assert controller.describe_step({"type": "delay", "ms": 250}) == "Wait 250 ms"
     assert controller.describe_step({"type": "text_input", "text": "哈囉\nworld"}) == "Type text: 哈囉 world"
+    assert controller.describe_step({"type": "text_input", "text": "123456789012345678901"}) == (
+        "Type text: 12345678901234567890..."
+    )
     assert (
         controller.describe_step({"type": "wait_image", "template": "start", "note": "ready"})
         == "Wait for Start Button (ready)"
@@ -1284,6 +1291,17 @@ def test_describe_step_formats_template_branch_and_unknown_types() -> None:
     assert controller.describe_step({"type": "if_any_image", "templates": ["start", "missing"]}) == (
         "If any image Start Button, missing"
     )
+    assert controller.describe_step({"type": "mouse_click", "button": "right", "x": 10, "y": 20}) == (
+        "Click Right at (10, 20)"
+    )
+    assert controller.describe_step({"type": "mouse_click", "target": "template", "template": "start"}) == (
+        "Click Left at Start Button"
+    )
+    assert controller.describe_step({"type": "mouse_move", "x": 30, "y": 40}) == "Move to (30, 40)"
+    assert controller.describe_step({"type": "mouse_move", "target": "template", "template": "start"}) == (
+        "Move to Start Button"
+    )
+    assert controller.describe_step({"type": "mouse_scroll", "clicks": -3}) == "Scroll -3"
     assert controller.describe_step({"type": "custom", "note": "later"}) == "custom (later)"
     assert controller.get_template_label("empty") == "empty"
     controller.current_macro = None

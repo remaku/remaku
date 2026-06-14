@@ -27,9 +27,13 @@ from remaku.models.macro_model import (
     KeyStep,
     Macro,
     MacroModel,
+    MouseClickStep,
+    MouseMoveStep,
+    MouseScrollStep,
     RepeatStep,
     TextInputStep,
     WaitImageStep,
+    get_step_button,
     get_step_count,
     get_step_find_timeout,
     get_step_gone_grace,
@@ -38,9 +42,14 @@ from remaku.models.macro_model import (
     get_step_interval_ms,
     get_step_key,
     get_step_load_delay,
+    get_step_mouse_relative,
+    get_step_mouse_target,
+    get_step_mouse_x,
+    get_step_mouse_y,
     get_step_ms,
     get_step_on_timeout,
     get_step_rows,
+    get_step_scroll_clicks,
     get_step_start,
     get_step_template,
     get_step_templates,
@@ -151,6 +160,61 @@ def test_text_input_parses_string_values() -> None:
     assert step.interval_ms == 25
 
 
+def test_mouse_steps_parse_string_values() -> None:
+    click_step = parse_step(
+        {
+            "type": "mouse_click",
+            "skip": "true",
+            "note": "press",
+            "button": "right",
+            "target": "template",
+            "x": "10",
+            "y": "20",
+            "relative": "",
+            "template": "button",
+            "threshold": "0.9",
+            "timeout_ms": "250",
+            "on_timeout": "continue",
+        }
+    )
+    move_step = parse_step(
+        {
+            "type": "mouse_move",
+            "target": "coordinate",
+            "x": "30",
+            "y": "40",
+            "relative": "false",
+            "template": "marker",
+            "threshold": "0.7",
+            "timeout_ms": "500",
+            "on_timeout": "stop",
+        }
+    )
+    scroll_step = parse_step({"type": "mouse_scroll", "clicks": "-3", "interval_ms": "25"})
+
+    assert isinstance(click_step, MouseClickStep)
+    assert click_step.skip is True
+    assert click_step.note == "press"
+    assert click_step.button == "right"
+    assert click_step.target == "template"
+    assert click_step.x == 10
+    assert click_step.y == 20
+    assert click_step.relative is False
+    assert click_step.template == "button"
+    assert click_step.threshold == 0.9
+    assert click_step.timeout_ms == 250
+    assert click_step.on_timeout == "continue"
+    assert isinstance(move_step, MouseMoveStep)
+    assert move_step.x == 30
+    assert move_step.y == 40
+    assert move_step.relative is True
+    assert move_step.template == "marker"
+    assert move_step.threshold == 0.7
+    assert isinstance(scroll_step, MouseScrollStep)
+    assert scroll_step.clicks == -3
+    assert scroll_step.interval_ms == 25
+
+
 def test_step_getters_return_defaults_for_missing_values() -> None:
     step = {}
 
@@ -171,6 +235,12 @@ def test_step_getters_return_defaults_for_missing_values() -> None:
     assert get_step_templates(step) == []
     assert get_step_text(step) == DEFAULT_TEXT_INPUT_TEXT
     assert get_step_interval_ms(step) == DEFAULT_TEXT_INPUT_INTERVAL_MS
+    assert get_step_button(step) == "left"
+    assert get_step_mouse_target(step) == "coordinate"
+    assert get_step_mouse_x(step) == 0
+    assert get_step_mouse_y(step) == 0
+    assert get_step_mouse_relative(step) is True
+    assert get_step_scroll_clicks(step) == 3
 
 
 def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
@@ -184,6 +254,9 @@ def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
         IfImageStep(then=[KeyStep(key="a")], else_=[DelayStep(ms=1)]),
         IfAnyImageStep(templates=["one"], branches={"one": [KeyStep(key="b")]}),
         GridNavStep(on_next_row=[KeyStep(key="down")], on_next_col=[KeyStep(key="right")]),
+        MouseClickStep(button="middle", x=10, y=20),
+        MouseMoveStep(x=30, y=40),
+        MouseScrollStep(clicks=-2, interval_ms=25),
     ]
 
     for step in steps:

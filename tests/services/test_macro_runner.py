@@ -470,6 +470,24 @@ def test_validate_steps_reports_missing_templates_inside_list(tmp_path: Path) ->
     assert errors == ["Step 1 (if_any_image): template 'missing' not found on disk"]
 
 
+def test_validate_steps_checks_mouse_template_target(tmp_path: Path) -> None:
+    (tmp_path / "button.png").write_bytes(b"png")
+
+    errors = validate_steps(
+        [
+            {"type": "mouse_click", "button": "left", "target": "template", "template": ""},
+            {"type": "mouse_move", "target": "template", "template": "missing"},
+            {"type": "mouse_click", "button": "left", "target": "template", "template": "button"},
+        ],
+        template_root=tmp_path,
+    )
+
+    assert errors == [
+        "Step 1 (mouse_click): empty template for template target",
+        "Step 2 (mouse_move): template 'missing' not found on disk",
+    ]
+
+
 def test_exec_steps_raises_when_stop_event_is_set() -> None:
     runner = make_runner([])
     runner.stop_event.set()
@@ -544,6 +562,100 @@ def test_exec_step_dispatches_hold_key_until_gone_and_ignores_unknown_action() -
     runner.exec_step({"type": "unknown"}, (("steps", 1),))
 
     assert calls == [step]
+
+
+def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
+    runner = make_runner([])
+    runner.capture_rect = Rect(100, 200, 300, 400)
+    calls = []
+    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: calls.append((button, x, y)))
+
+    runner.exec_step(
+        {"type": "mouse_click", "button": "right", "target": "coordinate", "x": 10, "y": 20, "relative": True},
+        (("steps", 0),),
+    )
+
+    assert calls == [("right", 110, 220)]
+
+
+def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_position(monkeypatch) -> None:
+    runner = make_runner([], templates={"button": {"label": "Button"}})
+    clicks = []
+    finishes = []
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: clicks.append((button, x, y)))
+
+    runner.exec_step(
+        {"type": "mouse_click", "button": "left", "target": "template", "template": "", "on_timeout": "stop"},
+        (("steps", 0),),
+    )
+    runner.wait_for_template_position = lambda template_id, timeout_ms, threshold: (False, 0, 0)
+    runner.exec_step(
+        {"type": "mouse_click", "button": "left", "target": "template", "template": "button", "on_timeout": "stop"},
+        (("steps", 1),),
+    )
+    runner.wait_for_template_position = lambda template_id, timeout_ms, threshold: (True, 12, 34)
+    runner.exec_step(
+        {"type": "mouse_click", "button": "left", "target": "template", "template": "button"},
+        (("steps", 2),),
+    )
+    runner.resolve_mouse_position = lambda step: None
+    runner.exec_step(
+        {"type": "mouse_click", "button": "left", "target": "coordinate"},
+        (("steps", 3),),
+    )
+
+    assert finishes == [
+        (StopReason.STALE, "mouse_click: empty template"),
+        (StopReason.STALE, "mouse_click_timeout: Button"),
+    ]
+    assert clicks == [("left", 12, 34)]
+
+
+def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch) -> None:
+    runner = make_runner([], templates={"button": {"label": "Button"}})
+    runner.capture_rect = Rect(100, 200, 300, 400)
+    moves = []
+    finishes = []
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_move", lambda x, y: moves.append((x, y)))
+
+    runner.exec_step(
+        {"type": "mouse_move", "target": "coordinate", "x": 10, "y": 20, "relative": False},
+        (("steps", 0),),
+    )
+    runner.exec_step(
+        {"type": "mouse_move", "target": "template", "template": "", "on_timeout": "stop"},
+        (("steps", 1),),
+    )
+    runner.wait_for_template_position = lambda template_id, timeout_ms, threshold: (False, 0, 0)
+    runner.exec_step(
+        {"type": "mouse_move", "target": "template", "template": "button", "on_timeout": "stop"},
+        (("steps", 2),),
+    )
+    runner.wait_for_template_position = lambda template_id, timeout_ms, threshold: (True, 12, 34)
+    runner.exec_step(
+        {"type": "mouse_move", "target": "template", "template": "button"},
+        (("steps", 3),),
+    )
+    runner.resolve_mouse_position = lambda step: None
+    runner.exec_step({"type": "mouse_move", "target": "coordinate"}, (("steps", 4),))
+
+    assert moves == [(10, 20), (12, 34)]
+    assert finishes == [
+        (StopReason.STALE, "mouse_move: empty template"),
+        (StopReason.STALE, "mouse_move_timeout: Button"),
+    ]
+
+
+def test_exec_step_mouse_scroll_uses_clicks_and_interval(monkeypatch) -> None:
+    runner = make_runner([])
+    calls = []
+    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_scroll", lambda clicks, interval_ms: calls.append((clicks, interval_ms)))
+
+    runner.exec_step({"type": "mouse_scroll", "clicks": -5, "interval_ms": 25}, (("steps", 0),))
+
+    assert calls == [(-5, 25)]
 
 
 def test_hold_key_until_gone_raises_when_stop_requested(monkeypatch) -> None:
@@ -641,3 +753,55 @@ def test_hold_key_until_gone_releases_on_hard_timeout(monkeypatch) -> None:
             "threshold": 0.8,
         }
     )
+
+
+def test_wait_for_template_position_returns_center_and_updates_score(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    runner.capture_rect = Rect(100, 200, 300, 400)
+    runner.templates = {"start": np.ones((4, 6), dtype=np.uint8)}
+    runner.template_capture_sizes = {"start": None}
+    updates = []
+    runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
+    runner.update = lambda **fields: updates.append(fields)
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.9, (7, 8)))
+
+    found, x, y = runner.wait_for_template_position("start", 1000, 0.8)
+
+    assert (found, x, y) == (True, 110, 210)
+    assert updates == [{"score": 0.9, "match_id": "start"}]
+
+
+def test_wait_for_template_position_handles_missing_frame_timeout_and_stop(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    runner.templates = {"start": np.ones((4, 6), dtype=np.uint8)}
+    sleeps = []
+    frames = iter([None, np.ones((20, 30), dtype=np.uint8)])
+    runner.capture_tick = lambda: next(frames)
+    runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.0, (0, 0)))
+
+    assert runner.wait_for_template_position("start", 0, 0.8) == (False, 0, 0)
+
+    times = iter([0.0, 0.0, 0.0, 0.2])
+    monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
+    assert runner.wait_for_template_position("start", 100, 0.8) == (False, 0, 0)
+    assert sleeps == [0.1]
+
+    runner.stop_event.set()
+    monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: 0.0)
+    with pytest.raises(Stopped):
+        runner.wait_for_template_position("start", 100, 0.8)
+
+
+def test_wait_for_template_position_sleeps_after_missed_match(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    runner.templates = {"start": np.ones((4, 6), dtype=np.uint8)}
+    sleeps = []
+    times = iter([0.0, 0.0, 0.0, 0.2])
+    runner.capture_tick = lambda: np.ones((20, 30), dtype=np.uint8)
+    runner.sleep_remaining = lambda tick_start, period: sleeps.append(period)
+    monkeypatch.setattr("remaku.services.macro_runner.time.monotonic", lambda: next(times))
+    monkeypatch.setattr("remaku.services.macro_runner.vision.match_template", lambda frame, template: (0.0, (0, 0)))
+
+    assert runner.wait_for_template_position("start", 100, 0.8) == (False, 0, 0)
+    assert sleeps == [0.1]

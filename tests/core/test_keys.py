@@ -198,3 +198,111 @@ def test_is_valid_key_delegates_to_pydirectinput(monkeypatch) -> None:
 
     assert keys.is_valid_key("enter") is True
     assert keys.is_valid_key("nope") is False
+
+
+@pytest.mark.parametrize(
+    ("button", "expected_call"),
+    [
+        ("left", "left"),
+        ("right", "right"),
+        ("middle", "middle"),
+    ],
+)
+def test_mouse_click_moves_and_clicks_requested_button(monkeypatch, button: str, expected_call: str) -> None:
+    calls = []
+    monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append(("move", x, y)))
+    monkeypatch.setattr(keys.pdi, "leftClick", lambda: calls.append(("click", "left")))
+    monkeypatch.setattr(keys.pdi, "rightClick", lambda: calls.append(("click", "right")))
+    monkeypatch.setattr(keys.pdi, "middleClick", lambda: calls.append(("click", "middle")))
+
+    keys.mouse_click(button, 10, 20)
+
+    assert calls == [("move", 10, 20), ("click", expected_call)]
+
+
+def test_mouse_click_stops_when_move_fails(monkeypatch) -> None:
+    calls = []
+
+    def raise_move(x: int, y: int) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "moveTo", raise_move)
+    monkeypatch.setattr(keys.pdi, "leftClick", lambda: calls.append("left"))
+
+    keys.mouse_click("left", 10, 20)
+
+    assert calls == []
+
+
+def test_mouse_click_logs_click_failure(monkeypatch) -> None:
+    calls = []
+
+    def raise_click() -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append(("move", x, y)))
+    monkeypatch.setattr(keys.pdi, "leftClick", raise_click)
+
+    keys.mouse_click("left", 10, 20)
+
+    assert calls == [("move", 10, 20)]
+
+
+def test_mouse_move_delegates_to_pydirectinput(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append((x, y)))
+
+    keys.mouse_move(10, 20)
+
+    assert calls == [(10, 20)]
+
+
+def test_mouse_move_logs_failure(monkeypatch) -> None:
+    def raise_move(x: int, y: int) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "moveTo", raise_move)
+
+    keys.mouse_move(10, 20)
+
+
+def test_mouse_scroll_sends_one_tick_at_a_time_with_interval(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.pdi, "scroll", lambda clicks: calls.append(("scroll", clicks)))
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms: calls.append(("sleep", ms)))
+
+    keys.mouse_scroll(3, interval_ms=25)
+
+    assert calls == [
+        ("scroll", 1),
+        ("sleep", 25),
+        ("scroll", 1),
+        ("sleep", 25),
+        ("scroll", 1),
+        ("sleep", 25),
+    ]
+
+
+def test_mouse_scroll_sends_negative_ticks_and_allows_zero(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.pdi, "scroll", lambda clicks: calls.append(clicks))
+
+    keys.mouse_scroll(-2)
+    keys.mouse_scroll(0)
+
+    assert calls == [-1, -1]
+
+
+def test_mouse_scroll_stops_on_failure(monkeypatch) -> None:
+    calls = []
+
+    def fake_scroll(clicks: int) -> None:
+        calls.append(clicks)
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "scroll", fake_scroll)
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms: calls.append(ms))
+
+    keys.mouse_scroll(2, interval_ms=25)
+
+    assert calls == [1]

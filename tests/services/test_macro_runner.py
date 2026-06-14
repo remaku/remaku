@@ -599,6 +599,29 @@ def test_if_image_executes_else_branch_when_not_found() -> None:
     assert calls == [(step["else"], "else")]
 
 
+def test_if_image_macro_to_runner_dict_keeps_else_branch() -> None:
+    runner = make_runner(
+        [
+            {
+                "type": "if_image",
+                "template": "start",
+                "then": [{"type": "key", "key": "enter"}],
+                "else": [{"type": "key", "key": "esc"}],
+            }
+        ],
+        templates={"start": {"label": "Start"}},
+    )
+    calls = []
+    runner.wait_for_template = lambda template_id, timeout_ms, threshold: False
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": calls.append((steps, branch_key))
+
+    step = runner.macro["steps"][0]
+    runner.exec_step(step, (("steps", 0),))
+
+    assert "else_" not in step
+    assert calls == [(step["else"], "else")]
+
+
 def test_exec_step_dispatches_hold_key_until_gone_and_ignores_unknown_action() -> None:
     runner = make_runner([])
     calls = []

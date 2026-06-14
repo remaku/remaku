@@ -97,7 +97,8 @@ def test_macro_to_dict_keeps_legacy_name_key(sample_macro_dict: dict) -> None:
     assert data["meta"]["name"] == "sample"
     assert data["gaming_mode"] is True
     assert data["steps"][1]["steps"][1]["template"] == "start"
-    assert data["steps"][2]["else_"][0]["ms"] == 50
+    assert data["steps"][2]["else"][0]["ms"] == 50
+    assert "else_" not in data["steps"][2]
 
 
 def test_macro_gaming_mode_defaults_and_round_trips(sample_macro_dict: dict) -> None:
@@ -287,6 +288,22 @@ def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
         assert step.to_dict()["type"] == step.type
 
 
+def test_if_image_to_dict_uses_json_else_key() -> None:
+    step = IfImageStep(
+        then=[RepeatStep(steps=[IfImageStep(else_=[KeyStep(key="nested")])])],
+        else_=[DelayStep(ms=1)],
+    )
+
+    data = step.to_dict()
+
+    assert data["else"] == [{"type": "delay", "skip": False, "note": "", "ms": 1}]
+    assert "else_" not in data
+    assert data["then"][0]["steps"][0]["else"] == [
+        {"type": "key", "skip": False, "note": "", "key": "nested", "hold_ms": DEFAULT_KEY_HOLD_MS}
+    ]
+    assert "else_" not in data["then"][0]["steps"][0]
+
+
 def test_macro_model_round_trips_macro(isolated_data_dir, sample_macro_dict: dict) -> None:
     model = MacroModel()
     macro = Macro.from_dict(copy.deepcopy(sample_macro_dict))
@@ -302,6 +319,9 @@ def test_macro_model_round_trips_macro(isolated_data_dir, sample_macro_dict: dic
         json.loads((isolated_data_dir / "macros" / "sample.json").read_text(encoding="utf-8"))["meta"]["name"]
         == "sample"
     )
+    saved_step = json.loads((isolated_data_dir / "macros" / "sample.json").read_text(encoding="utf-8"))["steps"][2]
+    assert saved_step["else"][0]["ms"] == 50
+    assert "else_" not in saved_step
 
 
 def test_macro_model_ignores_invalid_macro_file(isolated_data_dir) -> None:

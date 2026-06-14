@@ -4,6 +4,10 @@
 
 <!-- lang:en -->
 
+### Fixed
+
+- If-image steps now correctly save the else branch so it is not lost after saving and reloading the macro
+
 ### Added
 
 - Text input steps can now type custom Unicode text with an optional delay between characters
@@ -14,6 +18,10 @@
 
 <!-- lang:zh_tw -->
 
+### 修正
+
+- if-image 步驟現在能正確儲存 else 分支，儲存後重新載入巨集不再遺失 else 中的步驟
+
 ### 新增
 
 - 文字輸入步驟現在可輸入自訂 Unicode 文字，並可設定每個字元之間的延遲
@@ -23,6 +31,10 @@
 - 模板匹配現在支援彩色模式，當圖片具有明顯色彩時可提供更精確的匹配
 
 <!-- lang:zh_cn -->
+
+### 修复
+
+- if-image 步骤现在能正确保存 else 分支，保存后重新加载宏不再丢失 else 中的步骤
 
 ### 新增
 

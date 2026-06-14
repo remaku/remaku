@@ -78,6 +78,12 @@ def test_validate_steps_checks_key_and_template_fields(tmp_path: Path, monkeypat
     ]
 
 
+def test_validate_steps_accepts_modifier_key_combo(monkeypatch) -> None:
+    monkeypatch.setattr("remaku.services.macro_runner.keys.is_valid_key", lambda key: key == "ctrl+shift+s")
+
+    assert validate_steps([{"type": "key", "key": "ctrl+shift+s"}]) == []
+
+
 def test_validate_steps_accepts_existing_templates(tmp_path: Path) -> None:
     (tmp_path / "start.png").write_bytes(b"png")
 
@@ -117,6 +123,16 @@ def test_exec_step_taps_key_with_hold_duration() -> None:
     runner.exec_step({"type": "key", "key": "enter", "hold_ms": 120}, (("steps", 0),))
 
     assert calls == [("enter", 120)]
+
+
+def test_exec_step_taps_modifier_key_combo() -> None:
+    runner = make_runner([])
+    calls = []
+    runner.tap = lambda key, hold_ms=90: calls.append((key, hold_ms))
+
+    runner.exec_step({"type": "key", "key": "ctrl+s", "hold_ms": 120}, (("steps", 0),))
+
+    assert calls == [("ctrl+s", 120)]
 
 
 def test_exec_step_runs_delay() -> None:

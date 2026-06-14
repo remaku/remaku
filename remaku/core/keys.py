@@ -9,27 +9,53 @@ from loguru import logger
 pdi.PAUSE = 0
 pdi.FAILSAFE = False
 
+MODIFIER_KEY_ALIASES = {
+    "control": "ctrl",
+    "cmd": "win",
+    "command": "win",
+    "meta": "win",
+}
+
 
 def sleep_ms(ms: int, jitter_ms: int = 0) -> None:
     extra = random.uniform(0, jitter_ms) if jitter_ms > 0 else 0
     time.sleep((ms + extra) / 1000.0)
 
 
+def normalize_key_name(key: str) -> str:
+    normalized = key.strip().lower()
+    return MODIFIER_KEY_ALIASES.get(normalized, normalized)
+
+
+def parse_key_combo(key: str) -> list[str]:
+    return [normalize_key_name(part) for part in key.split("+") if part.strip()]
+
+
 def tap(key: str, hold_ms: int = 90, jitter_ms: int = 60) -> None:
+    keys = parse_key_combo(key)
+    pressed_keys: list[str] = []
+
     try:
-        pdi.keyDown(key)
-        logger.debug("keys: keyDown('{}') ok", key)
+        for combo_key in keys:
+            pdi.keyDown(combo_key)
+            pressed_keys.append(combo_key)
+            logger.debug("keys: keyDown('{}') ok", combo_key)
     except Exception as error:
         logger.error("keys: keyDown('{}') failed: {}", key, error)
+        release_pressed_keys(pressed_keys)
         return
 
     sleep_ms(hold_ms, jitter_ms)
+    release_pressed_keys(pressed_keys)
 
-    try:
-        pdi.keyUp(key)
-        logger.debug("keys: keyUp('{}') ok (tap, hold={}ms)", key, hold_ms)
-    except Exception as error:
-        logger.error("keys: keyUp('{}') failed: {}", key, error)
+
+def release_pressed_keys(pressed_keys: list[str]) -> None:
+    for key in reversed(pressed_keys):
+        try:
+            pdi.keyUp(key)
+            logger.debug("keys: keyUp('{}') ok", key)
+        except Exception as error:
+            logger.error("keys: keyUp('{}') failed: {}", key, error)
 
 
 def type_text(text: str, interval_ms: int = 0) -> None:
@@ -54,25 +80,29 @@ def type_text(text: str, interval_ms: int = 0) -> None:
 
 @contextmanager
 def held(key: str) -> Generator[None, None, None]:
+    keys = parse_key_combo(key)
+    pressed_keys: list[str] = []
+
     try:
-        pdi.keyDown(key)
-        logger.debug("keys: held('{}') start", key)
+        for combo_key in keys:
+            pdi.keyDown(combo_key)
+            pressed_keys.append(combo_key)
+            logger.debug("keys: held('{}') keyDown ok", combo_key)
     except Exception as error:
         logger.error("keys: held('{}') keyDown failed: {}", key, error)
+        release_pressed_keys(pressed_keys)
         raise
 
     try:
         yield
     finally:
-        try:
-            pdi.keyUp(key)
-            logger.debug("keys: held('{}') end", key)
-        except Exception as error:
-            logger.error("keys: held('{}') keyUp failed: {}", key, error)
+        release_pressed_keys(pressed_keys)
+        logger.debug("keys: held('{}') end", key)
 
 
 def is_valid_key(key: str) -> bool:
-    return pdi.isValidKey(key)
+    keys = parse_key_combo(key)
+    return bool(keys) and all(pdi.isValidKey(combo_key) for combo_key in keys)
 
 
 def mouse_click(button: str, x: int, y: int) -> None:

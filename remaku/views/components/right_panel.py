@@ -1,4 +1,3 @@
-import pydirectinput as pdi
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal
 from PySide6.QtGui import QFocusEvent, QIntValidator, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
@@ -15,7 +14,7 @@ from qfluentwidgets import (
     TextEdit,
 )
 
-from remaku.core import window
+from remaku.core import keys, window
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
     DelayStep,
@@ -280,13 +279,28 @@ class PropertyFormMixin:
             "print": "printscreen",
         }.get(key_name, key_name)
 
-        if key_name not in pdi.KEYBOARD_MAPPING:
+        parts: list[str] = []
+        mods = event.modifiers()
+
+        if mods & Qt.KeyboardModifier.ControlModifier:
+            parts.append("ctrl")
+        if mods & Qt.KeyboardModifier.AltModifier:
+            parts.append("alt")
+        if mods & Qt.KeyboardModifier.ShiftModifier:
+            parts.append("shift")
+        if mods & Qt.KeyboardModifier.MetaModifier:
+            parts.append("win")
+
+        parts.append(key_name)
+        key_combo = "+".join(parts)
+
+        if not keys.is_valid_key(key_combo):
             return
 
         edit.blockSignals(True)
-        edit.setText(key_name)
+        edit.setText(key_combo)
         edit.blockSignals(False)
-        event_bus.step_property_changed.emit("key", key_name)
+        event_bus.step_property_changed.emit("key", key_combo)
 
     def add_enabled_checkbox(self, macro: Macro) -> None:
         enabled_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Enabled"), self.content_widget)

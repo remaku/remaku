@@ -518,7 +518,7 @@ def test_right_panel_capture_key_normalizes_supported_key(monkeypatch, qtbot) ->
     qtbot.addWidget(panel)
     edit = LineEdit()
     qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.pdi, "KEYBOARD_MAPPING", {"delete": object()})
+    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "delete")
     event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Delete, Qt.KeyboardModifier.NoModifier)
 
     with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
@@ -526,6 +526,25 @@ def test_right_panel_capture_key_normalizes_supported_key(monkeypatch, qtbot) ->
 
     assert edit.text() == "delete"
     assert blocker.args == ["key", "delete"]
+
+
+def test_right_panel_capture_key_includes_modifier_keys(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    edit = LineEdit()
+    qtbot.addWidget(edit)
+    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "ctrl+shift+s")
+    event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_S,
+        Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier,
+    )
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        panel.capture_key(event, edit)
+
+    assert edit.text() == "ctrl+shift+s"
+    assert blocker.args == ["key", "ctrl+shift+s"]
 
 
 def test_right_panel_capture_key_ignores_modifier_only_key(qtbot) -> None:
@@ -813,7 +832,7 @@ def test_right_panel_capture_key_ignores_unsupported_key(monkeypatch, qtbot) -> 
     qtbot.addWidget(panel)
     edit = LineEdit()
     qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.pdi, "KEYBOARD_MAPPING", {})
+    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: False)
     event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier)
 
     panel.capture_key(event, edit)

@@ -24,6 +24,25 @@ def test_tap_presses_and_releases_key(monkeypatch) -> None:
     assert calls == [("down", "enter"), ("sleep", 120, 10), ("up", "enter")]
 
 
+def test_tap_presses_combo_and_releases_in_reverse_order(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms, jitter_ms=0: calls.append(("sleep", ms, jitter_ms)))
+    monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))
+    monkeypatch.setattr(keys.pdi, "keyUp", lambda key: calls.append(("up", key)))
+
+    keys.tap("ctrl+shift+s", hold_ms=120, jitter_ms=10)
+
+    assert calls == [
+        ("down", "ctrl"),
+        ("down", "shift"),
+        ("down", "s"),
+        ("sleep", 120, 10),
+        ("up", "s"),
+        ("up", "shift"),
+        ("up", "ctrl"),
+    ]
+
+
 def test_tap_stops_when_key_down_fails(monkeypatch) -> None:
     calls = []
 
@@ -36,6 +55,23 @@ def test_tap_stops_when_key_down_fails(monkeypatch) -> None:
     keys.tap("enter")
 
     assert calls == []
+
+
+def test_tap_releases_pressed_combo_keys_when_later_key_down_fails(monkeypatch) -> None:
+    calls = []
+
+    def key_down(key: str) -> None:
+        calls.append(("down", key))
+
+        if key == "s":
+            raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "keyDown", key_down)
+    monkeypatch.setattr(keys.pdi, "keyUp", lambda key: calls.append(("up", key)))
+
+    keys.tap("ctrl+s")
+
+    assert calls == [("down", "ctrl"), ("down", "s"), ("up", "ctrl")]
 
 
 def test_tap_logs_key_up_failure(monkeypatch) -> None:
@@ -168,6 +204,17 @@ def test_held_releases_key_after_context(monkeypatch) -> None:
     assert calls == [("down", "space"), ("inside", "space"), ("up", "space")]
 
 
+def test_held_keeps_combo_pressed_until_context_exits(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.pdi, "keyDown", lambda key: calls.append(("down", key)))
+    monkeypatch.setattr(keys.pdi, "keyUp", lambda key: calls.append(("up", key)))
+
+    with keys.held("ctrl+space"):
+        calls.append(("inside", "combo"))
+
+    assert calls == [("down", "ctrl"), ("down", "space"), ("inside", "combo"), ("up", "space"), ("up", "ctrl")]
+
+
 def test_held_reraises_key_down_failure(monkeypatch) -> None:
     def raise_key_down(key: str) -> None:
         raise RuntimeError("blocked")
@@ -176,6 +223,24 @@ def test_held_reraises_key_down_failure(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="blocked"), keys.held("space"):
         pass
+
+
+def test_held_releases_pressed_combo_keys_when_later_key_down_fails(monkeypatch) -> None:
+    calls = []
+
+    def key_down(key: str) -> None:
+        calls.append(("down", key))
+
+        if key == "s":
+            raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.pdi, "keyDown", key_down)
+    monkeypatch.setattr(keys.pdi, "keyUp", lambda key: calls.append(("up", key)))
+
+    with pytest.raises(RuntimeError, match="blocked"), keys.held("ctrl+s"):
+        pass
+
+    assert calls == [("down", "ctrl"), ("down", "s"), ("up", "ctrl")]
 
 
 def test_held_suppresses_key_up_failure(monkeypatch) -> None:
@@ -198,6 +263,14 @@ def test_is_valid_key_delegates_to_pydirectinput(monkeypatch) -> None:
 
     assert keys.is_valid_key("enter") is True
     assert keys.is_valid_key("nope") is False
+
+
+def test_is_valid_key_accepts_combo_when_all_parts_are_supported(monkeypatch) -> None:
+    monkeypatch.setattr(keys.pdi, "isValidKey", lambda key: key in {"ctrl", "shift", "s"})
+
+    assert keys.is_valid_key("control+shift+s") is True
+    assert keys.is_valid_key("ctrl+bad") is False
+    assert keys.is_valid_key("") is False
 
 
 @pytest.mark.parametrize(

@@ -3,7 +3,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import Qt
 
 from remaku.controllers import home_controller
 from remaku.controllers.home_controller import HomeController
@@ -395,27 +395,6 @@ def test_parse_hotkey_handles_modifiers_and_named_key() -> None:
 
     assert controller.hotkey_service.parse_hotkey("CTRL+Alt+enter") == (0x0002 | 0x0001, 0x0D)
     assert controller.hotkey_service.parse_hotkey("shift+f1") == (0x0004, 0x70)
-
-
-def test_virtual_desktop_size_returns_valid_dimensions(monkeypatch) -> None:
-    class FakeScreen:
-        def __init__(self, x: int, y: int, w: int, h: int) -> None:
-            self.geo = QRect(x, y, w, h)
-
-        def virtualGeometry(self) -> QRect:
-            return self.geo
-
-    monkeypatch.setattr(home_controller.QApplication, "screens", lambda: [])
-    assert home_controller.virtual_desktop_size() == (0, 0)
-
-    monkeypatch.setattr(
-        home_controller.QApplication,
-        "screens",
-        lambda: [FakeScreen(0, 0, 1920, 1080), FakeScreen(1920, 0, 1280, 720)],
-    )
-    width, height = home_controller.virtual_desktop_size()
-    assert width == 3200
-    assert height == 1080
 
 
 def test_key_to_vk_uses_vk_key_scan_for_single_character(monkeypatch) -> None:

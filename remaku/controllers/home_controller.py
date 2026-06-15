@@ -12,8 +12,9 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QFileDialog
 
+from remaku.core import window
 from remaku.core.dialogs import show_confirm_dialog, show_message_dialog
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
@@ -62,18 +63,6 @@ from remaku.views.region_selector import RegionSelector
 logger = logging.getLogger(__name__)
 
 
-def virtual_desktop_size() -> tuple[int, int]:
-    screens = QApplication.screens()
-    if not screens:
-        return (0, 0)
-
-    rect = screens[0].virtualGeometry()
-    for s in screens[1:]:
-        rect = rect.united(s.virtualGeometry())
-
-    return (rect.width(), rect.height())
-
-
 class HomeController(QObject):
     def __init__(
         self,
@@ -100,7 +89,7 @@ class HomeController(QObject):
         self.template_service = TemplateService(
             self.generate_template_id,
             self.default_template_label,
-            screen_size_provider=virtual_desktop_size,
+            screen_size_provider=window.screen_resolution,
         )
         self.editing_locked = False
         self.hotkey_service = HotkeyService(

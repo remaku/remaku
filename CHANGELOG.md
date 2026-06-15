@@ -13,6 +13,10 @@
 
 - Status overlay now has separate pause and stop buttons instead of a single toggle button
 
+### Fixed
+
+- When picking a template image from file, the Capture Width and Capture Height fields now correctly show the physical screen resolution instead of the logical resolution (fixes template scaling mismatch on displays with HiDPI scaling like 150%)
+
 <!-- lang:zh_tw -->
 
 ### 新增
@@ -24,6 +28,10 @@
 
 - 狀態浮窗現在有獨立的暫停和停止按鈕，取代原本的單一切換按鈕
 
+### 修正
+
+- 從檔案選擇範本圖片時，擷取寬度與擷取高度欄位現在會正確顯示實體螢幕解析度而非邏輯解析度（修正啟用 HiDPI 縮放如 150% 時範本比對比例錯誤的問題）
+
 <!-- lang:zh_cn -->
 
 ### 新增
@@ -34,6 +42,10 @@
 ### 变更
 
 - 状态浮窗现在有独立的暂停和停止按钮，取代原本的单一切换按钮
+
+### 修复
+
+- 从文件选择模板图片时，捕获宽度与捕获高度字段现在会正确显示物理屏幕分辨率而非逻辑分辨率（修复启用 HiDPI 缩放如 150% 时模板匹配比例错误的问题）
 
 ## v0.7.0
 

@@ -141,3 +141,22 @@ def test_update_template_meta_rejects_unknown_field(tmp_path: Path) -> None:
     service = make_service(tmp_path)
 
     assert service.update_template_meta(macro, "button", "unknown", "value") is False
+
+
+def test_pick_template_uses_screen_size_provider_when_capture_dims_omitted(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    step = {"type": "wait_image", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo()})
+    ids = iter(["new"])
+    service = TemplateService(
+        lambda: next(ids),
+        lambda template_id: f"Template {template_id}",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+        screen_size_provider=lambda: (3840, 2160),
+    )
+
+    service.pick_template(macro, step, "old", str(source))
+
+    assert macro.templates["new"].capture_width == 3840
+    assert macro.templates["new"].capture_height == 2160

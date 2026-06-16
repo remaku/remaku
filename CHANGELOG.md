@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- An unfinished translation entry for "Press a hotkey" in both Traditional and Simplified Chinese is now properly marked as complete.
+- The translation of "Hotkey" now uses consistent terminology across all UI labels in both Traditional and Simplified Chinese.
 - Deleting a step now also removes its template files and metadata when no other step in the same macro uses them.
 - Adding a template to an if-any-image step can now be undone and redone correctly.
 - Undoing a captured or picked template image now restores the template files correctly without deleting other templates from the same if-any-image step.
@@ -16,6 +18,8 @@
 
 ### 修正
 
+- 「Press a hotkey」的翻譯標記已補完，不再顯示為未完成。
+- 「Hotkey」的翻譯已統一使用「快捷鍵」，設定與快捷鍵編輯器用詞一致。
 - 刪除步驟時，如果同一個巨集中沒有其他步驟使用該範本，現在會一併移除範本檔案與資料。
 - 在 if-any-image 步驟新增範本後，現在可以正確復原與重做。
 - 復原擷取或選擇的範本圖片時，現在會正確還原範本檔案，不會刪除同一個 if-any-image 步驟中的其他範本。
@@ -26,6 +30,8 @@
 
 ### 修复
 
+- 「Press a hotkey」的翻译标记已补完，不再显示为未完成。
+- 「Hotkey」的翻译已统一使用「快捷键」，设置与快捷键编辑器用词一致。
 - 删除步骤时，如果同一个宏中没有其他步骤使用该模板，现在会一并移除模板文件与数据。
 - 在 if-any-image 步骤新增模板后，现在可以正确撤销与重做。
 - 撤销捕获或选择的模板图片时，现在会正确还原模板文件，不会删除同一个 if-any-image 步骤中的其他模板。

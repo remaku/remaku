@@ -1027,7 +1027,7 @@
     <message>
         <location filename="../../views/settings_view.py" line="64"/>
         <source>Pause/Resume Hotkey</source>
-        <translation>暂停/继续热键</translation>
+        <translation>暂停/继续快捷键</translation>
     </message>
     <message>
         <location filename="../../views/settings_view.py" line="41"/>

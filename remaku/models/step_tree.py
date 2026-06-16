@@ -139,11 +139,15 @@ class StepTree:
 
     def insert_steps_after(self, target_node: StepNode | None, steps: list[StepDict]) -> list[StepNode]:
         nodes: list[StepNode] = []
-        current_target = target_node
-        for step in steps:
-            node = self.add_step(current_target, step)
+        siblings = self.sibling_list(target_node) if target_node is not None else self.root_nodes
+        sibling_index = self.sibling_index(target_node) if target_node is not None else -1
+        insert_index = sibling_index + 1 if sibling_index >= 0 else len(siblings)
+        parent = target_node.parent if target_node is not None else None
+
+        for offset, step in enumerate(steps):
+            node = StepNode(step, parent=parent)
+            siblings.insert(insert_index + offset, node)
             nodes.append(node)
-            current_target = node
 
         return nodes
 

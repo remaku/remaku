@@ -168,6 +168,30 @@ def test_insert_steps_after_preserves_insert_order(sample_steps: list[dict]) -> 
     assert [step["type"] for step in tree.steps[:3]] == ["key", "delay", "key"]
 
 
+def test_insert_steps_after_keeps_batch_siblings_after_inserted_container() -> None:
+    tree = StepTree([])
+    inserted = tree.insert_steps_after(
+        None,
+        [
+            {
+                "type": "if_any_image",
+                "templates": ["one", "two"],
+                "branches": {"one": [{"type": "key", "key": "a"}, {"type": "key", "key": "b"}], "two": []},
+            },
+            {"type": "key", "key": "a"},
+            {"type": "key", "key": "b"},
+        ],
+    )
+
+    steps = tree.steps
+
+    assert [node.step["type"] for node in inserted] == ["if_any_image", "key", "key"]
+    assert [step["type"] for step in steps] == ["if_any_image", "key", "key"]
+    assert [step["key"] for step in steps[0]["branches"]["one"]] == ["a", "b"]
+    assert steps[1]["key"] == "a"
+    assert steps[2]["key"] == "b"
+
+
 def test_steps_property_reflects_reordered_root_nodes(sample_steps: list[dict]) -> None:
     tree = StepTree(sample_steps)
     tree.root_nodes[0], tree.root_nodes[1] = tree.root_nodes[1], tree.root_nodes[0]

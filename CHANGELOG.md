@@ -10,6 +10,7 @@
 - Adding a template to an if-any-image step can now be undone and redone correctly.
 - Undoing a captured or picked template image now restores the template files correctly without deleting other templates from the same if-any-image step.
 - Quickly adding multiple templates to an if-any-image step now creates distinct template entries instead of reusing the same timestamp ID.
+- Pasting multiple steps that start with an if-any-image step now keeps the pasted steps at the same level instead of adding them to the first branch.
 
 <!-- lang:zh_tw -->
 
@@ -19,6 +20,7 @@
 - 在 if-any-image 步驟新增範本後，現在可以正確復原與重做。
 - 復原擷取或選擇的範本圖片時，現在會正確還原範本檔案，不會刪除同一個 if-any-image 步驟中的其他範本。
 - 快速在 if-any-image 步驟新增多個範本時，現在會建立不同的範本項目，不再重複使用同一個時間戳記 ID。
+- 貼上以 if-any-image 步驟開頭的多個步驟時，現在會讓貼上的步驟保持在同一層，不會加入第一個分支。
 
 <!-- lang:zh_cn -->
 
@@ -28,6 +30,7 @@
 - 在 if-any-image 步骤新增模板后，现在可以正确撤销与重做。
 - 撤销捕获或选择的模板图片时，现在会正确还原模板文件，不会删除同一个 if-any-image 步骤中的其他模板。
 - 快速在 if-any-image 步骤新增多个模板时，现在会创建不同的模板项目，不再重复使用同一个时间戳 ID。
+- 粘贴以 if-any-image 步骤开头的多个步骤时，现在会让粘贴的步骤保持在同一层，不会加入第一个分支。
 
 ## v0.8.0
 

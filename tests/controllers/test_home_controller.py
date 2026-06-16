@@ -688,6 +688,128 @@ def test_undo_and_redo_restore_saved_state() -> None:
     ]
 
 
+def test_restore_macro_state_deletes_templates_missing_from_snapshot(tmp_path: Path, monkeypatch) -> None:
+    current_macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"old": {"label": "Old"}, "new": {"label": "New"}},
+            "steps": [{"type": "if_any_image", "templates": ["old", "new"], "branches": {}}],
+        }
+    )
+    restored_state = {
+        "meta": {"id": "macro"},
+        "templates": {"old": {"label": "Old"}},
+        "steps": [{"type": "if_any_image", "templates": ["old"], "branches": {}}],
+    }
+    old_file = tmp_path / "templates" / "macro" / "old.png"
+    new_file = tmp_path / "templates" / "macro" / "new.png"
+    old_file.parent.mkdir(parents=True)
+    old_file.write_bytes(b"old")
+    new_file.write_bytes(b"new")
+    controller = make_controller()
+    controller.current_macro = current_macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree(current_macro.to_dict()["steps"])
+
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.restore_macro_state(restored_state)
+
+    assert old_file.exists()
+    assert not new_file.exists()
+    assert set(controller.current_macro.templates) == {"old"}
+
+
+def test_undo_capture_keeps_other_captured_if_any_template(tmp_path: Path, monkeypatch) -> None:
+    template_root = tmp_path / "templates" / "macro"
+    first_file = template_root / "image1.png"
+    second_file = template_root / "image2.png"
+    template_root.mkdir(parents=True)
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"slot1": {"label": "Slot 1"}, "slot2": {"label": "Slot 2"}},
+            "steps": [{"type": "if_any_image", "templates": ["slot1", "slot2"], "branches": {}}],
+        }
+    )
+    model = FakeMacroModel(macros={"macro": macro})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.macro_model = cast(MacroModel, model)
+    controller.selected_macro_id = "macro"
+    selected_step = cast(dict[str, Any], macro.to_dict()["steps"][0])
+    controller.selected_step = selected_step
+    controller.step_tree = StepTree([selected_step])
+
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    first_file.write_bytes(b"first")
+    controller.handle_region_captured("slot1", "image1", 320, 180)
+    controller.selected_step = controller.step_tree.steps[0]
+
+    second_file.write_bytes(b"second")
+    controller.handle_region_captured("slot2", "image2", 320, 180)
+
+    controller.undo()
+
+    assert first_file.read_bytes() == b"first"
+    assert not second_file.exists()
+    assert set(controller.current_macro.templates) == {"image1", "slot2"}
+    assert controller.step_tree.steps[0]["templates"] == ["image1", "slot2"]
+
+
+def test_redo_capture_restores_template_file_from_snapshot(tmp_path: Path, monkeypatch) -> None:
+    template_root = tmp_path / "templates" / "macro"
+    template_file = template_root / "captured.png"
+    template_root.mkdir(parents=True)
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"slot": {"label": "Slot"}},
+            "steps": [{"type": "if_any_image", "templates": ["slot"], "branches": {}}],
+        }
+    )
+    model = FakeMacroModel(macros={"macro": macro})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.macro_model = cast(MacroModel, model)
+    controller.selected_macro_id = "macro"
+    selected_step = cast(dict[str, Any], macro.to_dict()["steps"][0])
+    controller.selected_step = selected_step
+    controller.step_tree = StepTree([selected_step])
+
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    template_file.write_bytes(b"captured")
+    controller.handle_region_captured("slot", "captured", 320, 180)
+
+    controller.undo()
+    assert not template_file.exists()
+
+    controller.redo()
+
+    assert template_file.read_bytes() == b"captured"
+    assert set(controller.current_macro.templates) == {"captured"}
+
+
 def test_select_after_undo_redo_handles_empty_and_selection_index() -> None:
     controller = make_controller()
     macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": []})
@@ -2361,6 +2483,64 @@ def test_handle_template_add_ignores_non_if_any_image() -> None:
     controller.handle_template_add()
 
     assert controller.current_macro.templates == {}
+
+
+def test_handle_template_add_pushes_undo_snapshot() -> None:
+    selected_step = {"type": "if_any_image", "templates": ["old"], "branches": {}}
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"old": {"label": "Old"}},
+            "steps": [selected_step],
+        }
+    )
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.selected_step = selected_step
+    controller.mutate_current_macro = lambda: None
+    controller.template_service = TemplateService(
+        lambda: "new",
+        controller.default_template_label,
+    )
+
+    controller.handle_template_add()
+
+    assert list(controller.undo_stack[0]["templates"]) == ["old"]
+    assert controller.undo_stack[0]["steps"][0]["templates"] == ["old"]
+    assert selected_step["templates"] == ["old", "new"]
+    assert set(macro.templates) == {"old", "new"}
+
+
+def test_handle_template_add_keeps_metadata_in_sync_when_ids_collide() -> None:
+    selected_step = {"type": "if_any_image", "templates": [], "branches": {}}
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "steps": [selected_step],
+        }
+    )
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.selected_step = selected_step
+    controller.mutate_current_macro = lambda: controller.sync_runner_macro_from_current()
+    controller.template_service = TemplateService(
+        lambda: "123",
+        controller.default_template_label,
+    )
+
+    controller.handle_template_add()
+    controller.handle_template_add()
+
+    assert selected_step["templates"] == ["123", "124"]
+    assert set(macro.templates) == {"123", "124"}
 
 
 def test_highlight_current_step_selects_visible_item() -> None:

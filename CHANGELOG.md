@@ -7,18 +7,27 @@
 ### Fixed
 
 - Deleting a step now also removes its template files and metadata when no other step in the same macro uses them.
+- Adding a template to an if-any-image step can now be undone and redone correctly.
+- Undoing a captured or picked template image now restores the template files correctly without deleting other templates from the same if-any-image step.
+- Quickly adding multiple templates to an if-any-image step now creates distinct template entries instead of reusing the same timestamp ID.
 
 <!-- lang:zh_tw -->
 
 ### 修正
 
 - 刪除步驟時，如果同一個巨集中沒有其他步驟使用該範本，現在會一併移除範本檔案與資料。
+- 在 if-any-image 步驟新增範本後，現在可以正確復原與重做。
+- 復原擷取或選擇的範本圖片時，現在會正確還原範本檔案，不會刪除同一個 if-any-image 步驟中的其他範本。
+- 快速在 if-any-image 步驟新增多個範本時，現在會建立不同的範本項目，不再重複使用同一個時間戳記 ID。
 
 <!-- lang:zh_cn -->
 
 ### 修复
 
 - 删除步骤时，如果同一个宏中没有其他步骤使用该模板，现在会一并移除模板文件与数据。
+- 在 if-any-image 步骤新增模板后，现在可以正确撤销与重做。
+- 撤销捕获或选择的模板图片时，现在会正确还原模板文件，不会删除同一个 if-any-image 步骤中的其他模板。
+- 快速在 if-any-image 步骤新增多个模板时，现在会创建不同的模板项目，不再重复使用同一个时间戳 ID。
 
 ## v0.8.0
 

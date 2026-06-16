@@ -142,11 +142,41 @@ class TemplateService:
                     if not step["branches"]:
                         del step["branches"]
 
+    def generate_unique_template_id(self, current_macro: Macro, selected_step: dict | None = None) -> str:
+        base_template_id = str(self.template_id_provider() or "template")
+        used_template_ids = set(current_macro.templates)
+
+        if selected_step is not None:
+            if template_id := selected_step.get("template"):
+                used_template_ids.add(str(template_id))
+
+            used_template_ids.update(str(template_id) for template_id in selected_step.get("templates", []))
+
+            branches = selected_step.get("branches", {})
+            if isinstance(branches, dict):
+                used_template_ids.update(str(template_id) for template_id in branches)
+
+        template_id = base_template_id
+        next_timestamp = int(base_template_id) + 1 if base_template_id.isdecimal() else None
+        suffix = 1
+
+        while (
+            template_id in used_template_ids or self.template_path_provider(current_macro.meta.id, template_id).exists()
+        ):
+            if next_timestamp is not None:
+                template_id = str(next_timestamp)
+                next_timestamp += 1
+            else:
+                template_id = f"{base_template_id}{suffix}"
+                suffix += 1
+
+        return template_id
+
     def add_template(self, current_macro: Macro, selected_step: dict) -> bool:
         if selected_step.get("type") != "if_any_image":
             return False
 
-        new_template_id = self.template_id_provider()
+        new_template_id = self.generate_unique_template_id(current_macro, selected_step)
         current_macro.templates[new_template_id] = TemplateInfo()
         selected_step.setdefault("templates", []).append(new_template_id)
 

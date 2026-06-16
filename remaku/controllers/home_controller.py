@@ -61,6 +61,7 @@ from remaku.views.home_view import HomeView
 from remaku.views.region_selector import RegionSelector
 
 logger = logging.getLogger(__name__)
+TEMPLATE_FILE_SNAPSHOT_KEY = "__template_files__"
 
 
 class HomeController(QObject):
@@ -211,6 +212,37 @@ class HomeController(QObject):
 
         return self.current_runner.macro
 
+    def current_macro_snapshot(self) -> dict | None:
+        macro_dict = self.current_macro_dict()
+        if macro_dict is None:
+            return None
+
+        snapshot = copy.deepcopy(macro_dict)
+        self.add_template_files_to_snapshot(snapshot)
+
+        return snapshot
+
+    def add_template_files_to_snapshot(self, snapshot: dict) -> None:
+        if self.current_macro is None:
+            return
+
+        template_ids = set(snapshot.get("templates", {}))
+        template_ids.update(StepTree(copy.deepcopy(snapshot.get("steps", []))).collect_template_refs())
+
+        template_files: dict[str, bytes] = {}
+
+        for template_id in sorted(template_ids):
+            png_path = template_path(self.current_macro.meta.id, template_id)
+
+            try:
+                if png_path.exists():
+                    template_files[template_id] = png_path.read_bytes()
+            except OSError:
+                logger.warning("Failed to snapshot template file: %s", png_path, exc_info=True)
+
+        if template_files:
+            snapshot[TEMPLATE_FILE_SNAPSHOT_KEY] = template_files
+
     def sync_runner_macro_from_current(self) -> None:
         if self.current_runner is None or self.current_macro is None:
             return
@@ -221,11 +253,10 @@ class HomeController(QObject):
         )
 
     def push_undo(self, restore_selection_index: int | None = None) -> None:
-        macro_dict = self.current_macro_dict()
-        if self.current_runner is None or macro_dict is None:
+        snapshot = self.current_macro_snapshot()
+        if self.current_runner is None or snapshot is None:
             return
 
-        snapshot = copy.deepcopy(macro_dict)
         self.undo_stack.append(snapshot)
         self.undo_selection_index_stack.append(restore_selection_index)
 
@@ -287,6 +318,8 @@ class HomeController(QObject):
         old_steps = list(self.current_macro.steps) if self.current_macro else []
 
         restored_macro = Macro.from_dict(copy.deepcopy(macro_dict))
+        self.delete_templates_missing_from_restored_state(restored_macro)
+        self.restore_template_files_from_snapshot(restored_macro, macro_dict)
         source_path = self.current_runner.macro_path
 
         restored_runner = MacroRunner(
@@ -305,6 +338,39 @@ class HomeController(QObject):
         self.select_after_undo_redo(old_steps, list(restored_macro.steps), selection_index)
 
         self.macro_model.save(restored_macro)
+
+    def delete_templates_missing_from_restored_state(self, restored_macro: Macro) -> None:
+        if self.current_macro is None:
+            return
+
+        current_template_ids = set(self.current_macro.templates)
+        restored_template_ids = set(restored_macro.templates)
+
+        for template_id in sorted(current_template_ids - restored_template_ids):
+            png_path = template_path(self.current_macro.meta.id, template_id)
+
+            try:
+                if png_path.exists():
+                    png_path.unlink()
+            except OSError:
+                logger.warning("Failed to delete restored template file: %s", png_path, exc_info=True)
+
+    def restore_template_files_from_snapshot(self, restored_macro: Macro, macro_dict: dict) -> None:
+        template_files = macro_dict.get(TEMPLATE_FILE_SNAPSHOT_KEY, {})
+        if not isinstance(template_files, dict):
+            return
+
+        for template_id, file_data in template_files.items():
+            if template_id not in restored_macro.templates or not isinstance(file_data, bytes):
+                continue
+
+            png_path = template_path(restored_macro.meta.id, template_id)
+
+            try:
+                png_path.parent.mkdir(parents=True, exist_ok=True)
+                png_path.write_bytes(file_data)
+            except OSError:
+                logger.warning("Failed to restore template file: %s", png_path, exc_info=True)
 
     def select_after_undo_redo(self, old_steps: list, new_steps: list, selection_index: int | None = None) -> None:
         if self.step_tree is None or not self.step_tree.steps:
@@ -349,9 +415,9 @@ class HomeController(QObject):
         if self.current_runner is None or not self.undo_stack:
             return
 
-        current_macro_dict = self.current_macro_dict()
-        if current_macro_dict is not None:
-            self.redo_stack.append(copy.deepcopy(current_macro_dict))
+        current_macro_snapshot = self.current_macro_snapshot()
+        if current_macro_snapshot is not None:
+            self.redo_stack.append(current_macro_snapshot)
             self.redo_selection_index_stack.append(self.selected_step_flat_index())
 
         restored_state = self.undo_stack.pop()
@@ -363,9 +429,9 @@ class HomeController(QObject):
         if self.current_runner is None or not self.redo_stack:
             return
 
-        current_macro_dict = self.current_macro_dict()
-        if current_macro_dict is not None:
-            self.undo_stack.append(copy.deepcopy(current_macro_dict))
+        current_macro_snapshot = self.current_macro_snapshot()
+        if current_macro_snapshot is not None:
+            self.undo_stack.append(current_macro_snapshot)
             self.undo_selection_index_stack.append(self.selected_step_flat_index())
 
         restored_state = self.redo_stack.pop()
@@ -1366,6 +1432,8 @@ class HomeController(QObject):
         if self.selected_step is None or self.current_macro is None:
             return
 
+        self.push_undo()
+
         self.template_service.apply_captured_template(
             self.current_macro,
             self.selected_step,
@@ -1395,6 +1463,8 @@ class HomeController(QObject):
         if not file_path:
             return
 
+        self.push_undo()
+
         self.template_service.pick_template(
             self.current_macro,
             self.selected_step,
@@ -1413,6 +1483,11 @@ class HomeController(QObject):
     def handle_template_add(self) -> None:
         if self.current_macro is None or self.selected_step is None:
             return
+
+        if self.selected_step.get("type") != "if_any_image":
+            return
+
+        self.push_undo()
 
         if not self.template_service.add_template(self.current_macro, self.selected_step):
             return

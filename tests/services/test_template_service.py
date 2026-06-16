@@ -119,6 +119,21 @@ def test_add_template_only_adds_to_if_any_image(tmp_path: Path) -> None:
     assert service.add_template(macro, {"type": "wait_image"}) is False
 
 
+def test_add_template_uses_unique_id_when_provider_collides(tmp_path: Path) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"123": TemplateInfo()})
+    step = {"type": "if_any_image", "templates": ["123"], "branches": {"123": []}}
+    service = TemplateService(
+        lambda: "123",
+        lambda template_id: f"Template {template_id}",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    assert service.add_template(macro, step) is True
+
+    assert step["templates"] == ["123", "124"]
+    assert set(macro.templates) == {"123", "124"}
+
+
 def test_update_template_meta_updates_valid_fields_and_rejects_invalid_values(tmp_path: Path) -> None:
     macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
     service = make_service(tmp_path)

@@ -98,8 +98,10 @@ class PackCatalogEntry:
     author: str
     version: str
     release_tag: str
+    default_language: str = ""
     source: PackSource = field(default_factory=PackSource)
     assets: PackAssets = field(default_factory=PackAssets)
+    language_assets: dict[str, PackAssets] = field(default_factory=dict)
     compatibility: PackCompatibility = field(default_factory=PackCompatibility)
 
     @classmethod
@@ -116,6 +118,10 @@ class PackCatalogEntry:
         if not isinstance(compatibility_data, dict):
             compatibility_data = {}
 
+        language_assets_data = data.get("language_assets", {})
+        if not isinstance(language_assets_data, dict):
+            language_assets_data = {}
+
         entry = cls(
             pack_id=str(data.get("pack_id", "")),
             game=str(data.get("game", "")),
@@ -124,8 +130,14 @@ class PackCatalogEntry:
             author=str(data.get("author", "")),
             version=str(data.get("version", "")),
             release_tag=str(data.get("release_tag", "")),
+            default_language=str(data.get("default_language", "")),
             source=PackSource.from_dict(source_data),
             assets=PackAssets.from_dict(assets_data),
+            language_assets={
+                str(language): PackAssets.from_dict(assets)
+                for language, assets in language_assets_data.items()
+                if isinstance(assets, dict)
+            },
             compatibility=PackCompatibility.from_dict(compatibility_data),
         )
         entry.validate()
@@ -161,8 +173,10 @@ class PackCatalogEntry:
             "author": self.author,
             "version": self.version,
             "release_tag": self.release_tag,
+            "default_language": self.default_language,
             "source": self.source.to_dict(),
             "assets": self.assets.to_dict(),
+            "language_assets": {language: assets.to_dict() for language, assets in self.language_assets.items()},
             "compatibility": self.compatibility.to_dict(),
         }
 

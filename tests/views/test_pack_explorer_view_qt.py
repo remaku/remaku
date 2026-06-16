@@ -15,7 +15,12 @@ def make_item(status: PackStatus = "available") -> PackListItem:
             "author": "Remaku",
             "version": "1.0.0",
             "release_tag": "v2",
+            "default_language": "en_US",
             "assets": {"zip_url": "https://example.invalid/sample.zip"},
+            "language_assets": {
+                "en_US": {"zip_url": "https://example.invalid/sample-en_US.zip"},
+                "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+            },
         }
     )
     return PackListItem(entry=entry, status=status, game_label="Forza Horizon 6")
@@ -56,6 +61,7 @@ def test_pack_explorer_view_updates_detail_and_buttons(qtbot) -> None:
     assert "version" not in view.info_labels
     assert view.info_labels["game"].text() == "Forza Horizon 6"
     assert view.info_labels["compatibility"].text() == "Compatible"
+    assert view.language_combo.currentData() == "en_US"
     assert view.import_button.isEnabled() is True
 
 
@@ -81,6 +87,97 @@ def test_pack_explorer_view_disables_import_while_importing(qtbot) -> None:
     view.set_importing(False)
 
     assert view.import_button.isEnabled() is True
+
+
+def test_pack_explorer_view_language_combo_defaults_to_current_language(qtbot) -> None:
+    config_model.config.general.language = "zh_TW"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_selected_pack(make_item())
+
+    assert not view.language_combo.isHidden()
+    assert view.language_combo.currentData() == "zh_TW"
+
+
+def test_pack_explorer_view_language_combo_falls_back_to_default_language(qtbot) -> None:
+    config_model.config.general.language = "zh_CN"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+
+    view.set_selected_pack(make_item())
+
+    assert view.language_combo.currentData() == "en_US"
+
+
+def test_pack_explorer_view_preserves_language_when_same_pack_refreshes(qtbot) -> None:
+    config_model.config.general.language = "zh_TW"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    item = make_item()
+
+    view.set_selected_pack(item)
+    view.language_combo.setCurrentIndex(view.language_combo.findData("en_US"))
+    view.set_selected_pack(item)
+
+    assert view.language_combo.currentData() == "en_US"
+    assert view.current_pack_language == "en_US"
+
+
+def test_pack_explorer_view_preserves_language_when_pack_changes(qtbot) -> None:
+    config_model.config.general.language = "zh_TW"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    first_item = make_item()
+    second_item = make_item()
+    second_item.entry.pack_id = "fh6.other"
+
+    view.set_selected_pack(first_item)
+    view.language_combo.setCurrentIndex(view.language_combo.findData("en_US"))
+    view.set_selected_pack(second_item)
+
+    assert view.language_combo.currentData() == "en_US"
+
+
+def test_pack_explorer_view_preserves_language_after_pack_list_refresh(qtbot) -> None:
+    config_model.config.general.language = "zh_TW"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    item = make_item()
+    view.pack_selected.connect(lambda _pack_id: view.set_selected_pack(item))
+
+    view.set_pack_items([item])
+    view.language_combo.setCurrentIndex(view.language_combo.findData("en_US"))
+    view.set_pack_items([item], selected_pack_id="fh6.sample")
+
+    assert view.language_combo.currentData() == "en_US"
+    assert view.current_pack_language == "en_US"
+
+
+def test_pack_explorer_view_hides_language_combo_for_legacy_pack(qtbot) -> None:
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    item = make_item()
+    item.entry.default_language = ""
+    item.entry.language_assets = {}
+
+    view.set_selected_pack(item)
+
+    assert view.language_combo.isHidden()
+    assert view.current_pack_language == ""
+
+
+def test_pack_explorer_view_import_emits_selected_language(qtbot) -> None:
+    config_model.config.general.language = "en_US"
+    view = PackExplorerView()
+    qtbot.addWidget(view)
+    view.set_selected_pack(make_item())
+    view.language_combo.setCurrentIndex(view.language_combo.findData("zh_TW"))
+
+    with qtbot.waitSignal(view.import_requested) as blocker:
+        view.import_button.click()
+
+    assert blocker.args == ["fh6.sample", "zh_TW"]
 
 
 def test_pack_explorer_view_uses_selected_language(qtbot) -> None:

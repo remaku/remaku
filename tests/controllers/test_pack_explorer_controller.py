@@ -11,7 +11,7 @@ from remaku.models.pack_model import PackCatalog
 
 class FakeView(QObject):
     pack_selected = Signal(str)
-    import_requested = Signal(str)
+    import_requested = Signal(str, str)
     search_changed = Signal(str)
     game_filter_changed = Signal(str)
     compatibility_filter_changed = Signal(str)
@@ -87,7 +87,12 @@ def make_catalog() -> PackCatalog:
                     "author": "Remaku",
                     "version": "1.0.0",
                     "release_tag": "v2",
+                    "default_language": "en_US",
                     "assets": {"zip_url": "https://example.invalid/sample.zip"},
+                    "language_assets": {
+                        "en_US": {"zip_url": "https://example.invalid/sample-en_US.zip"},
+                        "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+                    },
                 }
             ],
         }
@@ -196,7 +201,7 @@ def test_start_download_reports_progress(monkeypatch) -> None:
     controller.ensure_loaded()
     fake_download = FakeDownload()
 
-    def download_pack(parent, entry, on_progress, on_done, on_error):
+    def download_pack(parent, entry, on_progress, on_done, on_error, selected_language=""):
         fake_download.on_progress = on_progress
         return fake_download
 
@@ -217,7 +222,7 @@ def test_import_pack_shows_imported_status_after_refresh(monkeypatch, tmp_path) 
     controller.ensure_loaded()
     fake_download = FakeDownload()
 
-    def download_pack(parent, entry, on_progress, on_done, on_error):
+    def download_pack(parent, entry, on_progress, on_done, on_error, selected_language=""):
         fake_download.on_done = on_done
         return fake_download
 
@@ -237,7 +242,7 @@ def test_import_pack_shows_import_error(monkeypatch, tmp_path) -> None:
     fake_download = FakeDownload()
     messages = []
 
-    def download_pack(parent, entry, on_progress, on_done, on_error):
+    def download_pack(parent, entry, on_progress, on_done, on_error, selected_language=""):
         fake_download.on_done = on_done
         return fake_download
 
@@ -267,7 +272,7 @@ def test_import_pack_shows_download_error(monkeypatch) -> None:
     fake_download = FakeDownload()
     messages = []
 
-    def download_pack(parent, entry, on_progress, on_done, on_error):
+    def download_pack(parent, entry, on_progress, on_done, on_error, selected_language=""):
         fake_download.on_error = on_error
         return fake_download
 
@@ -330,7 +335,7 @@ def test_import_pack_ignores_missing_pack(monkeypatch) -> None:
     monkeypatch.setattr(
         pack_explorer_controller.pack_service,
         "download_pack",
-        lambda parent, entry, on_progress, on_done, on_error: calls.append(entry.pack_id),
+        lambda parent, entry, on_progress, on_done, on_error, selected_language="": calls.append(entry.pack_id),
     )
 
     controller.import_pack("missing")
@@ -346,9 +351,25 @@ def test_incompatible_pack_does_not_download(monkeypatch) -> None:
     monkeypatch.setattr(
         pack_explorer_controller.pack_service,
         "download_pack",
-        lambda parent, entry, on_progress, on_done, on_error: calls.append(entry.pack_id),
+        lambda parent, entry, on_progress, on_done, on_error, selected_language="": calls.append(entry.pack_id),
     )
 
     controller.import_pack("fh6.sample")
 
     assert calls == []
+
+
+def test_import_pack_passes_selected_language(monkeypatch) -> None:
+    controller, _view = make_controller(monkeypatch)
+    controller.ensure_loaded()
+    calls = []
+
+    def download_pack(parent, entry, on_progress, on_done, on_error, selected_language=""):
+        calls.append((entry.pack_id, selected_language))
+        return FakeDownload()
+
+    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+
+    controller.import_pack("fh6.sample", "zh_TW")
+
+    assert calls == [("fh6.sample", "zh_TW")]

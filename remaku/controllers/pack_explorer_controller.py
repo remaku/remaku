@@ -133,14 +133,14 @@ class PackExplorerController(QObject):
         self.view.set_status_text(self.pending_status_text)
         self.pending_status_text = ""
 
-    def import_pack(self, pack_id: str) -> None:
+    def import_pack(self, pack_id: str, selected_language: str = "") -> None:
         item = self.find_item(pack_id)
         if item is None or item.status == "incompatible":
             return
 
-        self.start_download(item)
+        self.start_download(item, selected_language)
 
-    def start_download(self, item: PackListItem) -> None:
+    def start_download(self, item: PackListItem, selected_language: str = "") -> None:
         self.view.set_importing(True)
         self.view.set_status_text(self.tr("Downloading pack..."))
 
@@ -170,5 +170,12 @@ class PackExplorerController(QObject):
             self.view.set_importing(False)
             self.view.set_status_text(error)
 
-        self.current_download = pack_service.download_pack(self.view, item.entry, on_progress, on_done, on_error)
+        self.current_download = pack_service.download_pack(
+            self.view,
+            item.entry,
+            on_progress,
+            on_done,
+            on_error,
+            selected_language,
+        )
         self.current_download.start()

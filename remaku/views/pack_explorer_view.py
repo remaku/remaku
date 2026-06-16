@@ -13,11 +13,12 @@ from qfluentwidgets import (
 
 from remaku.models.config_model import config_model
 from remaku.models.pack_model import PackCatalogEntry, PackListItem, PackStatus
+from remaku.services import pack_service
 
 
 class PackExplorerView(QWidget):
     pack_selected = Signal(str)
-    import_requested = Signal(str)
+    import_requested = Signal(str, str)
     search_changed = Signal(str)
     game_filter_changed = Signal(str)
     compatibility_filter_changed = Signal(str)
@@ -29,6 +30,8 @@ class PackExplorerView(QWidget):
         self.items: list[PackListItem] = []
         self.current_pack_id = ""
         self.current_pack_status: PackStatus = "available"
+        self.current_pack_language = ""
+        self.preferred_pack_language = ""
         self.importing = False
 
         self.init_ui()
@@ -126,11 +129,18 @@ class PackExplorerView(QWidget):
             self.detail_form.addRow(key_label, value_label)
             self.info_labels[key] = value_label
 
+        self.language_label = BodyLabel(self.tr("Language"), self.detail_card)
+        self.language_combo = ComboBox(self.detail_card)
+        self.language_combo.currentIndexChanged.connect(self.handle_language_changed)
+        self.detail_form.addRow(self.language_label, self.language_combo)
+
         button_row = QHBoxLayout()
         button_row.setSpacing(8)
 
         self.import_button = PushButton(self.tr("Import Macro"), self.detail_card)
-        self.import_button.clicked.connect(lambda: self.import_requested.emit(self.current_pack_id))
+        self.import_button.clicked.connect(
+            lambda: self.import_requested.emit(self.current_pack_id, self.current_pack_language)
+        )
         button_row.addWidget(self.import_button)
 
         detail_content.addLayout(button_row)
@@ -185,11 +195,20 @@ class PackExplorerView(QWidget):
         value = combo.currentData()
         return str(value) if value else "all"
 
+    def current_language_value(self) -> str:
+        value = self.language_combo.currentData()
+        return str(value) if value else ""
+
     def handle_game_filter_changed(self) -> None:
         self.game_filter_changed.emit(self.current_filter_value(self.game_filter))
 
     def handle_compatibility_filter_changed(self) -> None:
         self.compatibility_filter_changed.emit(self.current_filter_value(self.compatibility_filter))
+
+    def handle_language_changed(self) -> None:
+        self.current_pack_language = self.current_language_value()
+        if self.current_pack_language:
+            self.preferred_pack_language = self.current_pack_language
 
     def set_pack_items(self, items: list[PackListItem], selected_pack_id: str = "") -> None:
         self.items = items
@@ -256,6 +275,7 @@ class PackExplorerView(QWidget):
 
         self.current_pack_id = item.entry.pack_id
         self.current_pack_status = item.status
+        self.update_language_options(item.entry, self.preferred_pack_language)
         self.name_label.setText(self.localized_label(item.entry))
         self.set_info_values(self.info_values(item))
         self.description_label.setText(self.localized_description(item.entry))
@@ -265,11 +285,38 @@ class PackExplorerView(QWidget):
     def clear_detail(self) -> None:
         self.current_pack_id = ""
         self.current_pack_status = "available"
+        self.current_pack_language = ""
         self.name_label.setText(self.tr("Select a pack"))
+        self.clear_language_options()
         self.clear_info_values()
         self.description_label.setText(self.tr("Choose a pack from the list to view details."))
         self.set_status_text("")
         self.update_buttons("available", has_selection=False)
+
+    def update_language_options(self, entry: PackCatalogEntry, preferred_language: str = "") -> None:
+        options = pack_service.pack_language_options(entry)
+        selected_language = pack_service.resolve_pack_language(entry, preferred_language, self.current_language())
+        has_options = bool(options)
+
+        self.language_combo.blockSignals(True)
+        self.language_combo.clear()
+
+        for language, label in options:
+            self.language_combo.addItem(label, userData=language)
+
+        index = self.language_combo.findData(selected_language)
+        self.language_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.language_combo.blockSignals(False)
+        self.current_pack_language = self.current_language_value()
+        self.language_label.setVisible(has_options)
+        self.language_combo.setVisible(has_options)
+
+    def clear_language_options(self) -> None:
+        self.language_combo.blockSignals(True)
+        self.language_combo.clear()
+        self.language_combo.blockSignals(False)
+        self.language_label.hide()
+        self.language_combo.hide()
 
     def info_values(self, item: PackListItem) -> dict[str, str]:
         return {

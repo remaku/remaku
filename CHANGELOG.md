@@ -4,6 +4,10 @@
 
 <!-- lang:en -->
 
+### Added
+
+- Pack Explorer now lets you choose an available macro language before importing a pack
+
 ### Fixed
 
 - An unfinished translation entry for "Press a hotkey" in both Traditional and Simplified Chinese is now properly marked as complete.
@@ -16,6 +20,10 @@
 
 <!-- lang:zh_tw -->
 
+### 新增
+
+- Pack Explorer 現在可在匯入套件前選擇可用的巨集語言
+
 ### 修正
 
 - 「Press a hotkey」的翻譯標記已補完，不再顯示為未完成。
@@ -27,6 +35,10 @@
 - 貼上以 if-any-image 步驟開頭的多個步驟時，現在會讓貼上的步驟保持在同一層，不會加入第一個分支。
 
 <!-- lang:zh_cn -->
+
+### 新增
+
+- Pack Explorer 现在可在导入包前选择可用的宏语言
 
 ### 修复
 

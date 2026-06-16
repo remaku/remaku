@@ -12,8 +12,13 @@ def make_pack_data() -> dict:
         "author": "Remaku",
         "version": "1.0.0",
         "release_tag": "v2",
+        "default_language": "en_US",
         "source": {"repo_path": "packs/fh6/sample", "macro_json_path": "packs/fh6/sample/macro.json"},
         "assets": {"zip_url": "https://example.invalid/sample.zip", "preview_image_url": ""},
+        "language_assets": {
+            "en_US": {"zip_url": "https://example.invalid/sample-en_US.zip", "preview_image_url": ""},
+            "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip", "preview_image_url": ""},
+        },
         "compatibility": {"remaku_min": "0.5.0", "remaku_max": ""},
     }
 
@@ -36,7 +41,9 @@ def test_pack_catalog_from_dict_parses_games_and_entries() -> None:
     assert catalog.packs[0].display_label("zh_TW") == "範例套件"
     assert catalog.packs[0].display_description("zh_CN") == "示例描述"
     assert catalog.packs[0].release_tag == "v2"
+    assert catalog.packs[0].default_language == "en_US"
     assert catalog.packs[0].assets.zip_url == "https://example.invalid/sample.zip"
+    assert catalog.packs[0].language_assets["zh_TW"].zip_url == "https://example.invalid/sample-zh_TW.zip"
 
 
 def test_pack_catalog_accepts_legacy_string_text() -> None:
@@ -79,6 +86,7 @@ def test_pack_entry_ignores_invalid_nested_objects() -> None:
     data = make_pack_data()
     data["assets"] = "invalid"
     data["source"] = "invalid"
+    data["language_assets"] = "invalid"
     data["compatibility"] = "invalid"
 
     with pytest.raises(ValueError, match=r"assets\.zip_url"):
@@ -93,6 +101,7 @@ def test_pack_entry_to_dict_includes_nested_data() -> None:
         "macro_json_path": "packs/fh6/sample/macro.json",
     }
     assert entry.to_dict()["compatibility"] == {"remaku_min": "0.5.0", "remaku_max": ""}
+    assert entry.to_dict()["language_assets"]["en_US"]["zip_url"] == "https://example.invalid/sample-en_US.zip"
 
 
 def test_pack_catalog_rejects_invalid_collections_and_missing_repo_url() -> None:

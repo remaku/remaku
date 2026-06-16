@@ -41,7 +41,12 @@ def make_catalog_data() -> dict:
                 "author": "Remaku",
                 "version": "1.1.0",
                 "release_tag": "v2",
+                "default_language": "en_US",
                 "assets": {"zip_url": "https://example.invalid/sample.zip"},
+                "language_assets": {
+                    "en_US": {"zip_url": "https://example.invalid/sample-en_US.zip"},
+                    "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+                },
             }
         ],
     }
@@ -194,15 +199,45 @@ def test_download_pack_creates_cache_destination(tmp_path: Path, monkeypatch) ->
 
     monkeypatch.setattr(pack_service, "Download", FakeDownload)
 
-    download = pack_service.download_pack("parent", entry, "progress", "done", "error")
+    download = pack_service.download_pack("parent", entry, "progress", "done", "error", "zh_TW")
 
     assert isinstance(download, FakeDownload)
     assert downloads[0][:3] == (
         "parent",
-        "https://example.invalid/sample.zip",
-        str(tmp_path / "fh6.sample-1.1.0.zip"),
+        "https://example.invalid/sample-zh_TW.zip",
+        str(tmp_path / "fh6.sample-zh_TW-1.1.0.zip"),
     )
     assert (tmp_path).exists()
+
+
+def test_pack_language_options_and_fallbacks() -> None:
+    entry = make_entry()
+
+    assert pack_service.pack_language_options(entry) == [
+        ("en_US", "English"),
+        ("zh_TW", "繁體中文"),
+    ]
+    assert pack_service.default_pack_language(entry, "zh_TW") == "zh_TW"
+    assert pack_service.default_pack_language(entry, "zh_CN") == "en_US"
+    assert pack_service.resolve_pack_language(entry, "zh_TW", "zh_CN") == "zh_TW"
+    assert pack_service.resolve_pack_assets(entry, "zh_TW").zip_url == "https://example.invalid/sample-zh_TW.zip"
+    assert pack_service.resolve_pack_assets(entry, "zh_CN", "zh_TW").zip_url == (
+        "https://example.invalid/sample-zh_TW.zip"
+    )
+    assert pack_service.resolve_pack_assets(entry, "zh_CN", "zh_CN").zip_url == (
+        "https://example.invalid/sample-en_US.zip"
+    )
+
+
+def test_pack_language_fallback_uses_legacy_assets() -> None:
+    data = make_catalog_data()["packs"][0]
+    data.pop("language_assets")
+    data.pop("default_language")
+    entry = PackCatalogEntry.from_dict(data)
+
+    assert pack_service.pack_language_options(entry) == []
+    assert pack_service.default_pack_language(entry, "zh_TW") == ""
+    assert pack_service.resolve_pack_assets(entry, "zh_TW").zip_url == "https://example.invalid/sample.zip"
 
 
 def test_import_pack_as_macro_skips_existing_macro_order(tmp_path: Path, monkeypatch) -> None:

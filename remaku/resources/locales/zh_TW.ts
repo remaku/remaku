@@ -641,101 +641,106 @@
 <context>
     <name>PackExplorerView</name>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="41"/>
+        <location filename="../../views/pack_explorer_view.py" line="43"/>
         <source>Pack Explorer</source>
         <translation>套件瀏覽器</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="50"/>
+        <location filename="../../views/pack_explorer_view.py" line="52"/>
         <source>Search packs</source>
         <translation>搜尋套件</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="60"/>
+        <location filename="../../views/pack_explorer_view.py" line="62"/>
         <source>All compatibility</source>
         <translation>所有相容性</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="61"/>
-        <location filename="../../views/pack_explorer_view.py" line="294"/>
+        <location filename="../../views/pack_explorer_view.py" line="63"/>
+        <location filename="../../views/pack_explorer_view.py" line="338"/>
         <source>Compatible</source>
         <translation>相容</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="62"/>
-        <location filename="../../views/pack_explorer_view.py" line="234"/>
+        <location filename="../../views/pack_explorer_view.py" line="64"/>
+        <location filename="../../views/pack_explorer_view.py" line="250"/>
         <source>Incompatible</source>
         <translation>不相容</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="79"/>
+        <location filename="../../views/pack_explorer_view.py" line="81"/>
         <source>Packs</source>
         <translation>套件</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="86"/>
+        <location filename="../../views/pack_explorer_view.py" line="88"/>
         <source>No packs found</source>
         <translation>找不到套件</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="98"/>
-        <location filename="../../views/pack_explorer_view.py" line="268"/>
+        <location filename="../../views/pack_explorer_view.py" line="100"/>
+        <location filename="../../views/pack_explorer_view.py" line="286"/>
         <source>Select a pack</source>
         <translation>選擇套件</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="105"/>
-        <location filename="../../views/pack_explorer_view.py" line="270"/>
+        <location filename="../../views/pack_explorer_view.py" line="107"/>
+        <location filename="../../views/pack_explorer_view.py" line="289"/>
         <source>Choose a pack from the list to view details.</source>
         <translation>從清單選擇套件以查看詳細資訊。</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="132"/>
+        <location filename="../../views/pack_explorer_view.py" line="131"/>
+        <source>Language</source>
+        <translation>語言</translation>
+    </message>
+    <message>
+        <location filename="../../views/pack_explorer_view.py" line="139"/>
         <source>Import Macro</source>
         <translation>匯入巨集</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="145"/>
+        <location filename="../../views/pack_explorer_view.py" line="154"/>
         <source>Game</source>
         <translation>遊戲</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="146"/>
+        <location filename="../../views/pack_explorer_view.py" line="155"/>
         <source>Author</source>
         <translation>作者</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="147"/>
+        <location filename="../../views/pack_explorer_view.py" line="156"/>
         <source>Compatibility</source>
         <translation>相容性</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="158"/>
+        <location filename="../../views/pack_explorer_view.py" line="167"/>
         <source>Loading packs...</source>
         <translation>正在載入套件...</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="169"/>
+        <location filename="../../views/pack_explorer_view.py" line="178"/>
         <source>All games</source>
         <translation>所有遊戲</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="233"/>
+        <location filename="../../views/pack_explorer_view.py" line="249"/>
         <source>Available</source>
         <translation>可用</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="286"/>
+        <location filename="../../views/pack_explorer_view.py" line="330"/>
         <source>Requires Remaku {minimum} to {maximum}</source>
         <translation>需要 Remaku {minimum} 至 {maximum}</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="289"/>
+        <location filename="../../views/pack_explorer_view.py" line="333"/>
         <source>Requires Remaku {minimum} or newer</source>
         <translation>需要 Remaku {minimum} 或更新版本</translation>
     </message>
     <message>
-        <location filename="../../views/pack_explorer_view.py" line="292"/>
+        <location filename="../../views/pack_explorer_view.py" line="336"/>
         <source>Requires Remaku {maximum} or older</source>
         <translation>需要 Remaku {maximum} 或舊版本</translation>
     </message>

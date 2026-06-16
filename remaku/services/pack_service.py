@@ -3,9 +3,10 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.error import URLError
 
+from remaku.core.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, normalize_language, resolve_language
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
-from remaku.models.pack_model import PackCatalog, PackCatalogEntry, PackListItem
+from remaku.models.pack_model import PackAssets, PackCatalog, PackCatalogEntry, PackListItem
 from remaku.paths import pack_download_path
 from remaku.services.macro_import_service import ImportMacroOptions, ImportMacroResult, install_macro_archive
 from remaku.services.updater import Download, Poster, fetch_json
@@ -14,6 +15,7 @@ from remaku.version import __version__
 PACKS_REPO_URL = "https://github.com/remaku/remaku-packs"
 DEFAULT_CATALOG_URL = "https://raw.githubusercontent.com/remaku/remaku-packs/main/catalog.json"
 PackVersion = tuple[int, int, int, str]
+LANGUAGE_LABELS = {language: label for label, language in SUPPORTED_LANGUAGES}
 
 
 def fetch_catalog_async(parent, on_done: Callable[[PackCatalog], None], on_error: Callable[[str], None]) -> None:
@@ -95,13 +97,80 @@ def build_pack_items(catalog: PackCatalog) -> list[PackListItem]:
     return items
 
 
-def download_pack(parent, entry: PackCatalogEntry, on_progress, on_done, on_error) -> Download:
-    destination = pack_download_path(entry.pack_id, entry.version)
+def pack_language_options(entry: PackCatalogEntry) -> list[tuple[str, str]]:
+    return [
+        (language, LANGUAGE_LABELS.get(language, language))
+        for language, assets in entry.language_assets.items()
+        if assets.zip_url
+    ]
+
+
+def default_pack_language(entry: PackCatalogEntry, current_language: str) -> str:
+    return resolve_pack_language(entry, current_language=current_language)
+
+
+def resolve_pack_language(
+    entry: PackCatalogEntry,
+    selected_language: str = "",
+    current_language: str = "",
+) -> str:
+    languages = {language for language, _label in pack_language_options(entry)}
+    if not languages:
+        return ""
+
+    selected = normalize_language(selected_language)
+    if selected in languages:
+        return selected
+
+    resolved_language = normalize_language(resolve_language(current_language)) if current_language else ""
+    if resolved_language in languages:
+        return resolved_language
+
+    default_language = normalize_language(entry.default_language)
+    if default_language in languages:
+        return default_language
+
+    if DEFAULT_LANGUAGE in languages:
+        return DEFAULT_LANGUAGE
+
+    return sorted(languages)[0]
+
+
+def resolve_pack_assets(
+    entry: PackCatalogEntry,
+    selected_language: str = "",
+    current_language: str = "",
+) -> PackAssets:
+    language = resolve_pack_language(entry, selected_language, current_language)
+    assets = entry.language_assets.get(language)
+    if assets is not None and assets.zip_url:
+        return assets
+
+    for language in sorted(entry.language_assets):
+        assets = entry.language_assets[language]
+        if assets.zip_url:
+            return assets
+
+    return entry.assets
+
+
+def download_pack(
+    parent,
+    entry: PackCatalogEntry,
+    on_progress,
+    on_done,
+    on_error,
+    selected_language: str = "",
+) -> Download:
+    language = resolve_pack_language(entry, selected_language, config_model.config.general.language)
+    assets = resolve_pack_assets(entry, language)
+    cache_pack_id = f"{entry.pack_id}-{language}" if language else entry.pack_id
+    destination = pack_download_path(cache_pack_id, entry.version)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     return Download(
         parent,
-        entry.assets.zip_url,
+        assets.zip_url,
         str(destination),
         on_progress,
         on_done,

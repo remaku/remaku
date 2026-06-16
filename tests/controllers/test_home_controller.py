@@ -1737,6 +1737,81 @@ def test_duplicate_delete_wrap_and_move_selected_step_paths() -> None:
     assert cast(Any, controller.view).statuses[-1] == "Deleted step"
 
 
+def test_delete_selected_step_removes_unused_template(tmp_path: Path) -> None:
+    step = {"type": "wait_image", "template": "button"}
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"button": {"label": "Button"}},
+            "steps": [step],
+        }
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_macro_id = "macro"
+    controller.step_tree = StepTree([step])
+    controller.selected_step = step
+    controller.template_service = TemplateService(
+        controller.generate_template_id,
+        controller.default_template_label,
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    template_file = tmp_path / "templates" / "macro" / "button.png"
+    template_file.parent.mkdir(parents=True)
+    template_file.write_bytes(b"png")
+
+    item = object()
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: [item]
+    center.item_to_step = {item: step}
+
+    controller.delete_selected_step()
+
+    assert "button" not in macro.templates
+    assert not template_file.exists()
+    assert macro.steps == []
+    assert cast(FakeMacroModel, controller.macro_model).saved[-1].templates == {}
+
+
+def test_delete_selected_step_keeps_template_used_by_another_step(tmp_path: Path) -> None:
+    deleted_step = {"type": "wait_image", "template": "shared"}
+    remaining_step = {"type": "mouse_click", "template": "shared"}
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"shared": {"label": "Shared"}},
+            "steps": [deleted_step, remaining_step],
+        }
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_macro_id = "macro"
+    controller.step_tree = StepTree([deleted_step, remaining_step])
+    controller.selected_step = deleted_step
+    controller.template_service = TemplateService(
+        controller.generate_template_id,
+        controller.default_template_label,
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    template_file = tmp_path / "templates" / "macro" / "shared.png"
+    template_file.parent.mkdir(parents=True)
+    template_file.write_bytes(b"png")
+
+    item = object()
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: [item]
+    center.item_to_step = {item: deleted_step}
+
+    controller.delete_selected_step()
+
+    assert "shared" in macro.templates
+    assert template_file.exists()
+    assert controller.step_tree.collect_template_refs() == {"shared"}
+    assert cast(FakeMacroModel, controller.macro_model).saved[-1].templates == macro.templates
+
+
 def test_step_actions_report_missing_macro_or_step() -> None:
     controller = make_controller()
 

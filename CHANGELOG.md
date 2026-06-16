@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Deleting a step now also removes its template files and metadata when no other step in the same macro uses them.
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 刪除步驟時，如果同一個巨集中沒有其他步驟使用該範本，現在會一併移除範本檔案與資料。
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 删除步骤时，如果同一个宏中没有其他步骤使用该模板，现在会一并移除模板文件与数据。
+
 ## v0.8.0
 
 <!-- lang:en -->

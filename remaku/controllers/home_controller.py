@@ -1185,9 +1185,17 @@ class HomeController(QObject):
 
         selection_index = self.selected_step_flat_index()
         self.push_undo(selection_index)
+        template_refs_before = self.step_tree.collect_template_refs()
 
         for node in reversed(selected):
             self.step_tree.delete_node(node)
+
+        if self.current_macro is not None:
+            template_refs_after = self.step_tree.collect_template_refs()
+            unused_template_refs = template_refs_before - template_refs_after
+
+            for template_id in sorted(unused_template_refs):
+                self.template_service.delete_template(self.current_macro, self.step_tree, template_id)
 
         self.sync_macro_steps_from_tree()
         self.refresh_step_tree()

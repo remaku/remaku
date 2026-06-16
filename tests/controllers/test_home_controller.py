@@ -674,9 +674,12 @@ def test_undo_and_redo_restore_saved_state() -> None:
     controller.undo_stack.append({"steps": [{"type": "key", "key": "undo"}]})
     controller.undo_selection_index_stack.append(0)
     restored = []
-    controller.restore_macro_state = lambda macro_dict, selection_index=None: restored.append(
-        (macro_dict, selection_index)
-    )
+
+    def restore_macro_state(macro_dict, selection_index=None) -> None:
+        restored.append((macro_dict, selection_index))
+        runner.macro = macro_dict
+
+    controller.restore_macro_state = restore_macro_state
     controller.selected_step_flat_index = lambda: 2
 
     controller.undo()
@@ -686,6 +689,49 @@ def test_undo_and_redo_restore_saved_state() -> None:
         ({"steps": [{"type": "key", "key": "undo"}]}, 0),
         ({"steps": [{"type": "key", "key": "current"}]}, 2),
     ]
+    assert cast(Any, controller.view).statuses == [
+        "Undo: Changed Press undo to Press current",
+        "Redo: Changed Press undo to Press current",
+    ]
+
+
+def test_undo_and_redo_report_added_step_in_status_bar() -> None:
+    controller = make_controller()
+    runner = FakeRunner()
+    runner.macro = {"steps": [{"type": "delay", "ms": 100}]}
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.undo_stack.append({"steps": []})
+    controller.undo_selection_index_stack.append(None)
+
+    def restore_macro_state(macro_dict, selection_index=None) -> None:
+        runner.macro = macro_dict
+
+    controller.restore_macro_state = restore_macro_state
+    controller.selected_step_flat_index = lambda: None
+
+    controller.undo()
+    controller.redo()
+
+    assert cast(Any, controller.view).statuses == [
+        "Undo: Added Wait 100 ms",
+        "Redo: Added Wait 100 ms",
+    ]
+
+
+def test_undo_reports_deleted_step_in_status_bar() -> None:
+    controller = make_controller()
+    runner = FakeRunner()
+    runner.macro = {"steps": []}
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.undo_stack.append({"steps": [{"type": "key", "key": "enter"}]})
+    controller.undo_selection_index_stack.append(None)
+    controller.restore_macro_state = lambda macro_dict, selection_index=None: None
+
+    controller.undo()
+
+    assert cast(Any, controller.view).statuses == ["Undo: Deleted Press enter"]
 
 
 def test_restore_macro_state_deletes_templates_missing_from_snapshot(tmp_path: Path, monkeypatch) -> None:

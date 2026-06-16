@@ -7,6 +7,7 @@
 ### Added
 
 - Pack Explorer now lets you choose an available macro language before importing a pack
+- The status bar now shows what changed after undoing or redoing an edit.
 
 ### Fixed
 
@@ -23,6 +24,7 @@
 ### 新增
 
 - Pack Explorer 現在可在匯入套件前選擇可用的巨集語言
+- 狀態列現在會顯示復原或重做後變更了什麼。
 
 ### 修正
 
@@ -39,6 +41,7 @@
 ### 新增
 
 - Pack Explorer 现在可在导入包前选择可用的宏语言
+- 状态栏现在会显示撤销或重做后变更了什么。
 
 ### 修复
 

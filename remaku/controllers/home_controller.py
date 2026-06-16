@@ -411,6 +411,48 @@ class HomeController(QObject):
         self.refresh_step_tree()
         self.show_step_selection(self.selected_step)
 
+    def undo_redo_change_description(self, before_state: dict, after_state: dict) -> str:
+        before_steps = self.flatten_snapshot_steps(before_state)
+        after_steps = self.flatten_snapshot_steps(after_state)
+
+        if len(after_steps) > len(before_steps):
+            added_step = self.first_added_step(before_steps, after_steps)
+            return self.tr("Added {step}").format(step=self.describe_step_from_snapshot(added_step))
+
+        if len(after_steps) < len(before_steps):
+            deleted_step = self.first_added_step(after_steps, before_steps)
+            return self.tr("Deleted {step}").format(step=self.describe_step_from_snapshot(deleted_step))
+
+        for before_step, after_step in zip(before_steps, after_steps, strict=False):
+            if before_step != after_step:
+                return self.tr("Changed {before} to {after}").format(
+                    before=self.describe_step_from_snapshot(before_step),
+                    after=self.describe_step_from_snapshot(after_step),
+                )
+
+        return self.tr("Updated macro")
+
+    def flatten_snapshot_steps(self, snapshot: dict) -> list[dict]:
+        steps = snapshot.get("steps", [])
+
+        if not isinstance(steps, list):
+            return []
+
+        return [copy.deepcopy(node.step) for node in StepTree(copy.deepcopy(steps)).flatten()]
+
+    def first_added_step(self, before_steps: list[dict], after_steps: list[dict]) -> dict:
+        for index, after_step in enumerate(after_steps):
+            if index >= len(before_steps) or before_steps[index] != after_step:
+                return after_step
+
+        return after_steps[-1] if after_steps else {}
+
+    def describe_step_from_snapshot(self, step: dict) -> str:
+        if not step:
+            return self.tr("step")
+
+        return self.describe_step(step)
+
     def undo(self) -> None:
         if self.current_runner is None or not self.undo_stack:
             return
@@ -422,8 +464,14 @@ class HomeController(QObject):
 
         restored_state = self.undo_stack.pop()
         selection_index = self.undo_selection_index_stack.pop() if self.undo_selection_index_stack else None
+        change_description = (
+            self.undo_redo_change_description(restored_state, current_macro_snapshot)
+            if current_macro_snapshot is not None
+            else self.tr("Updated macro")
+        )
         self.restore_macro_state(restored_state, selection_index)
         self.update_undo_redo_state()
+        self.view.set_status_text(self.tr("Undo: {change}").format(change=change_description))
 
     def redo(self) -> None:
         if self.current_runner is None or not self.redo_stack:
@@ -436,8 +484,14 @@ class HomeController(QObject):
 
         restored_state = self.redo_stack.pop()
         selection_index = self.redo_selection_index_stack.pop() if self.redo_selection_index_stack else None
+        change_description = (
+            self.undo_redo_change_description(current_macro_snapshot, restored_state)
+            if current_macro_snapshot is not None
+            else self.tr("Updated macro")
+        )
         self.restore_macro_state(restored_state, selection_index)
         self.update_undo_redo_state()
+        self.view.set_status_text(self.tr("Redo: {change}").format(change=change_description))
 
     def copy_selected_steps(self) -> None:
         if self.step_tree is None or self.current_macro is None:

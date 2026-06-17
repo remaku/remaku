@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Added
+
+- The status bar now shows elapsed time when a macro finishes or is stopped (e.g., `Done: MyMacro (01:23)`).
+
+### Fixed
+
+- The status bar message shown when a macro finishes with an error is now properly translatable.
+
+<!-- lang:zh_tw -->
+
+### 新增
+
+- 狀態列現在會在巨集完成或停止時顯示經過時間（例如 `完成：MyMacro（01:23）`）。
+
+### 修正
+
+- 巨集因錯誤結束時顯示的狀態列訊息現在可以正確翻譯。
+
+<!-- lang:zh_cn -->
+
+### 新增
+
+- 状态栏现在会在宏完成或停止时显示经过时间（例如 `完成：MyMacro（01:23）`）。
+
+### 修复
+
+- 宏因错误结束时显示的状态栏消息现在可以正确翻译。
+
 ## v0.9.0
 
 <!-- lang:en -->

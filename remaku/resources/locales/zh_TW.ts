@@ -324,37 +324,27 @@
     <message>
         <location filename="../../controllers/home_controller.py" line="1387"/>
         <location filename="../../controllers/home_controller.py" line="1404"/>
-        <location filename="../../controllers/home_controller.py" line="1426"/>
+        <location filename="../../controllers/home_controller.py" line="1438"/>
         <source>Running macro: {name}</source>
         <translation>執行中：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1410"/>
-        <source>Stopped macro: {name}</source>
-        <translation>已停止巨集：{name}</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/home_controller.py" line="1412"/>
-        <source>Done: {name}</source>
-        <translation>完成：{name}</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/home_controller.py" line="1422"/>
+        <location filename="../../controllers/home_controller.py" line="1434"/>
         <source>Paused</source>
         <translation>已暫停</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1468"/>
+        <location filename="../../controllers/home_controller.py" line="1484"/>
         <source>Template {id}</source>
         <translation>模板 {id}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1514"/>
+        <location filename="../../controllers/home_controller.py" line="1530"/>
         <source>Select Template Image</source>
         <translation>選擇模板圖片</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1514"/>
+        <location filename="../../controllers/home_controller.py" line="1530"/>
         <source>PNG Images (*.png)</source>
         <translation>PNG 圖片 (*.png)</translation>
     </message>
@@ -436,57 +426,72 @@
         <translation>中鍵</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1432"/>
+        <location filename="../../controllers/home_controller.py" line="1413"/>
+        <source>Stopped macro: {name} ({elapsed})</source>
+        <translation>已停止巨集：{name}（{elapsed}）</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/home_controller.py" line="1417"/>
+        <source>Done: {name} ({elapsed})</source>
+        <translation>完成：{name}（{elapsed}）</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/home_controller.py" line="1422"/>
+        <source>{name}: {message} ({elapsed})</source>
+        <translation>{name}：{message}（{elapsed}）</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/home_controller.py" line="1444"/>
         <source>Missing templates: {names}</source>
         <translation>缺少模板：{names}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1433"/>
+        <location filename="../../controllers/home_controller.py" line="1445"/>
         <source>Error: {detail}</source>
         <translation>錯誤：{detail}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1434"/>
+        <location filename="../../controllers/home_controller.py" line="1446"/>
         <source>Macro format error: {errors}</source>
         <translation>巨集格式錯誤：{errors}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1435"/>
+        <location filename="../../controllers/home_controller.py" line="1447"/>
         <source>Wait timeout: {template}</source>
         <translation>等待逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1436"/>
+        <location filename="../../controllers/home_controller.py" line="1448"/>
         <source>Wait any timeout: {templates}</source>
         <translation>等待任一逾時：{templates}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1437"/>
+        <location filename="../../controllers/home_controller.py" line="1449"/>
         <source>Mouse click: empty template</source>
         <translation>滑鼠點擊：模板為空</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1438"/>
+        <location filename="../../controllers/home_controller.py" line="1450"/>
         <source>Mouse click timeout: {template}</source>
         <translation>滑鼠點擊逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1439"/>
+        <location filename="../../controllers/home_controller.py" line="1451"/>
         <source>Mouse move: empty template</source>
         <translation>滑鼠移動：模板為空</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1440"/>
+        <location filename="../../controllers/home_controller.py" line="1452"/>
         <source>Mouse move timeout: {template}</source>
         <translation>滑鼠移動逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1446"/>
+        <location filename="../../controllers/home_controller.py" line="1458"/>
         <source>Window not found</source>
         <translation>找不到目標視窗</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1447"/>
+        <location filename="../../controllers/home_controller.py" line="1459"/>
         <source>Elevation mismatch, do not run target app as admin</source>
         <translation>權限等級不符，請勿以系統管理員身分執行目標應用程式</translation>
     </message>

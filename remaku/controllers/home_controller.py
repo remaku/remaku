@@ -1406,13 +1406,25 @@ class HomeController(QObject):
 
         if self.current_runner is not None:
             status = self.current_runner.get_status()
+            elapsed = self.format_elapsed(status.elapsed_s)
+
             if status.last_reason == "user_stopped":
-                self.view.set_status_text(self.tr("Stopped macro: {name}").format(name=self.current_runner.label))
+                self.view.set_status_text(
+                    self.tr("Stopped macro: {name} ({elapsed})").format(name=self.current_runner.label, elapsed=elapsed)
+                )
             elif status.last_reason == "done":
-                self.view.set_status_text(self.tr("Done: {name}").format(name=self.current_runner.label))
+                self.view.set_status_text(
+                    self.tr("Done: {name} ({elapsed})").format(name=self.current_runner.label, elapsed=elapsed)
+                )
             elif status.message:
                 translated = self.translate_status_message(status.message)
-                self.view.set_status_text(f"{self.current_runner.label}: {translated}")
+                self.view.set_status_text(
+                    self.tr("{name}: {message} ({elapsed})").format(
+                        name=self.current_runner.label,
+                        message=translated,
+                        elapsed=elapsed,
+                    )
+                )
 
     def handle_macro_paused_changed(self, is_paused: bool) -> None:
         if self.current_runner is None:
@@ -1450,6 +1462,10 @@ class HomeController(QObject):
             return simple_map[message]
 
         return message
+
+    def format_elapsed(self, elapsed_s: float) -> str:
+        elapsed = int(elapsed_s)
+        return f"{elapsed // 60:02d}:{elapsed % 60:02d}"
 
     def open_logs_folder(self) -> None:
         target = log_dir()

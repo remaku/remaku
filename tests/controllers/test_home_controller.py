@@ -944,7 +944,7 @@ def test_handle_macro_running_changed_reports_terminal_status() -> None:
     controller.handle_macro_running_changed(False)
 
     assert calls == [("locked", False)]
-    assert cast(Any, controller.view).statuses == ["Done: Runner"]
+    assert cast(Any, controller.view).statuses == ["Done: Runner (00:00)"]
 
 
 def test_handle_macro_paused_changed_updates_status_text() -> None:
@@ -1582,7 +1582,11 @@ def test_handle_macro_running_changed_reports_running_stopped_and_message() -> N
     controller.handle_macro_running_changed(False)
 
     assert calls == [True, False, False, False]
-    assert cast(Any, controller.view).statuses == ["Running macro: Runner", "Stopped macro: Runner", "Runner: failed"]
+    assert cast(Any, controller.view).statuses == [
+        "Running macro: Runner",
+        "Stopped macro: Runner (00:00)",
+        "Runner: failed (00:00)",
+    ]
 
 
 def test_handle_hotkey_triggered_ignores_missing_disabled_and_stops_running(qtbot) -> None:

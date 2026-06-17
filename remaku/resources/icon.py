@@ -17,6 +17,7 @@ class RemakuIcon(FluentIconBase, Enum):
     HAND = "hand"
     IMAGE = "image"
     IMAGES = "images"
+    INFO = "info"
     KEYBOARD = "keyboard"
     MOUSE_POINTER = "mouse-pointer"
     MOUSE_POINTER_CLICK = "mouse-pointer-click"

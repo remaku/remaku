@@ -110,6 +110,24 @@ def test_macro_gaming_mode_defaults_and_round_trips(sample_macro_dict: dict) -> 
     assert Macro.from_dict(non_gaming_macro.to_dict()).gaming_mode is False
 
 
+def test_macro_background_options_default_and_round_trip(sample_macro_dict: dict) -> None:
+    legacy_macro = Macro.from_dict(sample_macro_dict)
+    configured_macro = Macro.from_dict(
+        {
+            **sample_macro_dict,
+            "background_input": False,
+            "keep_target_focused": True,
+        }
+    )
+
+    assert legacy_macro.background_input is True
+    assert legacy_macro.keep_target_focused is False
+    assert configured_macro.background_input is False
+    assert configured_macro.keep_target_focused is True
+    assert Macro.from_dict(configured_macro.to_dict()).background_input is False
+    assert Macro.from_dict(configured_macro.to_dict()).keep_target_focused is True
+
+
 def test_template_match_mode_round_trips_and_rejects_unknown_value(sample_macro_dict: dict) -> None:
     sample_macro_dict["templates"]["start"]["match_mode"] = "color"
     sample_macro_dict["templates"]["done"]["match_mode"] = "bad"

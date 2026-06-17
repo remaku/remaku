@@ -86,6 +86,26 @@ def test_is_foreground_returns_false_on_errors(monkeypatch) -> None:
     assert window.is_foreground(BadWindow()) is False
 
 
+def test_fake_focus_posts_focus_messages(monkeypatch) -> None:
+    fake_window = FakeWindow("Game")
+    cast(Any, fake_window)._hWnd = 123
+    calls = []
+    monkeypatch.setattr(
+        window.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    window.fake_focus(fake_window)
+
+    assert calls == [
+        (123, window.win32con.WM_ACTIVATEAPP, True, 0),
+        (123, window.win32con.WM_NCACTIVATE, True, 0),
+        (123, window.win32con.WM_ACTIVATE, window.win32con.WA_ACTIVE, 0),
+        (123, window.win32con.WM_SETFOCUS, 0, 0),
+    ]
+
+
 def test_is_self_elevated_returns_admin_state(monkeypatch) -> None:
     monkeypatch.setattr(window.win32api, "GetCurrentProcess", lambda: "fake_process")
     monkeypatch.setattr(window.win32security, "OpenProcessToken", lambda process, access: "token")

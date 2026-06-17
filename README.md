@@ -74,7 +74,8 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 - Auto-find target window by title, with partial matching
 - Dropdown listing all visible windows for easy selection
 - Captures the client area (excluding borders and title bar)
-- Foreground detection: auto-waits when not in foreground
+- Background capture and input: keeps running against the selected target window without requiring focus
+- Per-macro options can switch between background input and regular input, and can send focus-like messages to the target window to help prevent some apps from pausing
 - Automatically re-finds the target window if it is closed and reopened during macro execution
 - Elevation mismatch warning: warns if the target window runs as administrator while Remaku does not (UIPI blocks SendInput)
 

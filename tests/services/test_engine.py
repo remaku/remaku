@@ -50,6 +50,10 @@ class ClosingGrabber:
         self.closed = True
 
 
+class FakeWindow:
+    _hWnd = 123
+
+
 def test_is_running_reports_live_thread(monkeypatch) -> None:
     runner = SampleEngine()
     runner.thread = threading.Thread()
@@ -112,15 +116,52 @@ def test_tap_delegates_to_keys_with_configured_jitter(monkeypatch) -> None:
     runner = SampleEngine()
     calls = []
     monkeypatch.setattr(engine, "config_model", FakeConfigModel())
-    monkeypatch.setattr(engine.keys, "tap", lambda key, hold_ms, jitter_ms: calls.append((key, hold_ms, jitter_ms)))
+    monkeypatch.setattr(
+        engine.keys,
+        "tap",
+        lambda key, hold_ms, jitter_ms, hwnd=None: calls.append((key, hold_ms, jitter_ms, hwnd)),
+    )
 
     runner.tap("enter", hold_ms=120)
 
-    assert calls == [("enter", 120, 7)]
+    assert calls == [("enter", 120, 7, None)]
 
 
-def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
+def test_input_hwnd_returns_target_only_when_background_input_enabled(monkeypatch) -> None:
     runner = SampleEngine()
+    runner.found_window = FakeWindow()
+    focus_calls = []
+    monkeypatch.setattr(engine.window, "fake_focus", lambda found_window: focus_calls.append(found_window))
+
+    assert runner.input_hwnd() == 123
+    assert focus_calls == []
+
+    runner.keep_target_focused = True
+    assert runner.input_hwnd() == 123
+    assert focus_calls == [runner.found_window]
+
+    runner.background_input = False
+    assert runner.input_hwnd() is None
+    assert focus_calls == [runner.found_window]
+
+
+def test_foreground_tick_refreshes_named_target_without_waiting_when_background_input_enabled(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    runner.found_window = object()
+    refreshes = []
+    runner.refresh_found_window = lambda: refreshes.append(True) or True
+
+    runner.foreground_tick()
+
+    assert runner.status.state == "running"
+    assert runner.status.message == ""
+    assert refreshes == [True]
+
+
+def test_foreground_tick_waits_when_background_input_is_disabled(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.background_input = False
     runner.found_window = object()
     foreground_states = iter([False, False, True])
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: next(foreground_states))
@@ -130,7 +171,6 @@ def test_foreground_tick_waits_until_window_is_foreground(monkeypatch) -> None:
     runner.foreground_tick()
 
     assert runner.status.state == "running"
-    assert runner.status.message == ""
     assert sleeps == [250]
 
 
@@ -161,6 +201,23 @@ def test_refresh_found_window_returns_false_without_target_or_match(monkeypatch)
     assert find_calls == ["Missing"]
 
 
+def test_refresh_found_window_if_due_throttles_window_lookup(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    runner.last_window_refresh_at = 10.0
+    calls = []
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 10.5)
+    runner.refresh_found_window = lambda: calls.append("refresh") or True
+
+    assert runner.refresh_found_window_if_due() is False
+    assert calls == []
+
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 11.1)
+
+    assert runner.refresh_found_window_if_due() is True
+    assert calls == ["refresh"]
+
+
 def test_capture_tick_returns_raw_frame_when_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     frame = np.ones((2, 2, 3), dtype=np.uint8)
@@ -173,11 +230,24 @@ def test_capture_tick_returns_raw_frame_when_foreground(monkeypatch) -> None:
     assert runner.status.state == "running"
 
 
-def test_capture_tick_returns_none_when_window_not_foreground(monkeypatch) -> None:
+def test_capture_tick_grabs_frame_when_window_not_foreground(monkeypatch) -> None:
     runner = SampleEngine()
+    frame = np.ones((2, 2, 3), dtype=np.uint8)
     runner.found_window = object()
     runner.capture_rect = Rect(0, 0, 2, 2)
-    runner.grabber = cast(Grabber, FakeGrabber(None))
+    runner.grabber = cast(Grabber, FakeGrabber(frame))
+    monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: False)
+
+    assert runner.capture_tick() is frame
+    assert runner.status.state == "running"
+
+
+def test_capture_tick_waits_when_background_input_is_disabled_and_window_not_foreground(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.background_input = False
+    runner.found_window = object()
+    runner.capture_rect = Rect(0, 0, 2, 2)
+    runner.grabber = cast(Grabber, FakeGrabber(np.ones((2, 2, 3), dtype=np.uint8)))
     sleeps = []
     monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: False)
     runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms)
@@ -185,6 +255,39 @@ def test_capture_tick_returns_none_when_window_not_foreground(monkeypatch) -> No
     assert runner.capture_tick() is None
     assert runner.status.state == "waiting_foreground"
     assert sleeps == [250]
+
+
+def test_capture_tick_fakes_focus_when_enabled(monkeypatch) -> None:
+    runner = SampleEngine()
+    frame = np.ones((2, 2, 3), dtype=np.uint8)
+    runner.keep_target_focused = True
+    runner.found_window = FakeWindow()
+    runner.capture_rect = Rect(0, 0, 2, 2)
+    runner.grabber = cast(Grabber, FakeGrabber(frame))
+    focus_calls = []
+    monkeypatch.setattr(engine.window, "fake_focus", lambda found_window: focus_calls.append(found_window))
+
+    assert runner.capture_tick() is frame
+    assert focus_calls == [runner.found_window]
+
+
+def test_keep_target_focus_alive_throttles_focus_messages(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.keep_target_focused = True
+    runner.found_window = FakeWindow()
+    runner.last_fake_focus_at = 10.0
+    focus_calls = []
+    monkeypatch.setattr(engine.window, "fake_focus", lambda found_window: focus_calls.append(found_window))
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 10.5)
+
+    runner.keep_target_focus_alive()
+
+    assert focus_calls == []
+
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 11.1)
+    runner.keep_target_focus_alive()
+
+    assert focus_calls == [runner.found_window]
 
 
 def test_start_does_not_create_second_thread_when_running(monkeypatch) -> None:
@@ -278,24 +381,21 @@ def test_stop_sets_event() -> None:
     assert runner.stop_event.is_set()
 
 
-def test_foreground_tick_does_nothing_without_window(monkeypatch) -> None:
+def test_foreground_tick_does_not_check_foreground(monkeypatch) -> None:
     runner = SampleEngine()
     runner.found_window = None
     foreground_calls = []
-    sleep_calls = []
 
     def is_foreground_side_effect(window):
         foreground_calls.append(window)
         return True
 
     monkeypatch.setattr(engine.window, "is_foreground", is_foreground_side_effect)
-    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleep_calls.append(ms)
 
     runner.foreground_tick()
 
-    assert foreground_calls == [None, None]
+    assert foreground_calls == []
     assert runner.status.state == "running"
-    assert sleep_calls == []
 
 
 def test_capture_once_grabs_current_rect() -> None:
@@ -375,11 +475,33 @@ def test_run_sets_runtime_fields_and_closes_grabber(monkeypatch) -> None:
     assert grabber.closed is True
 
 
-def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
+def test_run_waits_for_named_target_without_requiring_foreground_when_background_input_enabled(monkeypatch) -> None:
     runner = SampleEngine()
     runner.target_window = "Game"
     found_window = object()
-    windows = iter([None, found_window, found_window])
+    windows = iter([None, found_window])
+    sleeps = []
+    monkeypatch.setattr(engine.window, "find_target_window", lambda *args: next(windows))
+    monkeypatch.setattr(
+        runner, "sleep", lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms) or None
+    )
+    monkeypatch.setattr(engine.window, "check_elevation_mismatch", lambda window: False)
+    monkeypatch.setattr(engine.window, "client_rect", lambda window: Rect(1, 2, 3, 4))
+    monkeypatch.setattr(engine.capture, "make_grabber", lambda: ClosingGrabber())
+    monkeypatch.setattr(engine.window, "screen_resolution", lambda: (1920, 1080))
+
+    runner.run()
+
+    assert sleeps == [1000]
+    assert runner.status.state == "waiting_window"
+
+
+def test_run_waits_for_named_target_foreground_when_background_input_disabled(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.background_input = False
+    runner.target_window = "Game"
+    found_window = object()
+    windows = iter([found_window, found_window])
     foreground = iter([False, True])
     sleeps = []
     monkeypatch.setattr(engine.window, "find_target_window", lambda *args: next(windows))
@@ -394,7 +516,7 @@ def test_run_waits_for_named_target_until_foreground(monkeypatch) -> None:
 
     runner.run()
 
-    assert sleeps == [1000, 1000]
+    assert sleeps == [1000]
     assert runner.status.state == "waiting_foreground"
 
 

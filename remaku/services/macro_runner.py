@@ -117,6 +117,8 @@ class MacroRunner(Engine):
         self.engine_id = self.macro_id
         self.label = macro.meta.label or "Macro"
         self.target_window = macro.meta.target_window or ""
+        self.background_input = macro.background_input
+        self.keep_target_focused = macro.keep_target_focused
         self.template_ids = list(macro.templates.keys())
         self.macro = macro.to_dict()
         self.current_step_path: tuple[tuple[str, int], ...] | None = None
@@ -223,7 +225,7 @@ class MacroRunner(Engine):
 
         elif action == "text_input":
             self.checkpoint()
-            keys.type_text(get_step_text(step), get_step_interval_ms(step))
+            keys.type_text(get_step_text(step), get_step_interval_ms(step), hwnd=self.input_hwnd())
             self.checkpoint()
 
         elif action == "wait_image":
@@ -332,7 +334,7 @@ class MacroRunner(Engine):
 
                     return
 
-                keys.mouse_click(button, center_x, center_y)
+                keys.mouse_click(button, center_x, center_y, hwnd=self.input_hwnd())
             else:
                 position = self.resolve_mouse_position(step)
 
@@ -340,7 +342,7 @@ class MacroRunner(Engine):
                     logger.warning("{}: mouse_click could not resolve position", self.engine_id)
                     return
 
-                keys.mouse_click(button, *position)
+                keys.mouse_click(button, *position, hwnd=self.input_hwnd())
 
         elif action == "mouse_move":
             target = get_step_mouse_target(step)
@@ -369,7 +371,7 @@ class MacroRunner(Engine):
 
                     return
 
-                keys.mouse_move(center_x, center_y)
+                keys.mouse_move(center_x, center_y, hwnd=self.input_hwnd())
             else:
                 position = self.resolve_mouse_position(step)
 
@@ -377,11 +379,11 @@ class MacroRunner(Engine):
                     logger.warning("{}: mouse_move could not resolve position", self.engine_id)
                     return
 
-                keys.mouse_move(*position)
+                keys.mouse_move(*position, hwnd=self.input_hwnd())
 
         elif action == "mouse_scroll":
             self.checkpoint()
-            keys.mouse_scroll(get_step_scroll_clicks(step), get_step_interval_ms(step))
+            keys.mouse_scroll(get_step_scroll_clicks(step), get_step_interval_ms(step), hwnd=self.input_hwnd())
             self.checkpoint()
 
         else:
@@ -417,7 +419,7 @@ class MacroRunner(Engine):
             if held_context is not None:
                 return
 
-            held_context = keys.held(key)
+            held_context = keys.held(key, hwnd=self.input_hwnd())
             held_context.__enter__()
 
         def release_key() -> None:
@@ -440,11 +442,7 @@ class MacroRunner(Engine):
 
                 tick_start = time.monotonic()
 
-                if not window.is_foreground(self.found_window):
-                    logger.warning("{}: window lost foreground, releasing {}", self.engine_id, key)
-                    return
-
-                frame = self.grabber.grab(self.capture_rect)
+                frame = self.capture_tick()
                 if frame is None:
                     self.sleep(period * 1000, release_key, press_key)
                     continue

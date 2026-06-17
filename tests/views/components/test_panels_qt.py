@@ -3,7 +3,7 @@ from typing import Any, ClassVar, cast
 from PySide6.QtCore import QModelIndex, QPointF, Qt
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QWidget
-from qfluentwidgets import BodyLabel, ComboBox, LineEdit, TextEdit
+from qfluentwidgets import BodyLabel, CheckBox, ComboBox, LineEdit, TextEdit
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
@@ -633,6 +633,21 @@ def test_right_panel_show_macro_properties_renders_fields(monkeypatch, qtbot) ->
     assert hotkey_edit.text() == "ctrl+f1"
 
 
+def test_right_panel_macro_option_hints_have_tooltips(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    monkeypatch.setattr(right_panel.window, "list_visible_windows", lambda: ["Game"])
+
+    panel.show_macro_properties(Macro())
+
+    info_icons = [icon for icon in panel.findChildren(right_panel.IconWidget) if icon.toolTip()]
+    tooltips = [icon.toolTip() for icon in info_icons]
+
+    assert len(tooltips) == 3
+    assert all(tooltips)
+    assert all(icon.toolTipDuration() == -1 for icon in info_icons)
+
+
 def test_right_panel_show_step_properties_for_common_step_types(monkeypatch, qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)
@@ -750,13 +765,51 @@ def test_right_panel_gaming_mode_checkbox_emits_macro_meta(qtbot) -> None:
     panel.add_gaming_mode_checkbox(macro)
     item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
     assert item is not None
-    checkbox = item.widget()
+    row = item.widget()
+    assert row is not None
+    checkbox = row.findChild(CheckBox)
     assert checkbox is not None
 
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
         qtbot.mouseClick(checkbox, Qt.MouseButton.LeftButton)
 
     assert blocker.args == ["gaming_mode", "True"]
+
+
+def test_right_panel_background_input_checkbox_emits_macro_meta(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(background_input=False)
+    panel.add_background_input_checkbox(macro)
+    item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
+    assert item is not None
+    row = item.widget()
+    assert row is not None
+    checkbox = row.findChild(CheckBox)
+    assert checkbox is not None
+
+    with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
+        qtbot.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+
+    assert blocker.args == ["background_input", "True"]
+
+
+def test_right_panel_keep_target_focused_checkbox_emits_macro_meta(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(keep_target_focused=False)
+    panel.add_keep_target_focused_checkbox(macro)
+    item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
+    assert item is not None
+    row = item.widget()
+    assert row is not None
+    checkbox = row.findChild(CheckBox)
+    assert checkbox is not None
+
+    with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
+        qtbot.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+
+    assert blocker.args == ["keep_target_focused", "True"]
 
 
 def test_right_panel_show_step_properties_for_remaining_step_types(monkeypatch, qtbot) -> None:

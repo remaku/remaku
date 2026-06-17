@@ -1183,12 +1183,16 @@ def test_handle_macro_meta_changed_saves_and_registers_hotkeys() -> None:
 
     controller.handle_macro_meta_changed("enabled", "True")
     controller.handle_macro_meta_changed("gaming_mode", "False")
+    controller.handle_macro_meta_changed("background_input", "False")
+    controller.handle_macro_meta_changed("keep_target_focused", "True")
     controller.handle_macro_meta_changed("label", "Renamed")
 
     assert macro.meta.enabled is True
     assert macro.gaming_mode is False
+    assert macro.background_input is False
+    assert macro.keep_target_focused is True
     assert macro.meta.label == "Renamed"
-    assert model.saved == [macro, macro, macro]
+    assert model.saved == [macro, macro, macro, macro, macro]
     assert calls == ["register"]
 
 

@@ -12,6 +12,8 @@ from qfluentwidgets import (
     ScrollArea,
     Slider,
     TextEdit,
+    ToolTipFilter,
+    ToolTipPosition,
 )
 
 from remaku.core import keys, window
@@ -269,6 +271,25 @@ class PropertyFormMixin:
         edit.blockSignals(False)
         event_bus.step_property_changed.emit("key", key_combo)
 
+    def add_checkbox_with_hint(self, checkbox: CheckBox, hint: str) -> None:
+        row = QWidget(self.content_widget)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(6)
+
+        info_icon = IconWidget(RemakuIcon.INFO, row)
+        info_icon.setToolTip(hint)
+        info_icon.setToolTipDuration(-1)
+        info_icon.setCursor(Qt.CursorShape.WhatsThisCursor)
+        info_icon.setFixedSize(16, 16)
+        info_icon.installEventFilter(ToolTipFilter(info_icon, showDelay=300, position=ToolTipPosition.TOP))
+
+        row_layout.addWidget(checkbox)
+        row_layout.addWidget(info_icon)
+        row_layout.addStretch(1)
+
+        self.content_layout.addWidget(row)
+
     def add_enabled_checkbox(self, macro: Macro) -> None:
         enabled_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Enabled"), self.content_widget)
         enabled_checkbox.setChecked(macro.meta.enabled)
@@ -287,7 +308,49 @@ class PropertyFormMixin:
             lambda state: event_bus.macro_meta_changed.emit("gaming_mode", str(state == Qt.CheckState.Checked))
         )
 
-        self.content_layout.addWidget(gaming_mode_checkbox)
+        self.add_checkbox_with_hint(
+            gaming_mode_checkbox,
+            QCoreApplication.translate(
+                "RightPanel",
+                "Scales templates for changing game resolutions. Turn it off for desktop apps when the target window size stays the same.",
+            ),
+        )
+
+    def add_background_input_checkbox(self, macro: Macro) -> None:
+        background_input_checkbox = CheckBox(
+            QCoreApplication.translate("RightPanel", "Background Input"), self.content_widget
+        )
+        background_input_checkbox.setChecked(macro.background_input)
+
+        background_input_checkbox.checkStateChanged.connect(
+            lambda state: event_bus.macro_meta_changed.emit("background_input", str(state == Qt.CheckState.Checked))
+        )
+
+        self.add_checkbox_with_hint(
+            background_input_checkbox,
+            QCoreApplication.translate(
+                "RightPanel",
+                "Sends keys and mouse messages directly to the target window without focusing it. Some games ignore background messages; turn it off to use normal foreground input.",
+            ),
+        )
+
+    def add_keep_target_focused_checkbox(self, macro: Macro) -> None:
+        keep_target_focused_checkbox = CheckBox(
+            QCoreApplication.translate("RightPanel", "Prevent Focus Loss"), self.content_widget
+        )
+        keep_target_focused_checkbox.setChecked(macro.keep_target_focused)
+
+        keep_target_focused_checkbox.checkStateChanged.connect(
+            lambda state: event_bus.macro_meta_changed.emit("keep_target_focused", str(state == Qt.CheckState.Checked))
+        )
+
+        self.add_checkbox_with_hint(
+            keep_target_focused_checkbox,
+            QCoreApplication.translate(
+                "RightPanel",
+                "Prevents the game from detecting that it lost focus, so it won't pause when you click away. May not work with all games.",
+            ),
+        )
 
     def add_skip_checkbox(self, value: bool, enabled: bool = True) -> None:
         skip_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Skip"), self.content_widget)
@@ -706,6 +769,8 @@ class RightPanel(ScrollArea, PropertyFormMixin):
         self.add_hotkey_text_input(macro)
         self.add_enabled_checkbox(macro)
         self.add_gaming_mode_checkbox(macro)
+        self.add_background_input_checkbox(macro)
+        self.add_keep_target_focused_checkbox(macro)
 
     def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
         self.clear_content()

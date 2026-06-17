@@ -12,6 +12,9 @@ from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import DEFAULT_TEMPLATE_MATCH_MODE
 
+WINDOW_REFRESH_INTERVAL_S = 1.0
+FAKE_FOCUS_INTERVAL_S = 1.0
+
 
 class Stopped(Exception):
     pass
@@ -45,6 +48,8 @@ class Engine:
     engine_id: str = "step"
     label: str = "Step"
     target_window: str = ""
+    background_input: bool = True
+    keep_target_focused: bool = False
 
     def __init__(self) -> None:
         self.template_ids: list[str] = []
@@ -57,6 +62,8 @@ class Engine:
         self.start_time: float | None = None
         self.paused_total_s = 0.0
         self.paused_started_at: float | None = None
+        self.last_window_refresh_at = 0.0
+        self.last_fake_focus_at = 0.0
         self.resume_event.set()
 
     def start(self) -> None:
@@ -155,7 +162,7 @@ class Engine:
         if self.target_window:
             found_window = window.find_target_window(self.target_window)
 
-            while found_window is None or not window.is_foreground(found_window):
+            while found_window is None or self.should_wait_for_foreground(found_window):
                 waiting_state = "waiting_window" if found_window is None else "waiting_foreground"
 
                 self.update(state=waiting_state)
@@ -195,6 +202,8 @@ class Engine:
         self.templates = templates
         self.grabber = grabber
         self.template_capture_sizes = self.build_template_capture_sizes()
+        self.last_window_refresh_at = time.monotonic()
+        self.keep_target_focus_alive(force=True)
 
         try:
             self.loop()
@@ -248,7 +257,44 @@ class Engine:
             key,
             hold_ms=hold_ms,
             jitter_ms=config_model.config.input.jitter_ms,
+            hwnd=self.input_hwnd(),
         )
+
+    def target_hwnd(self) -> int | None:
+        hwnd = getattr(getattr(self, "found_window", None), "_hWnd", None)
+        return hwnd if isinstance(hwnd, int) else None
+
+    def should_wait_for_foreground(self, found_window: object | None = None) -> bool:
+        if self.background_input:
+            return False
+
+        target = found_window if found_window is not None else getattr(self, "found_window", None)
+        return target is not None and not window.is_foreground(target)
+
+    def input_hwnd(self) -> int | None:
+        if not self.background_input:
+            return None
+
+        self.keep_target_focus_alive(force=True)
+        return self.target_hwnd()
+
+    def keep_target_focus_alive(self, force: bool = False) -> None:
+        if not self.keep_target_focused:
+            return
+
+        found_window = getattr(self, "found_window", None)
+        if found_window is None:
+            return
+
+        now = time.monotonic()
+        if not force and now - self.last_fake_focus_at < FAKE_FOCUS_INTERVAL_S:
+            return
+
+        try:
+            window.fake_focus(found_window)
+            self.last_fake_focus_at = now
+        except Exception:
+            logger.warning("{}: failed to fake target focus", self.engine_id, exc_info=True)
 
     def checkpoint(
         self,
@@ -325,30 +371,46 @@ class Engine:
         if found is not None:
             self.found_window = found
             self.capture_rect = window.client_rect(found)
+            self.last_window_refresh_at = time.monotonic()
             return True
 
         return False
 
+    def refresh_found_window_if_due(self) -> bool:
+        if not self.target_window:
+            return False
+
+        now = time.monotonic()
+        if now - self.last_window_refresh_at < WINDOW_REFRESH_INTERVAL_S:
+            return False
+
+        return self.refresh_found_window()
+
     def foreground_tick(self) -> None:
-        if not window.is_foreground(self.found_window):
+        if self.target_window:
             self.refresh_found_window()
+
+        if self.should_wait_for_foreground():
             self.update(state="waiting_foreground")
 
-        while not window.is_foreground(self.found_window):
+        while self.should_wait_for_foreground():
             self.refresh_found_window()
             self.checkpoint()
             self.sleep(250)
 
+        self.keep_target_focus_alive()
         self.update(state="running")
 
     def capture_tick(self):
-        if not window.is_foreground(self.found_window):
-            self.refresh_found_window()
+        if self.target_window:
+            self.refresh_found_window_if_due()
 
-        if not window.is_foreground(self.found_window):
+        if self.should_wait_for_foreground():
             self.update(state="waiting_foreground")
             self.sleep(250)
             return None
+
+        self.keep_target_focus_alive()
 
         if self.status.state != "running":
             self.update(state="running")

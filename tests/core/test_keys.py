@@ -43,6 +43,25 @@ def test_tap_presses_combo_and_releases_in_reverse_order(monkeypatch) -> None:
     ]
 
 
+def test_tap_posts_background_key_messages(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms, jitter_ms=0: calls.append(("sleep", ms, jitter_ms)))
+    monkeypatch.setattr(keys.win32api, "MapVirtualKey", lambda vk_code, map_type: 30)
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    keys.tap("a", hold_ms=120, jitter_ms=10, hwnd=123)
+
+    assert calls == [
+        (123, keys.win32con.WM_KEYDOWN, 65, 1 | (30 << 16)),
+        ("sleep", 120, 10),
+        (123, keys.win32con.WM_KEYUP, 65, 1 | (30 << 16) | (1 << 30) | (1 << 31)),
+    ]
+
+
 def test_tap_stops_when_key_down_fails(monkeypatch) -> None:
     calls = []
 
@@ -136,6 +155,25 @@ def test_type_text_converts_newlines_to_enter(monkeypatch) -> None:
     ]
 
 
+def test_type_text_posts_background_characters(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.win32api, "MapVirtualKey", lambda vk_code, map_type: 28)
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    keys.type_text("A\n好", hwnd=123)
+
+    assert calls == [
+        (123, keys.win32con.WM_CHAR, ord("A"), 1),
+        (123, keys.win32con.WM_KEYDOWN, 13, 1 | (28 << 16)),
+        (123, keys.win32con.WM_KEYUP, 13, 1 | (28 << 16) | (1 << 30) | (1 << 31)),
+        (123, keys.win32con.WM_CHAR, ord("好"), 1),
+    ]
+
+
 def test_type_text_normalizes_windows_newlines(monkeypatch) -> None:
     calls = []
 
@@ -213,6 +251,25 @@ def test_held_keeps_combo_pressed_until_context_exits(monkeypatch) -> None:
         calls.append(("inside", "combo"))
 
     assert calls == [("down", "ctrl"), ("down", "space"), ("inside", "combo"), ("up", "space"), ("up", "ctrl")]
+
+
+def test_held_posts_background_key_messages(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.win32api, "MapVirtualKey", lambda vk_code, map_type: 57)
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    with keys.held("space", hwnd=123):
+        calls.append(("inside", "space"))
+
+    assert calls == [
+        (123, keys.win32con.WM_KEYDOWN, 32, 1 | (57 << 16)),
+        ("inside", "space"),
+        (123, keys.win32con.WM_KEYUP, 32, 1 | (57 << 16) | (1 << 30) | (1 << 31)),
+    ]
 
 
 def test_held_reraises_key_down_failure(monkeypatch) -> None:
@@ -307,6 +364,25 @@ def test_mouse_click_stops_when_move_fails(monkeypatch) -> None:
     assert calls == []
 
 
+def test_mouse_click_posts_background_mouse_messages(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.win32gui, "ScreenToClient", lambda hwnd, point: (5, 7))
+    monkeypatch.setattr(keys.win32api, "MAKELONG", lambda low, high: low | (high << 16))
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    keys.mouse_click("left", 100, 200, hwnd=123)
+
+    assert calls == [
+        (123, keys.win32con.WM_MOUSEMOVE, 0, 5 | (7 << 16)),
+        (123, keys.win32con.WM_LBUTTONDOWN, keys.win32con.MK_LBUTTON, 5 | (7 << 16)),
+        (123, keys.win32con.WM_LBUTTONUP, 0, 5 | (7 << 16)),
+    ]
+
+
 def test_mouse_click_logs_click_failure(monkeypatch) -> None:
     calls = []
 
@@ -339,6 +415,21 @@ def test_mouse_move_logs_failure(monkeypatch) -> None:
     keys.mouse_move(10, 20)
 
 
+def test_mouse_move_posts_background_mouse_move(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.win32gui, "ScreenToClient", lambda hwnd, point: (6, 8))
+    monkeypatch.setattr(keys.win32api, "MAKELONG", lambda low, high: low | (high << 16))
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((hwnd, message, wparam, lparam)),
+    )
+
+    keys.mouse_move(100, 200, hwnd=123)
+
+    assert calls == [(123, keys.win32con.WM_MOUSEMOVE, 0, 6 | (8 << 16))]
+
+
 def test_mouse_scroll_sends_one_tick_at_a_time_with_interval(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(keys.pdi, "scroll", lambda clicks: calls.append(("scroll", clicks)))
@@ -364,6 +455,18 @@ def test_mouse_scroll_sends_negative_ticks_and_allows_zero(monkeypatch) -> None:
     keys.mouse_scroll(0)
 
     assert calls == [-1, -1]
+
+
+def test_mouse_scroll_posts_background_wheel_messages(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        keys.win32gui, "PostMessage", lambda hwnd, message, wparam, lparam: calls.append((wparam, lparam))
+    )
+    monkeypatch.setattr(keys, "sleep_ms", lambda ms: calls.append(("sleep", ms)))
+
+    keys.mouse_scroll(-2, interval_ms=25, hwnd=123)
+
+    assert calls == [(-120 << 16, 0), ("sleep", 25), (-120 << 16, 0), ("sleep", 25)]
 
 
 def test_mouse_scroll_stops_on_failure(monkeypatch) -> None:

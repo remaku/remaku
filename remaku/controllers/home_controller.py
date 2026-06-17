@@ -719,8 +719,8 @@ class HomeController(QObject):
 
         if field == "enabled":
             setattr(self.current_macro.meta, field, value.lower() == "true")
-        elif field == "gaming_mode":
-            self.current_macro.gaming_mode = value.lower() == "true"
+        elif field in ("gaming_mode", "background_input", "keep_target_focused"):
+            setattr(self.current_macro, field, value.lower() == "true")
         else:
             setattr(self.current_macro.meta, field, value)
 

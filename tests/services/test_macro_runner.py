@@ -13,8 +13,9 @@ from remaku.services.macro_runner import MacroRunner, validate_steps
 
 
 class FakeHeldContext:
-    def __init__(self, key: str = "") -> None:
+    def __init__(self, key: str = "", hwnd: int | None = None) -> None:
         self.key = key
+        self.hwnd = hwnd
 
     def __enter__(self) -> "FakeHeldContext":
         return self
@@ -29,6 +30,10 @@ class FakeGrabber(Grabber):
 
     def grab(self, rect: Rect) -> np.ndarray:
         return np.ones((10, 10, 3), dtype=np.uint8)
+
+
+class FakeWindow:
+    _hWnd = 123
 
 
 def make_hold_key_runner() -> MacroRunner:
@@ -209,12 +214,41 @@ def test_exec_step_types_text_with_interval(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         "remaku.services.macro_runner.keys.type_text",
-        lambda text, interval_ms: calls.append((text, interval_ms)),
+        lambda text, interval_ms, hwnd=None: calls.append((text, interval_ms, hwnd)),
     )
 
     runner.exec_step({"type": "text_input", "text": "哈囉", "interval_ms": 25}, (("steps", 0),))
 
-    assert calls == [("哈囉", 25)]
+    assert calls == [("哈囉", 25, None)]
+
+
+def test_exec_step_uses_background_input_hwnd_when_available(monkeypatch) -> None:
+    runner = make_runner([])
+    runner.found_window = FakeWindow()
+    calls = []
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.type_text",
+        lambda text, interval_ms, hwnd=None: calls.append((text, interval_ms, hwnd)),
+    )
+
+    runner.exec_step({"type": "text_input", "text": "hi", "interval_ms": 25}, (("steps", 0),))
+
+    assert calls == [("hi", 25, 123)]
+
+
+def test_exec_step_uses_global_input_when_background_input_disabled(monkeypatch) -> None:
+    runner = make_runner([])
+    runner.background_input = False
+    runner.found_window = FakeWindow()
+    calls = []
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.type_text",
+        lambda text, interval_ms, hwnd=None: calls.append((text, interval_ms, hwnd)),
+    )
+
+    runner.exec_step({"type": "text_input", "text": "hi", "interval_ms": 25}, (("steps", 0),))
+
+    assert calls == [("hi", 25, None)]
 
 
 def test_repeat_step_updates_progress_and_runs_children() -> None:
@@ -379,6 +413,22 @@ def test_build_template_capture_sizes_returns_empty_for_non_gaming_mode() -> Non
     assert runner.build_template_capture_sizes() == {}
 
 
+def test_runner_uses_macro_background_options() -> None:
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "runner", "label": "Runner"},
+            "background_input": False,
+            "keep_target_focused": True,
+            "steps": [],
+        }
+    )
+
+    runner = MacroRunner(macro)
+
+    assert runner.background_input is False
+    assert runner.keep_target_focused is True
+
+
 def test_template_match_mode_uses_template_metadata() -> None:
     runner = make_runner([], templates={"start": {"match_mode": "color"}})
 
@@ -470,7 +520,7 @@ def test_hold_key_until_gone_releases_when_template_never_found(qtbot, monkeypat
     )
 
     assert sleep_calls == [0]
-    assert updates == [{"score": 0.3, "match_id": "start"}]
+    assert updates == [{"state": "running"}, {"score": 0.3, "match_id": "start"}]
 
 
 def test_hold_key_until_gone_stops_when_runner_stops(monkeypatch) -> None:
@@ -528,29 +578,41 @@ def test_hold_key_until_gone_releases_after_grace_period(monkeypatch) -> None:
     assert len(sleep_calls) >= 1
 
 
-def test_hold_key_until_gone_returns_when_window_loses_foreground(monkeypatch) -> None:
+def test_hold_key_until_gone_continues_when_window_loses_foreground(monkeypatch) -> None:
     runner = make_hold_key_runner()
     foreground_calls = []
+    sleep_calls = []
+    match_returns = iter([(1.0, (0, 0)), (0.0, (0, 0))])
 
     def fake_is_foreground(window: object) -> bool:
         foreground_calls.append(window)
 
-        return len(foreground_calls) == 1
+        return False
 
     monkeypatch.setattr("remaku.services.macro_runner.window.is_foreground", fake_is_foreground)
     monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
     monkeypatch.setattr(
         "remaku.services.macro_runner.vision.match_template",
-        lambda frame, template, match_mode="grayscale": (1.0, (0, 0)),
+        lambda frame, template, match_mode="grayscale": next(match_returns),
     )
     runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
-    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: None
-
-    runner.do_hold_key_until_gone(
-        {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0, "threshold": 0.8}
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: sleep_calls.append(
+        period
     )
 
-    assert len(foreground_calls) == 2
+    runner.do_hold_key_until_gone(
+        {
+            "type": "hold_key_until_gone",
+            "key": "enter",
+            "template": "start",
+            "load_delay_ms": 0,
+            "gone_grace_ms": 0,
+            "threshold": 0.8,
+        }
+    )
+
+    assert foreground_calls == []
+    assert sleep_calls == [0.1]
 
 
 def test_validate_steps_reports_bad_format_empty_template_and_nested_errors(monkeypatch) -> None:
@@ -703,7 +765,8 @@ def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
     runner.capture_rect = Rect(100, 200, 300, 400)
     calls = []
     monkeypatch.setattr(
-        "remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: calls.append((button, x, y))
+        "remaku.services.macro_runner.keys.mouse_click",
+        lambda button, x, y, hwnd=None: calls.append((button, x, y, hwnd)),
     )
 
     runner.exec_step(
@@ -711,7 +774,7 @@ def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
         (("steps", 0),),
     )
 
-    assert calls == [("right", 110, 220)]
+    assert calls == [("right", 110, 220, None)]
 
 
 def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_position(monkeypatch) -> None:
@@ -720,7 +783,8 @@ def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_
     finishes = []
     runner.finish = lambda reason, message: finishes.append((reason, message))
     monkeypatch.setattr(
-        "remaku.services.macro_runner.keys.mouse_click", lambda button, x, y: clicks.append((button, x, y))
+        "remaku.services.macro_runner.keys.mouse_click",
+        lambda button, x, y, hwnd=None: clicks.append((button, x, y, hwnd)),
     )
 
     runner.exec_step(
@@ -747,7 +811,7 @@ def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_
         (StopReason.STALE, "mouse_click: empty template"),
         (StopReason.STALE, "mouse_click_timeout: Button"),
     ]
-    assert clicks == [("left", 12, 34)]
+    assert clicks == [("left", 12, 34, None)]
 
 
 def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch) -> None:
@@ -756,7 +820,10 @@ def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch)
     moves = []
     finishes = []
     runner.finish = lambda reason, message: finishes.append((reason, message))
-    monkeypatch.setattr("remaku.services.macro_runner.keys.mouse_move", lambda x, y: moves.append((x, y)))
+    monkeypatch.setattr(
+        "remaku.services.macro_runner.keys.mouse_move",
+        lambda x, y, hwnd=None: moves.append((x, y, hwnd)),
+    )
 
     runner.exec_step(
         {"type": "mouse_move", "target": "coordinate", "x": 10, "y": 20, "relative": False},
@@ -779,7 +846,7 @@ def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch)
     runner.resolve_mouse_position = lambda step: None
     runner.exec_step({"type": "mouse_move", "target": "coordinate"}, (("steps", 4),))
 
-    assert moves == [(10, 20), (12, 34)]
+    assert moves == [(10, 20, None), (12, 34, None)]
     assert finishes == [
         (StopReason.STALE, "mouse_move: empty template"),
         (StopReason.STALE, "mouse_move_timeout: Button"),
@@ -791,12 +858,12 @@ def test_exec_step_mouse_scroll_uses_clicks_and_interval(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         "remaku.services.macro_runner.keys.mouse_scroll",
-        lambda clicks, interval_ms: calls.append((clicks, interval_ms)),
+        lambda clicks, interval_ms, hwnd=None: calls.append((clicks, interval_ms, hwnd)),
     )
 
     runner.exec_step({"type": "mouse_scroll", "clicks": -5, "interval_ms": 25}, (("steps", 0),))
 
-    assert calls == [(-5, 25)]
+    assert calls == [(-5, 25, None)]
 
 
 def test_hold_key_until_gone_raises_when_stop_requested(monkeypatch) -> None:

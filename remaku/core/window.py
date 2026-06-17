@@ -44,7 +44,7 @@ def find_target_window(title: str = "") -> Any | None:
 
     if windows:
         windows.sort(key=lambda item: item.width * item.height, reverse=True)
-        logger.debug("window: found '{}' ({}x{})", windows[0].title, windows[0].width, windows[0].height)
+        logger.trace("window: found '{}' ({}x{})", windows[0].title, windows[0].width, windows[0].height)
         return windows[0]
 
     logger.debug("window: no matching window (title='{}')", title)
@@ -64,6 +64,15 @@ def is_foreground(window: Any) -> bool:
         return win32gui.GetForegroundWindow() == window._hWnd
     except Exception:
         return False
+
+
+def fake_focus(window: Any) -> None:
+    hwnd = window._hWnd
+
+    win32gui.PostMessage(hwnd, win32con.WM_ACTIVATEAPP, True, 0)
+    win32gui.PostMessage(hwnd, win32con.WM_NCACTIVATE, True, 0)
+    win32gui.PostMessage(hwnd, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
+    win32gui.PostMessage(hwnd, win32con.WM_SETFOCUS, 0, 0)
 
 
 def is_self_elevated() -> bool:

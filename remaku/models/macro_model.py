@@ -459,6 +459,8 @@ def parse_steps(raw_steps: Any) -> list[Step]:
 class Macro:
     meta: MacroMeta = field(default_factory=MacroMeta)
     gaming_mode: bool = True
+    background_input: bool = True
+    keep_target_focused: bool = False
     templates: dict[str, TemplateInfo] = field(default_factory=dict)
     steps: list[Step] = field(default_factory=list)
 
@@ -495,6 +497,8 @@ class Macro:
         return cls(
             meta=meta,
             gaming_mode=bool(data.get("gaming_mode", True)),
+            background_input=bool(data.get("background_input", True)),
+            keep_target_focused=bool(data.get("keep_target_focused", False)),
             templates=templates,
             steps=steps,
         )
@@ -509,6 +513,8 @@ class Macro:
                 "enabled": self.meta.enabled,
             },
             "gaming_mode": self.gaming_mode,
+            "background_input": self.background_input,
+            "keep_target_focused": self.keep_target_focused,
             "templates": {
                 template_id: {
                     "label": template_data.label,

@@ -183,7 +183,7 @@ class HomeController(QObject):
             "Ctrl+N": self.handle_new_macro,
         }
 
-        editing_keys = {k for k in shortcut_map if k not in ("Ctrl+N", "Ctrl+,")}
+        editing_keys = set(shortcut_map.keys())
 
         self.shortcuts: list[QShortcut] = []
         self.editing_shortcuts: list[QShortcut] = []
@@ -612,6 +612,9 @@ class HomeController(QObject):
         self.load_selected_macro(macro_id)
 
     def handle_macro_rename(self, macro_id: str) -> None:
+        if self.editing_locked:
+            return
+
         macro = self.macro_model.load(macro_id)
 
         if macro is None:
@@ -645,6 +648,9 @@ class HomeController(QObject):
             return
 
     def handle_macro_delete(self, macro_id: str) -> None:
+        if self.editing_locked:
+            return
+
         macro = self.macro_model.load(macro_id)
         macro_label = macro.meta.label if macro is not None and macro.meta.label else macro_id
 
@@ -680,6 +686,9 @@ class HomeController(QObject):
         self.view.set_status_text(self.tr("Deleted macro: {name}").format(name=macro_label))
 
     def handle_macro_duplicate(self, macro_id: str) -> None:
+        if self.editing_locked:
+            return
+
         if self.selected_macro_id != macro_id:
             self.selected_macro_id = macro_id
             self.load_selected_macro(macro_id)
@@ -1089,6 +1098,14 @@ class HomeController(QObject):
             "move_up",
             "move_down",
             "wrap_in_repeat",
+            "new_macro",
+            "duplicate_macro",
+            "record",
+            "import_macro",
+            "export_macro",
+            "open_macro_folder",
+            "pack_explorer",
+            "settings",
         ):
             return
 
@@ -1849,6 +1866,11 @@ class HomeController(QObject):
         left_panel.new_macro_button.setDisabled(locked)
 
         self.view.center_panel.step_list.setDisabled(locked)
+
+        self.view.right_panel.setDisabled(locked)
+
+        self.view.toolbar.file_menu_button.setDisabled(locked)
+        self.view.toolbar.edit_menu_button.setDisabled(locked)
 
     def highlight_current_step(self) -> None:
         if self.current_runner is None or not self.current_runner.is_running():

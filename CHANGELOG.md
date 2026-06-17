@@ -15,6 +15,7 @@
 ### Changed
 
 - The theme dropdown in Settings now lists Light before Dark.
+- When a macro is running, the right panel, File/Edit menus, and global actions (Settings, New Macro, Duplicate Macro, Import/Export, Pack Explorer) are now disabled to prevent changes that could affect the runner.
 
 ### Fixed
 
@@ -34,6 +35,7 @@
 ### 變更
 
 - 設定中的主題下拉選單順序調整為淺色在深色之前。
+- 巨集執行期間，右側面板、檔案/編輯選單和全域操作（設定、新增巨集、複製巨集、匯入/匯出、套件瀏覽器）現在會停用，防止變更影響執行中的巨集。
 
 ### 修正
 
@@ -53,6 +55,7 @@
 ### 变更
 
 - 设置中的主题下拉菜单顺序调整为浅色在深色之前。
+- 宏执行期间，右侧面板、文件/编辑菜单和全局操作（设置、新建宏、复制宏、导入/导出、包浏览器）现在会禁用，防止变更影响运行中的宏。
 
 ### 修复
 

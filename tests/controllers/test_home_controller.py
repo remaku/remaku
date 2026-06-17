@@ -135,6 +135,7 @@ class FakeRightPanel:
         self.macro_properties: Macro | None = None
         self.step_properties: tuple | None = None
         self.branch_properties: tuple | None = None
+        self.disabled = False
 
     def show_macro_properties(self, macro: Macro | None) -> None:
         self.macro_properties = macro
@@ -144,6 +145,9 @@ class FakeRightPanel:
 
     def show_branch_properties(self, *args) -> None:
         self.branch_properties = args
+
+    def setDisabled(self, disabled: bool) -> None:
+        self.disabled = disabled
 
 
 class FakeButton:
@@ -168,6 +172,8 @@ class FakeToolbar:
         self.move_down_button = FakeButton()
         self.undo_button = FakeButton()
         self.redo_button = FakeButton()
+        self.file_menu_button = FakeButton()
+        self.edit_menu_button = FakeButton()
 
 
 class FakeView:
@@ -405,7 +411,7 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller.actions["settings"] == controller.open_settings
     assert controller.actions["pack_explorer"] == controller.open_pack_explorer
     assert len(shortcuts) == 12
-    assert len(controller.editing_shortcuts) == 10
+    assert len(controller.editing_shortcuts) == 12
     assert controller_view.toolbar.undo_button.enabled is False
     assert controller_view.toolbar.redo_button.enabled is False
     assert controller_view.center_panel.step_tree_items == []
@@ -430,6 +436,9 @@ def test_set_editing_locked_disables_editing_controls() -> None:
     assert view.left_panel.macro_list.disabled is True
     assert view.left_panel.new_macro_button.disabled is True
     assert view.center_panel.step_list.disabled is True
+    assert view.right_panel.disabled is True
+    assert view.toolbar.file_menu_button.disabled is True
+    assert view.toolbar.edit_menu_button.disabled is True
 
     controller.set_editing_locked(False)
 
@@ -444,6 +453,9 @@ def test_set_editing_locked_disables_editing_controls() -> None:
     assert view.left_panel.macro_list.disabled is False
     assert view.left_panel.new_macro_button.disabled is False
     assert view.center_panel.step_list.disabled is False
+    assert view.right_panel.disabled is False
+    assert view.toolbar.file_menu_button.disabled is False
+    assert view.toolbar.edit_menu_button.disabled is False
 
 
 def test_start_macro_recording_requires_current_macro() -> None:
@@ -759,7 +771,7 @@ def test_handle_action_ignores_locked_editing_action() -> None:
     controller.handle_action("delete_step")
     controller.handle_action("settings")
 
-    assert calls == ["settings"]
+    assert calls == []
 
 
 def test_handle_action_runs_known_action_when_unlocked() -> None:

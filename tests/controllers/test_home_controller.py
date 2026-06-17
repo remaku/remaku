@@ -160,6 +160,8 @@ class FakeButton:
 
 class FakeToolbar:
     def __init__(self) -> None:
+        self.run_button = FakeButton()
+        self.record_button = FakeButton()
         self.add_button = FakeButton()
         self.delete_button = FakeButton()
         self.move_up_button = FakeButton()
@@ -245,10 +247,79 @@ class FakeRunner:
         return self.status
 
 
+class FakeRecorder:
+    def __init__(self, steps: list[dict] | None = None) -> None:
+        self.steps = steps or []
+        self.running = False
+        self.paused = False
+        self.start_calls = 0
+        self.stop_calls = 0
+        self.cancel_calls = 0
+        self.pause_calls = 0
+        self.resume_calls = 0
+
+    def start(self) -> None:
+        self.start_calls += 1
+        self.running = True
+
+    def stop(self) -> list[dict]:
+        self.stop_calls += 1
+        self.running = False
+        return self.steps
+
+    def cancel(self) -> None:
+        self.cancel_calls += 1
+        self.running = False
+
+    def pause(self) -> None:
+        self.pause_calls += 1
+        self.paused = True
+
+    def resume(self) -> None:
+        self.resume_calls += 1
+        self.paused = False
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def is_paused(self) -> bool:
+        return self.paused
+
+    def elapsed_s(self) -> float:
+        return 12.0
+
+    def event_count(self) -> int:
+        return len(self.steps)
+
+
+class FakeRecordingOverlay:
+    def __init__(self, stats_provider, parent) -> None:
+        self.stats_provider = stats_provider
+        self.parent = parent
+        self.started = False
+        self.stopped = False
+        self.paused_values: list[bool] = []
+        self.positions = []
+
+    def move(self, x: int, y: int) -> None:
+        self.positions.append((x, y))
+
+    def start(self) -> None:
+        self.started = True
+
+    def stop(self) -> None:
+        self.stopped = True
+
+    def set_paused(self, paused: bool) -> None:
+        self.paused_values.append(paused)
+
+
 def make_controller() -> HomeController:
     controller = cast(Any, HomeController.__new__(HomeController))
     controller.current_macro = None
     controller.current_runner = None
+    controller.current_recorder = None
+    controller.recording_overlay = None
     controller.selected_macro_id = ""
     controller.selected_step = None
     controller.selected_branch_parent = None
@@ -257,6 +328,7 @@ def make_controller() -> HomeController:
     controller.view = FakeView()
     controller.macro_model = cast(MacroModel, FakeMacroModel())
     controller.editing_locked = False
+    controller.editing_shortcuts = []
     controller.undo_stacks = {}
     controller.redo_stacks = {}
     controller.undo_selection_indexes = {}
@@ -372,6 +444,114 @@ def test_set_editing_locked_disables_editing_controls() -> None:
     assert view.left_panel.macro_list.disabled is False
     assert view.left_panel.new_macro_button.disabled is False
     assert view.center_panel.step_list.disabled is False
+
+
+def test_start_macro_recording_requires_current_macro() -> None:
+    controller = make_controller()
+
+    controller.start_macro_recording()
+
+    assert cast(Any, controller.view).statuses == ["Select a macro first"]
+
+
+def test_start_macro_recording_starts_recorder_and_overlay(monkeypatch) -> None:
+    fake_config = FakeConfigModel()
+    fake_config.config.general.overlay_position = (77, 88)
+    recorder = FakeRecorder()
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro", label="Macro"))
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([])
+    monkeypatch.setattr(home_controller, "config_model", fake_config)
+    monkeypatch.setattr(home_controller, "MacroRecorder", lambda target_rect: recorder)
+    monkeypatch.setattr(home_controller, "RecordingOverlay", FakeRecordingOverlay)
+
+    controller.start_macro_recording()
+
+    assert recorder.start_calls == 1
+    assert controller.current_recorder is recorder
+    assert cast(Any, controller.recording_overlay).started is True
+    assert cast(Any, controller.recording_overlay).positions == [(77, 88)]
+    assert cast(Any, controller.view).toolbar.run_button.disabled is True
+    assert cast(Any, controller.view).statuses[-1] == "Recording macro: Macro"
+
+
+def test_stop_macro_recording_inserts_steps_after_selected_step() -> None:
+    first_step = {"type": "key", "key": "a"}
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [first_step]})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.step_tree = StepTree([{"type": "key", "key": "a"}])
+    controller.selected_step = controller.step_tree.root_nodes[0].step
+    recorder = FakeRecorder([{"type": "key", "key": "b", "hold_ms": 80}])
+    recorder.start()
+    controller.current_recorder = cast(Any, recorder)
+    controller.recording_overlay = cast(Any, FakeRecordingOverlay(lambda: (0, 0), controller.view))
+
+    controller.stop_macro_recording()
+
+    assert [step.to_dict().get("key") for step in macro.steps] == ["a", "b"]
+    assert model.saved[-1] is macro
+    assert controller.selected_step == {"type": "key", "key": "b", "hold_ms": 80}
+    assert cast(Any, controller.view).statuses[-1] == "Recorded 1 steps"
+
+
+def test_stop_macro_recording_inserts_steps_into_selected_branch() -> None:
+    macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [{"type": "if_image", "template": "one"}]})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.step_tree = StepTree([{"type": "if_image", "template": "one", "then": [], "else": []}])
+    controller.selected_branch_parent = controller.step_tree.root_nodes[0].step
+    controller.selected_branch_key = "then"
+    recorder = FakeRecorder([{"type": "delay", "ms": 100}])
+    recorder.start()
+    controller.current_recorder = cast(Any, recorder)
+
+    controller.stop_macro_recording()
+
+    assert macro.to_dict()["steps"][0]["then"][0]["ms"] == 100
+    assert controller.selected_step == {"type": "delay", "ms": 100}
+
+
+def test_cancel_macro_recording_does_not_save() -> None:
+    recorder = FakeRecorder([{"type": "key", "key": "a"}])
+    recorder.start()
+    model = FakeMacroModel()
+    controller = make_controller()
+    controller.macro_model = cast(MacroModel, model)
+    controller.current_recorder = cast(Any, recorder)
+    controller.recording_overlay = cast(Any, FakeRecordingOverlay(lambda: (0, 0), controller.view))
+
+    controller.cancel_macro_recording()
+
+    assert recorder.cancel_calls == 1
+    assert model.saved == []
+    assert cast(Any, controller.view).statuses[-1] == "Recording cancelled"
+
+
+def test_toggle_macro_recording_pause_toggles_recorder() -> None:
+    recorder = FakeRecorder()
+    recorder.start()
+    controller = make_controller()
+    controller.current_recorder = cast(Any, recorder)
+    controller.recording_overlay = cast(Any, FakeRecordingOverlay(lambda: (0, 0), controller.view))
+
+    controller.toggle_macro_recording_pause()
+    controller.toggle_macro_recording_pause()
+
+    assert recorder.pause_calls == 1
+    assert recorder.resume_calls == 1
+    assert cast(Any, controller.recording_overlay).paused_values == [True, False]
 
 
 def test_sort_macro_items_uses_configured_order_then_label(monkeypatch) -> None:

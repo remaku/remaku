@@ -51,11 +51,13 @@ from remaku.services.macro_import_service import (
     install_macro_archive,
     resolve_import_macro_id,
 )
+from remaku.services.macro_recorder import MacroRecorder
 from remaku.services.macro_runner import MacroRunner
 from remaku.services.template_service import TemplateService
 from remaku.version import __version__
 from remaku.views.components.about_dialog import AboutDialog
 from remaku.views.components.new_macro_dialog import NewMacroDialog
+from remaku.views.components.recording_overlay import RecordingOverlay
 from remaku.views.components.rename_macro_dialog import RenameMacroDialog
 from remaku.views.home_view import HomeView
 from remaku.views.region_selector import RegionSelector
@@ -80,6 +82,8 @@ class HomeController(QObject):
         self.selected_branch_key = ""
         self.current_macro: Macro | None = None
         self.current_runner: MacroRunner | None = None
+        self.current_recorder: MacroRecorder | None = None
+        self.recording_overlay: RecordingOverlay | None = None
         self.step_tree: StepTree | None = None
         self.undo_stacks: dict[str, list[dict]] = {}
         self.redo_stacks: dict[str, list[dict]] = {}
@@ -102,6 +106,10 @@ class HomeController(QObject):
             "about": self.show_about_dialog,
             "support_author": lambda: webbrowser.open("https://github.com/sponsors/nelsonlaidev"),
             "run": self.run_current_macro,
+            "record": self.start_macro_recording,
+            "record_pause": self.toggle_macro_recording_pause,
+            "record_stop": self.stop_macro_recording,
+            "record_cancel": self.cancel_macro_recording,
             "open_macro_folder": self.open_macro_folder,
             "open_logs": self.open_logs_folder,
             "new_macro": self.handle_new_macro,
@@ -148,6 +156,7 @@ class HomeController(QObject):
         event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
         event_bus.macros_changed.connect(self.refresh_macro_list)
         event_bus.macro_paused_changed.connect(self.handle_macro_paused_changed)
+        event_bus.macro_recording_paused_changed.connect(self.handle_macro_recording_paused_changed)
         event_bus.settings_changed.connect(self.register_hotkeys)
 
         self.view.center_panel.step_list.itemSelectionChanged.connect(self.update_step_action_state)
@@ -1060,6 +1069,9 @@ class HomeController(QObject):
         return template_id
 
     def handle_action(self, action_id: str) -> None:
+        if self.is_recording() and action_id not in ("record_pause", "record_stop", "record_cancel"):
+            return
+
         if self.editing_locked and action_id in (
             "undo",
             "redo",
@@ -1372,6 +1384,9 @@ class HomeController(QObject):
         self.view.set_status_text(self.tr("Moved step"))
 
     def run_current_macro(self) -> None:
+        if self.is_recording():
+            return
+
         if self.current_runner is None:
             self.view.set_status_text(self.tr("Select a macro first"))
             return
@@ -1385,6 +1400,167 @@ class HomeController(QObject):
         self.current_runner.start()
         event_bus.macro_running_changed.emit(True)
         self.view.set_status_text(self.tr("Running macro: {name}").format(name=self.current_runner.label))
+
+    def is_recording(self) -> bool:
+        recorder = self.current_recorder
+        return recorder is not None and recorder.is_running()
+
+    def start_macro_recording(self) -> None:
+        if self.current_macro is None or self.step_tree is None:
+            self.view.set_status_text(self.tr("Select a macro first"))
+            return
+
+        if self.current_runner is not None and self.current_runner.is_running():
+            return
+
+        if self.is_recording():
+            return
+
+        recorder = MacroRecorder(self.recording_target_rect())
+
+        try:
+            recorder.start()
+        except RuntimeError as error:
+            self.view.set_status_text(self.tr("Failed to start recorder: {error}").format(error=error))
+            return
+
+        self.current_recorder = recorder
+        self.set_editing_locked(True)
+        self.set_recording_controls_locked(True)
+        self.show_recording_overlay()
+        event_bus.macro_recording_changed.emit(True)
+        label = self.current_macro.meta.label or self.current_macro.meta.id
+        self.view.set_status_text(self.tr("Recording macro: {name}").format(name=label))
+
+    def recording_target_rect(self):
+        if self.current_macro is None or not self.current_macro.meta.target_window:
+            return None
+
+        try:
+            target_window = window.find_target_window(self.current_macro.meta.target_window)
+
+            if target_window is None:
+                return None
+
+            return window.client_rect(target_window)
+        except Exception:
+            logger.warning("Failed to resolve recording target rect", exc_info=True)
+            return None
+
+    def show_recording_overlay(self) -> None:
+        if self.recording_overlay is None:
+            self.recording_overlay = RecordingOverlay(self.recording_stats, self.view.window())
+
+        self.recording_overlay.move(*config_model.config.general.overlay_position)
+        self.recording_overlay.set_paused(False)
+        self.recording_overlay.start()
+
+    def hide_recording_overlay(self) -> None:
+        if self.recording_overlay is None:
+            return
+
+        self.recording_overlay.stop()
+
+    def recording_stats(self) -> tuple[float, int]:
+        recorder = self.current_recorder
+
+        if recorder is None:
+            return 0.0, 0
+
+        return recorder.elapsed_s(), recorder.event_count()
+
+    def toggle_macro_recording_pause(self) -> None:
+        recorder = self.current_recorder
+
+        if recorder is None or not recorder.is_running():
+            return
+
+        if recorder.is_paused():
+            recorder.resume()
+            event_bus.macro_recording_paused_changed.emit(False)
+            self.handle_macro_recording_paused_changed(False)
+            self.view.set_status_text(self.tr("Recording resumed"))
+            return
+
+        recorder.pause()
+        event_bus.macro_recording_paused_changed.emit(True)
+        self.handle_macro_recording_paused_changed(True)
+        self.view.set_status_text(self.tr("Recording paused"))
+
+    def stop_macro_recording(self) -> None:
+        recorder = self.current_recorder
+
+        if recorder is None:
+            return
+
+        steps = recorder.stop()
+        self.current_recorder = None
+        self.hide_recording_overlay()
+        self.set_editing_locked(False)
+        self.set_recording_controls_locked(False)
+        event_bus.macro_recording_changed.emit(False)
+        event_bus.macro_recording_paused_changed.emit(False)
+
+        if not steps:
+            self.view.set_status_text(self.tr("No steps recorded"))
+            return
+
+        inserted = self.insert_recorded_steps(steps)
+
+        if not inserted:
+            self.view.set_status_text(self.tr("Failed to insert recorded steps"))
+            return
+
+        self.view.set_status_text(self.tr("Recorded {count} steps").format(count=len(steps)))
+
+    def cancel_macro_recording(self) -> None:
+        recorder = self.current_recorder
+
+        if recorder is not None:
+            recorder.cancel()
+
+        self.current_recorder = None
+        self.hide_recording_overlay()
+        self.set_editing_locked(False)
+        self.set_recording_controls_locked(False)
+        event_bus.macro_recording_changed.emit(False)
+        event_bus.macro_recording_paused_changed.emit(False)
+        self.view.set_status_text(self.tr("Recording cancelled"))
+
+    def insert_recorded_steps(self, steps: list[dict]) -> bool:
+        if self.step_tree is None:
+            return False
+
+        self.push_undo()
+        inserted_nodes = []
+
+        if self.selected_branch_parent is not None and self.selected_branch_key:
+            parent_node = self.step_tree.find_node(self.selected_branch_parent)
+
+            if parent_node is None:
+                return False
+
+            for step in steps:
+                inserted_nodes.append(self.step_tree.add_step_to_branch(parent_node, self.selected_branch_key, step))
+        else:
+            inserted_nodes = self.step_tree.insert_steps_after(self.selected_step_node(), steps)
+
+        if not inserted_nodes:
+            return False
+
+        last_step = inserted_nodes[-1].step
+        self.set_selected_step(last_step)
+        self.save_current_macro()
+        return True
+
+    def set_recording_controls_locked(self, locked: bool) -> None:
+        toolbar = self.view.toolbar
+        toolbar.run_button.setDisabled(locked)
+        toolbar.record_button.setDisabled(locked)
+
+    def handle_macro_recording_paused_changed(self, is_paused: bool) -> None:
+        if self.recording_overlay is not None:
+            self.recording_overlay.set_paused(is_paused)
 
     def toggle_current_macro_pause(self) -> None:
         if self.current_runner is None or not self.current_runner.is_running():
@@ -1637,6 +1813,8 @@ class HomeController(QObject):
         toolbar.undo_button.setDisabled(locked)
         toolbar.redo_button.setDisabled(locked)
 
+        toolbar.record_button.setDisabled(locked)
+
         left_panel = self.view.left_panel
         left_panel.macro_list.setDisabled(locked)
         left_panel.new_macro_button.setDisabled(locked)
@@ -1647,7 +1825,7 @@ class HomeController(QObject):
         if self.current_runner is None or not self.current_runner.is_running():
             return
 
-        current_path = getattr(self.current_runner, "current_step_path", None)
+        current_path = self.current_runner.current_step_path
         if current_path is None or self.step_tree is None:
             return
 

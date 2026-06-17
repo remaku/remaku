@@ -3,7 +3,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QMouseEvent, QPaintEvent
 
 from remaku.core.event_bus import event_bus
-from remaku.views.components import overlay
+from remaku.views.components import base_overlay
 from remaku.views.components.overlay import OverlayWidget, white_icon
 
 
@@ -105,7 +105,7 @@ def test_white_icon_uses_white_svg_resource_path(monkeypatch) -> None:
         def __init__(self, path: str) -> None:
             paths.append(path)
 
-    monkeypatch.setattr("remaku.views.components.overlay.QIcon", FakeIcon)
+    monkeypatch.setattr("remaku.views.components.base_overlay.QIcon", FakeIcon)
 
     white_icon("pause")
 
@@ -148,9 +148,9 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
     def fake_set_long(hwnd: int, index: int, style: int) -> None:
         calls.append(("set", hwnd, index, style))
 
-    monkeypatch.setattr(overlay.QApplication, "primaryScreen", lambda: FakeScreen())
-    monkeypatch.setattr(overlay.win32gui, "GetWindowLong", fake_get_long)
-    monkeypatch.setattr(overlay.win32gui, "SetWindowLong", fake_set_long)
+    monkeypatch.setattr(base_overlay.QApplication, "primaryScreen", lambda: FakeScreen())
+    monkeypatch.setattr(base_overlay.win32gui, "GetWindowLong", fake_get_long)
+    monkeypatch.setattr(base_overlay.win32gui, "SetWindowLong", fake_set_long)
 
     widget.show()
 
@@ -189,7 +189,7 @@ def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> Non
         def drawRoundedRect(self, rect, x_radius: int, y_radius: int) -> None:
             calls.append(("rounded", rect, x_radius, y_radius))
 
-    monkeypatch.setattr(overlay, "QPainter", FakePainter)
+    monkeypatch.setattr(base_overlay, "QPainter", FakePainter)
 
     widget.paintEvent(QPaintEvent(widget.rect()))
 

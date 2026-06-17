@@ -191,13 +191,14 @@ def test_init_skips_startup_check_when_disabled(monkeypatch) -> None:
     assert FakeTimer.single_shots == []
 
 
-def test_update_overlay_position_saves_config(monkeypatch) -> None:
-    controller, fake_config, _home, _overlay, _window = make_controller(monkeypatch)
+def test_update_overlay_position_saves_config_and_moves_overlay(monkeypatch) -> None:
+    controller, fake_config, _home, overlay, _window = make_controller(monkeypatch)
 
     controller.update_overlay_position(12, 34)
 
     assert fake_config.config.general.overlay_position == (12, 34)
     assert fake_config.save_calls == 1
+    assert overlay.moved_to == (12, 34)
 
 
 def test_apply_overlay_settings_moves_overlay(monkeypatch) -> None:

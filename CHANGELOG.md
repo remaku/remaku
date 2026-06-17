@@ -6,6 +6,7 @@
 
 ### Added
 
+- Macro recording: click the Record button to capture keyboard and mouse actions outside the application, then stop to insert the recorded steps into your macro. The recording overlay shows elapsed time and event count, and typed text is recorded correctly for your keyboard layout.
 - The status bar now shows elapsed time when a macro finishes or is stopped (e.g., `Done: MyMacro (01:23)`).
 
 ### Fixed
@@ -16,6 +17,7 @@
 
 ### 新增
 
+- 巨集錄製：按下「錄製」按鈕即可捕捉應用程式外部的鍵盤與滑鼠操作，停止後將錄製的步驟插入目前巨集。錄製浮動面板會顯示已耗時間與事件數量，且輸入的文字會根據你的鍵盤佈局正確錄製。
 - 狀態列現在會在巨集完成或停止時顯示經過時間（例如 `完成：MyMacro（01:23）`）。
 
 ### 修正
@@ -26,6 +28,7 @@
 
 ### 新增
 
+- 宏录制：按下「录制」按钮即可捕捉应用程序外部的键盘与鼠标操作，停止后将录制的步骤插入当前宏。录制浮动面板会显示已用时间与事件数量，且输入的文字会根据你的键盘布局正确录制。
 - 状态栏现在会在宏完成或停止时显示经过时间（例如 `完成：MyMacro（01:23）`）。
 
 ### 修复

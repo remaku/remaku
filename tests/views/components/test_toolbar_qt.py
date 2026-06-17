@@ -61,6 +61,21 @@ def test_toolbar_updates_run_button_for_running_state(qtbot) -> None:
     assert toolbar.run_button.text() == "Run"
 
 
+def test_toolbar_updates_buttons_for_recording_state(qtbot) -> None:
+    toolbar = Toolbar()
+    qtbot.addWidget(toolbar)
+
+    toolbar.handle_macro_recording_changed(True)
+    assert toolbar.record_button.text() == "Recording"
+    assert toolbar.record_button.isEnabled() is False
+    assert toolbar.run_button.isEnabled() is False
+
+    toolbar.handle_macro_recording_changed(False)
+    assert toolbar.record_button.text() == "Record"
+    assert toolbar.record_button.isEnabled() is True
+    assert toolbar.run_button.isEnabled() is True
+
+
 def test_toolbar_run_button_emits_action(qtbot) -> None:
     toolbar = Toolbar()
     qtbot.addWidget(toolbar)
@@ -69,6 +84,16 @@ def test_toolbar_run_button_emits_action(qtbot) -> None:
         qtbot.mouseClick(toolbar.run_button, Qt.MouseButton.LeftButton)
 
     assert blocker.args == ["run"]
+
+
+def test_toolbar_record_button_emits_action(qtbot) -> None:
+    toolbar = Toolbar()
+    qtbot.addWidget(toolbar)
+
+    with qtbot.waitSignal(event_bus.action_triggered, timeout=100) as blocker:
+        qtbot.mouseClick(toolbar.record_button, Qt.MouseButton.LeftButton)
+
+    assert blocker.args == ["record"]
 
 
 def test_toolbar_step_buttons_emit_actions(qtbot) -> None:
@@ -155,6 +180,7 @@ def test_toolbar_file_menu_contains_expected_actions(monkeypatch, qtbot) -> None
     assert action_ids == [
         "new_macro",
         "duplicate_macro",
+        "record",
         "import_macro",
         "export_macro",
         "open_macro_folder",
@@ -184,6 +210,7 @@ def test_toolbar_edit_and_help_menus_contain_expected_actions(monkeypatch, qtbot
         "cut",
         "copy",
         "paste",
+        "record",
         "add_step",
         "duplicate_step",
         "delete_step",

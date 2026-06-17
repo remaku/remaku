@@ -12,6 +12,7 @@ class Toolbar(QWidget):
         super().__init__(parent)
 
         event_bus.macro_running_changed.connect(self.handle_macro_running_changed)
+        event_bus.macro_recording_changed.connect(self.handle_macro_recording_changed)
         event_bus.show_toolbar_step_menu_requested.connect(self.show_add_menu)
 
         self.init_ui()
@@ -36,6 +37,10 @@ class Toolbar(QWidget):
         self.run_button = TransparentPushButton(RemakuIcon.PLAY, self.tr("Run"), self)
         self.run_button.clicked.connect(lambda: event_bus.action_triggered.emit("run"))
         layout.addWidget(self.run_button)
+
+        self.record_button = TransparentPushButton(RemakuIcon.KEYBOARD, self.tr("Record"), self)
+        self.record_button.clicked.connect(lambda: event_bus.action_triggered.emit("record"))
+        layout.addWidget(self.record_button)
 
         self.add_button = TransparentPushButton(RemakuIcon.PLUS, self.tr("Add"), self)
         self.add_button.clicked.connect(self.show_add_menu)
@@ -91,6 +96,7 @@ class Toolbar(QWidget):
             [
                 {"id": "new_macro", "label": self.tr("New Macro"), "shortcut": "Ctrl+N"},
                 {"id": "duplicate_macro", "label": self.tr("Duplicate Macro")},
+                {"id": "record", "label": self.tr("Record Macro")},
                 {"separator": True},
                 {"id": "import_macro", "label": self.tr("Import Macro")},
                 {"id": "export_macro", "label": self.tr("Export Macro")},
@@ -113,6 +119,8 @@ class Toolbar(QWidget):
                 {"id": "cut", "label": self.tr("Cut"), "shortcut": "Ctrl+X"},
                 {"id": "copy", "label": self.tr("Copy"), "shortcut": "Ctrl+C"},
                 {"id": "paste", "label": self.tr("Paste"), "shortcut": "Ctrl+V"},
+                {"separator": True},
+                {"id": "record", "label": self.tr("Record Macro")},
                 {"separator": True},
                 {"id": "add_step", "label": self.tr("Add Step"), "shortcut": "Ctrl+Shift+N"},
                 {"id": "duplicate_step", "label": self.tr("Duplicate Step"), "shortcut": "Ctrl+D"},
@@ -138,3 +146,9 @@ class Toolbar(QWidget):
     def handle_macro_running_changed(self, is_running: bool) -> None:
         self.run_button.setText(self.tr("Stop") if is_running else self.tr("Run"))
         self.run_button.setIcon(RemakuIcon.PAUSE if is_running else RemakuIcon.PLAY)
+        self.record_button.setDisabled(is_running)
+
+    def handle_macro_recording_changed(self, is_recording: bool) -> None:
+        self.record_button.setText(self.tr("Recording") if is_recording else self.tr("Record"))
+        self.record_button.setDisabled(is_recording)
+        self.run_button.setDisabled(is_recording)

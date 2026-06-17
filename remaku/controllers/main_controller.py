@@ -55,6 +55,7 @@ class MainController(QObject):
     def update_overlay_position(self, x: int, y: int) -> None:
         config_model.config.general.overlay_position = (x, y)
         config_model.save()
+        self.overlay.move(x, y)
 
     def translated_status_state(self, state: str) -> str:
         labels = {
@@ -104,7 +105,7 @@ class MainController(QObject):
                 )
                 message += f" | {loop_progress}"
 
-            current = getattr(runner, "current_step", None)
+            current = runner.current_step
             if current is not None:
                 summary = self.home_controller.describe_step(current)
                 message += f" | {summary}"

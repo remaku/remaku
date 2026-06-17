@@ -7,6 +7,7 @@ import win32api
 import win32con
 import win32gui
 
+from remaku.core.keymap import key_to_vk as shared_key_to_vk
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import Macro, MacroSummary
 
@@ -97,41 +98,9 @@ class HotkeyService:
         return mods, vk
 
     def key_to_vk(self, key: str) -> int:
-        vk_map: dict[str, int] = {
-            "f1": 0x70,
-            "f2": 0x71,
-            "f3": 0x72,
-            "f4": 0x73,
-            "f5": 0x74,
-            "f6": 0x75,
-            "f7": 0x76,
-            "f8": 0x77,
-            "f9": 0x78,
-            "f10": 0x79,
-            "f11": 0x7A,
-            "f12": 0x7B,
-            "space": 0x20,
-            "break": 0x03,
-            "pause": 0x13,
-            "enter": 0x0D,
-            "return": 0x0D,
-            "tab": 0x09,
-            "esc": 0x1B,
-            "escape": 0x1B,
-            "insert": 0x2D,
-            "delete": 0x2E,
-            "home": 0x24,
-            "end": 0x23,
-            "pageup": 0x21,
-            "pagedown": 0x22,
-            "up": 0x26,
-            "down": 0x28,
-            "left": 0x25,
-            "right": 0x27,
-        }
-
-        if key in vk_map:
-            return vk_map[key]
+        vk = shared_key_to_vk(key)
+        if vk != 0:
+            return vk
 
         if len(key) == 1:
             return win32api.VkKeyScan(key) & 0xFF

@@ -2932,6 +2932,70 @@ def test_handle_step_property_changed_returns_without_selected_step() -> None:
     assert cast(Any, controller.view).statuses == []
 
 
+def test_handle_step_property_changed_pushes_undo_before_note_change() -> None:
+    step = {"type": "key", "key": "a", "note": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"))
+    runner = FakeRunner()
+    runner.macro = {"steps": [{"type": "key", "key": "a", "note": "old"}]}
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([step])
+    controller.selected_step = step
+
+    controller.handle_step_property_changed("note", "new")
+
+    assert step["note"] == "new"
+    assert controller.undo_stack[0]["steps"][0]["note"] == "old"
+    assert controller.undo_selection_index_stack == [0]
+
+
+def test_handle_step_property_changed_skips_undo_when_value_unchanged() -> None:
+    step = {"type": "key", "key": "a", "note": "same"}
+    macro = Macro(meta=MacroMeta(id="macro"))
+    runner = FakeRunner()
+    runner.macro = {"steps": [{"type": "key", "key": "a", "note": "same"}]}
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([step])
+    controller.selected_step = step
+
+    controller.handle_step_property_changed("note", "same")
+
+    assert controller.undo_stack == []
+    assert cast(Any, controller.macro_model).saved == []
+
+
+def test_handle_template_meta_changed_pushes_undo_before_label_change() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(label="Old")})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([])
+
+    controller.handle_template_meta_changed("button", "label", "New")
+
+    assert macro.templates["button"].label == "New"
+    assert controller.undo_stack[0]["templates"]["button"]["label"] == "Old"
+
+
+def test_handle_template_meta_changed_skips_undo_when_label_unchanged() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(label="Same")})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+
+    controller.handle_template_meta_changed("button", "label", "Same")
+
+    assert controller.undo_stack == []
+    assert cast(Any, controller.macro_model).saved == []
+
+
 def test_selected_step_flat_index_returns_none_for_missing_step_tree() -> None:
     controller = make_controller()
     controller.selected_step = {"type": "key"}

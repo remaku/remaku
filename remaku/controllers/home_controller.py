@@ -19,6 +19,7 @@ from remaku.core.dialogs import show_confirm_dialog, show_message_dialog
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import (
+    TEMPLATE_MATCH_MODES,
     DelayStep,
     GridNavStep,
     HoldKeyUntilGoneStep,
@@ -736,6 +737,10 @@ class HomeController(QObject):
             return
 
         parsed_value = self.parse_step_property(key, value)
+        if self.selected_step.get(key) == parsed_value:
+            return
+
+        self.push_undo(self.selected_step_flat_index())
         self.selected_step[key] = parsed_value
 
         if key == "skip" and self.selected_step.get("type") == "repeat":
@@ -1744,6 +1749,30 @@ class HomeController(QObject):
         if self.current_macro is None:
             return
 
+        template_info = self.current_macro.templates.get(template_id)
+        if template_info is None or not hasattr(template_info, field):
+            return
+
+        old_value = getattr(template_info, field)
+        if field == "label":
+            new_value: object = value
+        elif field in ("capture_width", "capture_height"):
+            try:
+                new_value = int(value)
+            except ValueError:
+                return
+        elif field == "match_mode":
+            if value not in TEMPLATE_MATCH_MODES:
+                return
+
+            new_value = value
+        else:
+            return
+
+        if old_value == new_value:
+            return
+
+        self.push_undo(self.selected_step_flat_index())
         if not self.template_service.update_template_meta(self.current_macro, template_id, field, value):
             return
 

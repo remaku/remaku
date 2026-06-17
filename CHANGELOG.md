@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Editing step notes and template labels can now be undone and redone correctly.
 - The status bar message shown when a macro finishes with an error is now properly translatable.
 
 <!-- lang:zh_tw -->
@@ -28,6 +29,7 @@
 
 ### 修正
 
+- 編輯步驟備註與範本名稱後，現在可以正確復原與重做。
 - 巨集因錯誤結束時顯示的狀態列訊息現在可以正確翻譯。
 
 <!-- lang:zh_cn -->
@@ -42,6 +44,7 @@
 
 ### 修复
 
+- 编辑步骤备注与模板名称后，现在可以正确撤销与重做。
 - 宏因错误结束时显示的状态栏消息现在可以正确翻译。
 
 ## v0.9.0

@@ -8,6 +8,9 @@
 
 - Macro recording: click the Record button to capture keyboard and mouse actions outside the application, then stop to insert the recorded steps into your macro. The recording overlay shows elapsed time and event count, and typed text is recorded correctly for your keyboard layout.
 - The status bar now shows elapsed time when a macro finishes or is stopped (e.g., `Done: MyMacro (01:23)`).
+- Background Input: a new macro option (enabled by default) that sends keystrokes and mouse actions directly to the target window without switching focus. Turn it off to use normal foreground input when a game ignores background messages.
+- Prevent Focus Loss: a new macro option that periodically keeps the target window from detecting that it lost focus, so the game won't pause when you click away. This may not work with all games.
+- Each macro option (Gaming Mode, Background Input, Prevent Focus Loss) now has a tooltip icon explaining what it does.
 
 ### Fixed
 
@@ -19,6 +22,9 @@
 
 - 巨集錄製：按下「錄製」按鈕即可捕捉應用程式外部的鍵盤與滑鼠操作，停止後將錄製的步驟插入目前巨集。錄製浮動面板會顯示已耗時間與事件數量，且輸入的文字會根據你的鍵盤佈局正確錄製。
 - 狀態列現在會在巨集完成或停止時顯示經過時間（例如 `完成：MyMacro（01:23）`）。
+- 背景輸入：新增巨集選項（預設開啟），直接將按鍵和滑鼠操作送到目標視窗而不切換焦點。當遊戲忽略背景訊息時，可關閉此選項改用一般前景輸入。
+- 防止失焦：新增巨集選項，定期防止目標視窗偵測失焦，讓你切換視窗時遊戲不會暫停。不一定適用所有遊戲。
+- 每個巨集選項（遊戲模式、背景輸入、防止失焦）現在都有提示圖示說明其用途。
 
 ### 修正
 
@@ -30,6 +36,9 @@
 
 - 宏录制：按下「录制」按钮即可捕捉应用程序外部的键盘与鼠标操作，停止后将录制的步骤插入当前宏。录制浮动面板会显示已用时间与事件数量，且输入的文字会根据你的键盘布局正确录制。
 - 状态栏现在会在宏完成或停止时显示经过时间（例如 `完成：MyMacro（01:23）`）。
+- 背景输入：新增宏选项（默认开启），直接将按键和鼠标操作发送到目标窗口而不切换焦点。当游戏忽略背景消息时，可关闭此选项改用常规前台输入。
+- 防止失焦：新增宏选项，定期防止目标窗口检测失焦，让你切换窗口时游戏不会暂停。不一定适用于所有游戏。
+- 每个宏选项（游戏模式、背景输入、防止失焦）现在都有提示图标说明其用途。
 
 ### 修复
 

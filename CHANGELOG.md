@@ -12,6 +12,10 @@
 - Prevent Focus Loss: a new macro option that periodically keeps the target window from detecting that it lost focus, so the game won't pause when you click away. This may not work with all games.
 - Each macro option (Gaming Mode, Background Input, Prevent Focus Loss) now has a tooltip icon explaining what it does.
 
+### Changed
+
+- The theme dropdown in Settings now lists Light before Dark.
+
 ### Fixed
 
 - Editing step notes and template labels can now be undone and redone correctly.
@@ -27,6 +31,10 @@
 - 防止失焦：新增巨集選項，定期防止目標視窗偵測失焦，讓你切換視窗時遊戲不會暫停。不一定適用所有遊戲。
 - 每個巨集選項（遊戲模式、背景輸入、防止失焦）現在都有提示圖示說明其用途。
 
+### 變更
+
+- 設定中的主題下拉選單順序調整為淺色在深色之前。
+
 ### 修正
 
 - 編輯步驟備註與範本名稱後，現在可以正確復原與重做。
@@ -41,6 +49,10 @@
 - 背景输入：新增宏选项（默认开启），直接将按键和鼠标操作发送到目标窗口而不切换焦点。当游戏忽略背景消息时，可关闭此选项改用常规前台输入。
 - 防止失焦：新增宏选项，定期防止目标窗口检测失焦，让你切换窗口时游戏不会暂停。不一定适用于所有游戏。
 - 每个宏选项（游戏模式、背景输入、防止失焦）现在都有提示图标说明其用途。
+
+### 变更
+
+- 设置中的主题下拉菜单顺序调整为浅色在深色之前。
 
 ### 修复
 

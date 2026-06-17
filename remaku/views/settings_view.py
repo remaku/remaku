@@ -51,7 +51,7 @@ class SettingsView(ScrollArea):
             "general.theme",
             self.tr("Theme"),
             config_model.config.general.theme,
-            [(self.tr("System"), "system"), (self.tr("Dark"), "dark"), (self.tr("Light"), "light")],
+            [(self.tr("System"), "system"), (self.tr("Light"), "light"), (self.tr("Dark"), "dark")],
         )
         self.add_dropdown(
             "general.language",

@@ -5,7 +5,7 @@ from remaku.controllers.pack_explorer_controller import PackExplorerController
 from remaku.controllers.settings_controller import SettingsController
 from remaku.core.dialogs import show_message_dialog
 from remaku.core.event_bus import event_bus
-from remaku.models.config_model import config_model
+from remaku.models.config_model import DEFAULT_OVERLAY_POSITION, config_model
 from remaku.models.macro_model import MacroModel
 from remaku.services.updater import CheckResult, UpdateInfo, check_async
 from remaku.views.components.overlay import OverlayWidget
@@ -50,7 +50,17 @@ class MainController(QObject):
 
     def apply_overlay_settings(self) -> None:
         config = config_model.config.general
-        self.overlay.move(*config.overlay_position)
+        x, y = config.overlay_position
+
+        if config.overlay_position == DEFAULT_OVERLAY_POSITION:
+            screen = self.main_window.screen()
+
+            if screen is not None:
+                geometry = screen.availableGeometry()
+                x = geometry.left() + DEFAULT_OVERLAY_POSITION[0]
+                y = geometry.top() + DEFAULT_OVERLAY_POSITION[1]
+
+        self.overlay.move(x, y)
 
     def update_overlay_position(self, x: int, y: int) -> None:
         config_model.config.general.overlay_position = (x, y)

@@ -11,6 +11,7 @@
 - Background Input: a new macro option (enabled by default) that sends keystrokes and mouse actions directly to the target window without switching focus. Turn it off to use normal foreground input when a game ignores background messages.
 - Prevent Focus Loss: a new macro option that periodically keeps the target window from detecting that it lost focus, so the game won't pause when you click away. This may not work with all games.
 - Each macro option (Gaming Mode, Background Input, Prevent Focus Loss) now has a tooltip icon explaining what it does.
+- Multi-monitor support: the region selector, recording overlay, and template capture now work correctly regardless of which display the application or target window is on.
 
 ### Changed
 
@@ -31,6 +32,7 @@
 - 背景輸入：新增巨集選項（預設開啟），直接將按鍵和滑鼠操作送到目標視窗而不切換焦點。當遊戲忽略背景訊息時，可關閉此選項改用一般前景輸入。
 - 防止失焦：新增巨集選項，定期防止目標視窗偵測失焦，讓你切換視窗時遊戲不會暫停。不一定適用所有遊戲。
 - 每個巨集選項（遊戲模式、背景輸入、防止失焦）現在都有提示圖示說明其用途。
+- 多螢幕支援：區域選擇器、錄製浮動面板和範本擷取現在無論應用程式或目標視窗在哪個螢幕上，都能正確運作。
 
 ### 變更
 
@@ -51,6 +53,7 @@
 - 背景输入：新增宏选项（默认开启），直接将按键和鼠标操作发送到目标窗口而不切换焦点。当游戏忽略背景消息时，可关闭此选项改用常规前台输入。
 - 防止失焦：新增宏选项，定期防止目标窗口检测失焦，让你切换窗口时游戏不会暂停。不一定适用于所有游戏。
 - 每个宏选项（游戏模式、背景输入、防止失焦）现在都有提示图标说明其用途。
+- 多显示器支持：区域选择器、录制浮动面板和模板捕获现在无论应用程序或目标窗口在哪个显示器上，都能正确运作。
 
 ### 变更
 

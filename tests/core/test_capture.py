@@ -1,6 +1,7 @@
 from typing import Any, cast
 
 import numpy as np
+import pytest
 
 from remaku.core import capture
 from remaku.core.capture import CaptureBackend, Grabber
@@ -26,7 +27,7 @@ class FakeBetterCam:
 
 class FakeMss:
     def __init__(self) -> None:
-        self.monitors = [{"width": 1024, "height": 768}]
+        self.monitors = [{"left": 0, "top": 0, "width": 1024, "height": 768}]
         self.requests: list[dict] = []
         self.closed = False
 
@@ -38,6 +39,11 @@ class FakeMss:
         self.closed = True
 
 
+@pytest.fixture(autouse=True)
+def fake_mss_backend(monkeypatch) -> None:
+    monkeypatch.setattr(capture.mss, "mss", FakeMss)
+
+
 def test_grabber_uses_bettercam_when_initial_grab_succeeds(monkeypatch) -> None:
     fake_cam = FakeBetterCam()
     monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
@@ -45,8 +51,8 @@ def test_grabber_uses_bettercam_when_initial_grab_succeeds(monkeypatch) -> None:
     grabber = Grabber()
 
     assert grabber.backend == CaptureBackend.BETTERCAM
-    assert grabber.screen_width == 800
-    assert grabber.screen_height == 600
+    assert grabber.screen_width == 1024
+    assert grabber.screen_height == 768
 
 
 def test_grabber_falls_back_to_mss_when_bettercam_fails(monkeypatch) -> None:
@@ -94,7 +100,21 @@ def test_grab_returns_none_for_empty_rect(monkeypatch) -> None:
     monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
     grabber = Grabber()
 
-    assert grabber.grab(Rect(left=900, top=0, width=10, height=10)) is None
+    assert grabber.grab(Rect(left=1100, top=0, width=10, height=10)) is None
+
+
+def test_grab_uses_mss_when_rect_is_outside_bettercam_bounds(monkeypatch) -> None:
+    fake_cam = FakeBetterCam()
+    fake_mss = FakeMss()
+    monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
+    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    grabber = Grabber()
+
+    frame = grabber.grab(Rect(left=100, top=650, width=20, height=30))
+
+    assert frame is not None
+    assert fake_cam.regions == [(0, 0, 800, 600)]
+    assert fake_mss.requests == [{"left": 100, "top": 650, "width": 20, "height": 30}]
 
 
 def test_grab_returns_last_frame_when_backend_returns_none(monkeypatch) -> None:
@@ -115,6 +135,8 @@ def test_grab_returns_none_when_backend_and_last_frame_are_empty() -> None:
     grabber.cam = cast(Any, fake_cam)
     grabber.sct = None
     grabber.last_frame = np.empty((0, 0, 3), dtype=np.uint8)
+    grabber.screen_left = 0
+    grabber.screen_top = 0
     grabber.screen_width = 800
     grabber.screen_height = 600
 

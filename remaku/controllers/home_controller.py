@@ -14,7 +14,7 @@ from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QFileDialog
 
-from remaku.core import window
+from remaku.core import display, window
 from remaku.core.dialogs import show_confirm_dialog, show_message_dialog
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
@@ -1681,11 +1681,18 @@ class HomeController(QObject):
     def default_template_label(self, template_id: str) -> str:
         return self.tr("Template {id}").format(id=template_id)
 
-    def launch_region_selector(self, template_id: str) -> None:
+    def launch_region_selector(
+        self,
+        template_id: str,
+        target_display: display.DisplayTarget | None = None,
+    ) -> None:
         if self.current_macro is None:
             return
 
-        selector = RegionSelector(self.current_macro.meta.id, parent=self.view)
+        if target_display is None:
+            target_display = display.target_display_for_macro(self.current_macro.meta.target_window)
+
+        selector = RegionSelector(self.current_macro.meta.id, parent=self.view, target_display=target_display)
         selector.region_selected.connect(
             lambda new_template_id, width, height: self.handle_region_captured(
                 template_id, new_template_id, width, height
@@ -1716,9 +1723,11 @@ class HomeController(QObject):
         if self.current_macro is None:
             return
 
+        target_display = display.target_display_for_macro(self.current_macro.meta.target_window)
+
         self.view.window().showMinimized()
 
-        QTimer.singleShot(200, lambda: self.launch_region_selector(template_id))
+        QTimer.singleShot(200, lambda: self.launch_region_selector(template_id, target_display))
 
     def handle_template_pick(self, template_id: str) -> None:
         if self.selected_step is None or self.current_macro is None:

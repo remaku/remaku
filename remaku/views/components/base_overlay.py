@@ -45,10 +45,19 @@ class BaseOverlayWidget(QWidget):
         self.apply_no_activate_style()
 
     def clamp_to_screen(self) -> None:
-        screen = QApplication.primaryScreen().availableGeometry()
+        target_screen = (
+            QApplication.screenAt(self.frameGeometry().center())
+            or QApplication.screenAt(self.pos())
+            or QApplication.primaryScreen()
+        )
+
+        if target_screen is None:
+            return
+
+        screen = target_screen.availableGeometry()
         pos = self.pos()
-        x = max(0, min(pos.x(), screen.width() - self.width()))
-        y = max(0, min(pos.y(), screen.height() - self.height()))
+        x = max(screen.left(), min(pos.x(), screen.left() + screen.width() - self.width()))
+        y = max(screen.top(), min(pos.y(), screen.top() + screen.height() - self.height()))
         self.move(x, y)
 
     def apply_no_activate_style(self) -> None:

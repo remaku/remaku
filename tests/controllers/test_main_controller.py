@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, ClassVar, cast
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, QRect
 
 from remaku.controllers import main_controller
 from remaku.controllers.main_controller import MainController
@@ -70,12 +70,24 @@ class FakeMainWindow(QObject):
         self.home_view = object()
         self.pack_explorer_view = object()
         self.settings_view = object()
+        self.screen_geometry = QRect(0, 0, 1920, 1080)
 
     def set_always_on_top(self, value: bool) -> None:
         self.always_on_top_values.append(value)
 
     def switchTo(self, view) -> None:
         self.switched_to = view
+
+    def screen(self):
+        return FakeScreen(self.screen_geometry)
+
+
+class FakeScreen:
+    def __init__(self, geometry: QRect) -> None:
+        self.geometry = geometry
+
+    def availableGeometry(self) -> QRect:
+        return self.geometry
 
 
 class FakeTimer:
@@ -208,6 +220,15 @@ def test_apply_overlay_settings_moves_overlay(monkeypatch) -> None:
     controller.apply_overlay_settings()
 
     assert overlay.moved_to == (20, 40)
+
+
+def test_apply_overlay_settings_places_default_position_on_main_window_screen(monkeypatch) -> None:
+    controller, _fake_config, _home, overlay, window = make_controller(monkeypatch)
+    window.screen_geometry = QRect(734, 2160, 2420, 1668)
+
+    controller.apply_overlay_settings()
+
+    assert overlay.moved_to == (834, 2260)
 
 
 def test_refresh_overlay_hides_when_no_runner(monkeypatch) -> None:

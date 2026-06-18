@@ -2282,7 +2282,10 @@ def test_template_capture_add_delete_and_meta_changes(tmp_path: Path, monkeypatc
     monkeypatch.setattr(home_controller.time, "time", lambda: 400.0)
     monkeypatch.setattr(home_controller.QTimer, "singleShot", lambda delay, callback: callback())
     launches = []
-    controller.launch_region_selector = lambda template_id: launches.append(template_id)
+    controller.launch_region_selector = lambda template_id, target_display=None: launches.append(
+        (template_id, target_display)
+    )
+    monkeypatch.setattr(home_controller.display, "target_display_for_macro", lambda target_window: "captured-display")
 
     controller.handle_template_capture("old")
     controller.selected_step = any_step
@@ -2293,7 +2296,7 @@ def test_template_capture_add_delete_and_meta_changes(tmp_path: Path, monkeypatc
     controller.handle_template_meta_changed("missing", "label", "Nope")
 
     assert cast(Any, controller.view).fake_window.show_minimized_calls == 1
-    assert launches == ["old"]
+    assert launches == [("old", "captured-display")]
     assert "400" in any_step["templates"]
     assert not old_file.exists()
     assert wait_step["template"] == ""
@@ -2629,25 +2632,91 @@ def test_launch_region_selector_returns_without_macro_and_starts_with_macro(monk
     starts = []
 
     class FakeRegionSelector:
-        def __init__(self, macro_id: str, parent) -> None:
+        def __init__(self, macro_id: str, parent, target_display=None) -> None:
             self.macro_id = macro_id
             self.parent = parent
+            self.target_display = target_display
             self.region_selected = FakeSignal()
             self.cancelled = FakeSignal()
 
         def start(self) -> None:
             starts.append(
-                (self.macro_id, self.parent, len(self.region_selected.connected), len(self.cancelled.connected))
+                (
+                    self.macro_id,
+                    self.parent,
+                    self.target_display,
+                    len(self.region_selected.connected),
+                    len(self.cancelled.connected),
+                )
             )
 
     monkeypatch.setattr(home_controller, "RegionSelector", FakeRegionSelector)
+    monkeypatch.setattr(home_controller.display, "target_display_for_macro", lambda title: None)
 
     controller.launch_region_selector("old")
 
     controller.current_macro = Macro(meta=MacroMeta(id="macro"))
     controller.launch_region_selector("old")
 
-    assert starts == [("macro", controller.view, 1, 1)]
+    assert starts == [("macro", controller.view, None, 1, 1)]
+
+
+def test_launch_region_selector_prefers_macro_target_window_screen(monkeypatch) -> None:
+    controller = make_controller()
+    target_display = object()
+    targets = []
+
+    class FakeRegionSelector:
+        def __init__(self, macro_id: str, parent, target_display=None) -> None:
+            self.region_selected = FakeSignal()
+            self.cancelled = FakeSignal()
+            targets.append((macro_id, parent, target_display))
+
+        def start(self) -> None:
+            pass
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro", target_window="Game"))
+    monkeypatch.setattr(home_controller, "RegionSelector", FakeRegionSelector)
+    monkeypatch.setattr(
+        home_controller.display,
+        "target_display_for_macro",
+        lambda title: target_display if title == "Game" else None,
+    )
+
+    controller.launch_region_selector("old")
+
+    assert targets == [("macro", controller.view, target_display)]
+
+
+def test_handle_template_capture_resolves_display_before_minimizing(monkeypatch) -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    calls = []
+
+    def fake_target_display(target_window: str):
+        calls.append(("target", target_window, cast(Any, controller.view).fake_window.show_minimized_calls))
+        return "cursor-display"
+
+    def fake_single_shot(delay: int, callback) -> None:
+        calls.append(("timer", delay, cast(Any, controller.view).fake_window.show_minimized_calls))
+        callback()
+
+    def fake_launch(template_id: str, target_display=None) -> None:
+        calls.append(
+            ("launch", template_id, target_display, cast(Any, controller.view).fake_window.show_minimized_calls)
+        )
+
+    monkeypatch.setattr(home_controller.display, "target_display_for_macro", fake_target_display)
+    monkeypatch.setattr(home_controller.QTimer, "singleShot", fake_single_shot)
+    controller.launch_region_selector = fake_launch
+
+    controller.handle_template_capture("old")
+
+    assert calls == [
+        ("target", "", 0),
+        ("timer", 200, 1),
+        ("launch", "old", "cursor-display", 1),
+    ]
 
 
 def test_handle_template_pick_updates_if_any_image_refs(tmp_path: Path, monkeypatch) -> None:

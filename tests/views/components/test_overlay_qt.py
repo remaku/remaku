@@ -1,5 +1,5 @@
 import win32con
-from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtCore import QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import QMouseEvent, QPaintEvent
 
 from remaku.core.event_bus import event_bus
@@ -130,16 +130,9 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
     widget.move(1000, -5)
     calls = []
 
-    class FakeGeometry:
-        def width(self) -> int:
-            return 120
-
-        def height(self) -> int:
-            return 90
-
     class FakeScreen:
-        def availableGeometry(self) -> FakeGeometry:
-            return FakeGeometry()
+        def availableGeometry(self) -> QRect:
+            return QRect(0, 0, 120, 90)
 
     def fake_get_long(hwnd: int, index: int) -> int:
         calls.append(("get", hwnd, index))
@@ -149,6 +142,7 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
         calls.append(("set", hwnd, index, style))
 
     monkeypatch.setattr(base_overlay.QApplication, "primaryScreen", lambda: FakeScreen())
+    monkeypatch.setattr(base_overlay.QApplication, "screenAt", lambda point: None)
     monkeypatch.setattr(base_overlay.win32gui, "GetWindowLong", fake_get_long)
     monkeypatch.setattr(base_overlay.win32gui, "SetWindowLong", fake_set_long)
 
@@ -161,6 +155,26 @@ def test_overlay_show_clamps_to_screen_and_sets_no_activate(monkeypatch, qtbot) 
         ("get", hwnd, win32con.GWL_EXSTYLE),
         ("set", hwnd, win32con.GWL_EXSTYLE, 4 | win32con.WS_EX_NOACTIVATE),
     ]
+
+
+def test_overlay_show_clamps_to_secondary_screen(monkeypatch, qtbot) -> None:
+    widget = OverlayWidget()
+    qtbot.addWidget(widget)
+    widget.resize(80, 36)
+    widget.move(3600, 2300)
+
+    class FakeScreen:
+        def availableGeometry(self) -> QRect:
+            return QRect(734, 2160, 2420, 1668)
+
+    monkeypatch.setattr(base_overlay.QApplication, "screenAt", lambda point: FakeScreen())
+    monkeypatch.setattr(base_overlay.win32gui, "GetWindowLong", lambda hwnd, index: 0)
+    monkeypatch.setattr(base_overlay.win32gui, "SetWindowLong", lambda hwnd, index, style: None)
+
+    widget.show()
+
+    assert widget.x() == 2954
+    assert widget.y() == 2300
 
 
 def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> None:

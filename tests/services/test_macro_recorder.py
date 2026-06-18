@@ -264,6 +264,19 @@ def test_recorded_step_builder_records_shifted_text() -> None:
     assert builder.finish() == [{"type": "text_input", "text": "A!", "interval_ms": 20}]
 
 
+def test_recorded_step_builder_corrects_unshifted_hook_text() -> None:
+    builder = RecordedStepBuilder()
+
+    builder.record_key("shift", True, 1.0)
+    builder.record_key("a", True, 1.01, text="a")
+    builder.record_key("a", False, 1.02)
+    builder.record_key("1", True, 1.03, text="1")
+    builder.record_key("1", False, 1.04)
+    builder.record_key("shift", False, 1.05)
+
+    assert builder.finish() == [{"type": "text_input", "text": "A!", "interval_ms": 20}]
+
+
 def test_recorded_step_builder_splits_text_around_special_keys() -> None:
     builder = RecordedStepBuilder()
 
@@ -499,6 +512,23 @@ def test_macro_recorder_records_layout_text_from_keyboard_event() -> None:
     recorder.handle_key_event(0x41, False, 1.1)
 
     assert recorder.stop() == [{"type": "text_input", "text": "q", "interval_ms": 0}]
+
+
+def test_macro_recorder_records_shift_letter_as_uppercase_when_hook_text_is_unshifted() -> None:
+    recorder = MacroRecorder(
+        backend_factory=FakeBackend,
+        foreground_hwnd_provider=lambda: 10,
+        process_id_provider=lambda hwnd: 2,
+        current_process_id=1,
+    )
+    recorder.start()
+
+    recorder.handle_key_event(0xA0, True, 1.0)
+    recorder.handle_key_event(0x41, True, 1.01, text="a")
+    recorder.handle_key_event(0x41, False, 1.02)
+    recorder.handle_key_event(0xA0, False, 1.03)
+
+    assert recorder.stop() == [{"type": "text_input", "text": "A", "interval_ms": 0}]
 
 
 def test_macro_recorder_can_record_text_for_unknown_vk() -> None:

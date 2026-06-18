@@ -14,14 +14,6 @@ class RecordingOverlay(BaseOverlayWidget):
         self.stats_provider = stats_provider
         self.paused = False
 
-        self.status_label = QLabel(self.tr("Recording"), self)
-        self.status_label.setStyleSheet("color: white; font-size: 13px;")
-        self.content_layout.addWidget(self.status_label)
-
-        self.stats_label = QLabel("00:00 | 0", self)
-        self.stats_label.setStyleSheet("color: white; font-size: 13px;")
-        self.content_layout.addWidget(self.stats_label)
-
         self.pause_button = self.make_icon_button("pause", self.tr("Pause"))
         self.pause_button.clicked.connect(lambda: event_bus.action_triggered.emit("record_pause"))
         self.content_layout.addWidget(self.pause_button)
@@ -39,6 +31,14 @@ class RecordingOverlay(BaseOverlayWidget):
         )
         self.cancel_button.clicked.connect(lambda: event_bus.action_triggered.emit("record_cancel"))
         self.content_layout.addWidget(self.cancel_button)
+
+        self.status_label = QLabel(self.tr("Recording"), self)
+        self.status_label.setStyleSheet("color: white; font-size: 13px;")
+        self.content_layout.addWidget(self.status_label, 1)
+
+        self.stats_label = QLabel("00:00 | 0", self)
+        self.stats_label.setStyleSheet("color: white; font-size: 13px;")
+        self.content_layout.addWidget(self.stats_label)
 
         self.timer = QTimer(self)
         self.timer.setInterval(250)
@@ -69,3 +69,4 @@ class RecordingOverlay(BaseOverlayWidget):
                 count=event_count,
             )
         )
+        self.adjustSize()

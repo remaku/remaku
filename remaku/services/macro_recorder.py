@@ -191,7 +191,7 @@ class RecordedStepBuilder:
         if is_down:
             if key not in self.pressed_keys:
                 self.pressed_keys[key] = now
-                input_text = text or self.text_for_key(key)
+                input_text = self.normalize_input_text(key, text)
 
                 if input_text:
                     self.flush_pressed_non_text_keys(now)
@@ -389,6 +389,24 @@ class RecordedStepBuilder:
             return " "
 
         return NUMPAD_TEXT_KEYS.get(key, "")
+
+    def normalize_input_text(self, key: str, text: str) -> str:
+        if not text:
+            return self.text_for_key(key)
+
+        if any(modifier in self.pressed_keys for modifier in TEXT_BLOCKING_MODIFIERS):
+            return ""
+
+        if "shift" not in self.pressed_keys or len(text) != 1:
+            return text
+
+        if text.isalpha() and text.islower():
+            return text.upper()
+
+        if text == key and key in SHIFT_TEXT_KEYS:
+            return SHIFT_TEXT_KEYS[key]
+
+        return text
 
     def resolve_time(self, timestamp: float | None) -> float:
         if timestamp is not None:

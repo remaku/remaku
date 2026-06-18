@@ -24,6 +24,7 @@
 - **分支友好编辑器** -- 嵌套步骤与分支会显示在树状结构中，分支内可直接添加步骤
 - **状态栏** -- 显示当前步骤、模板名称，以及执行完成后的总执行时间
 - **状态浮窗** -- 全屏游戏上方显示运行状态的迷你浮动窗口，含播放/停止按钮，位置自动记忆且不超出屏幕范围
+- **宏录制** -- 从应用程序外部录制键盘与鼠标操作，转换为宏步骤
 - **自动更新** -- 启动时检查 GitHub Release，支持稳定版与测试版频道
 - **Pack Explorer** -- 在应用程序内浏览官方宏包并导入兼容宏
 
@@ -33,7 +34,9 @@
 | ---------------------------------- | -------------------------------------------------- |
 | 按键 (key)                         | 模拟按下指定按键或修饰键组合，可设定按住时间       |
 | 文本输入 (text_input)              | 输入自定义 Unicode 文本，可设定每个字符之间的延迟  |
-| 鼠标动作 (mouse_action)            | 点击坐标或图片中心、移动光标到指定位置、滚动滚轮   |
+| 鼠标点击 (mouse_click)             | 点击坐标或模板图片中心                             |
+| 鼠标移动 (mouse_move)              | 移动光标到指定坐标或模板图片中心                   |
+| 鼠标滚轮 (mouse_scroll)            | 滚动鼠标滚轮指定格数                               |
 | 等待时间 (delay)                   | 固定毫秒延迟                                       |
 | 等待图片 (wait_image)              | 等待模板图片出现，可设定相似度阈值、超时与后续动作 |
 | 等待任一图片 (if_any_image)        | 同时监控多个模板，任一匹配即执行对应分支           |
@@ -170,7 +173,7 @@ Documents\remaku\
 
 ```
 remaku/
-  main.py                         # 入口点，初始化设置与启动主窗口
+  main.py                         # 入口点，设置记录器、载入翻译、迁移旧版数据并启动主窗口
   paths.py                        # 文件路径工具
   theme.py                        # 主题管理
   version.py                      # 版本信息（从 pyproject.toml 读取）
@@ -182,8 +185,10 @@ remaku/
   core/
     capture.py                    # 画面捕获（BetterCam / DXGI）
     dialogs.py                    # 原生对话框辅助工具
+    display.py                    # 显示器与屏幕信息工具
     event_bus.py                  # 全局事件系统
     i18n.py                       # 多语言
+    keymap.py                     # 虚拟键码与按键名称映射
     keys.py                       # 键盘输入模拟（pydirectinput）
     vision.py                     # OpenCV 图像识别（模板匹配）
     window.py                     # Windows 窗口管理（查找、前景、权限检查）
@@ -202,11 +207,15 @@ remaku/
     images/                       # 图片资源（logo.png）
     locales/                      # Qt 翻译文件（.ts / .qm）
   services/
+    clipboard_service.py          # 步骤复制／粘贴的剪贴板操作，含模板携带
     engine.py                     # JSON 宏解析与执行引擎
+    hotkey_service.py             # 全局热键注册与管理
     macro_import_service.py       # 宏导入／导出（ZIP）逻辑
+    macro_recorder.py             # 键盘与鼠标操作录制
     macro_runner.py               # 宏执行器（含线程管理）
     migration.py                  # 旧版数据迁移
     pack_service.py               # 宏包目录获取与管理
+    template_service.py           # 模板文件管理（重命名、删除、列表）
     updater.py                    # 自动更新检查与安装
   views/
     home_view.py                  # 主编辑器视图（三栏界面）
@@ -216,13 +225,16 @@ remaku/
     settings_view.py              # 设置页面界面
     components/
       about_dialog.py             # 关于对话框
+      base_overlay.py             # 浮动窗口基类
       center_panel.py             # 中央面板（步骤树）
       confirm_dialog.py           # 确认对话框
       elided_label.py             # 文字省略标签组件
+      hotkey_edit.py              # 热键捕获输入组件
       left_panel.py               # 左侧面板（宏列表）
       message_dialog.py           # 消息对话框
       new_macro_dialog.py         # 新建宏对话框
       overlay.py                  # 状态浮窗组件
+      recording_overlay.py        # 录制操作浮动控制面板
       rename_macro_dialog.py      # 重命名宏对话框
       right_panel.py              # 右侧面板（步骤属性）
       step_menu.py                # 步骤类型右键菜单
@@ -230,6 +242,10 @@ remaku/
       toolbar.py                  # 工具栏（步骤操作）
       update_dialog.py            # 更新对话框（含更新说明）
 tests/
+  conftest.py                     # 共享测试 fixture
+  test_main.py                    # 入口点测试
+  test_paths.py                   # 路径工具测试
+  test_resources.py               # 资源编译测试
   controllers/                    # 控制器单元测试
   core/                           # 核心模块单元测试
   models/                         # 模型单元测试

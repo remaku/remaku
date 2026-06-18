@@ -24,6 +24,7 @@
 - **分支友善編輯器** — 巢狀步驟與分支會顯示在樹狀結構中，分支內可直接新增步驟
 - **狀態列** — 顯示目前步驟、模板名稱，以及執行完成後的總執行時間
 - **狀態浮窗** — 全螢幕遊戲上方顯示執行狀態的迷你浮動視窗，含播放/停止按鈕，位置自動記憶且不超出螢幕範圍
+- **巨集錄製** — 從應用程式外部錄製鍵盤與滑鼠操作，轉換為巨集步驟
 - **自動更新** — 啟動時檢查 GitHub Release，支援穩定版與測試版頻道
 - **Pack Explorer** — 在應用程式內瀏覽官方巨集包並匯入相容巨集
 
@@ -33,7 +34,9 @@
 | ---------------------------------- | -------------------------------------------------- |
 | 按鍵 (key)                         | 模擬按下指定按鍵或修飾鍵組合，可設定按住時間       |
 | 文字輸入 (text_input)              | 輸入自訂 Unicode 文字，可設定每個字元之間的延遲    |
-| 滑鼠動作 (mouse_action)            | 點擊座標或圖片中心、移動游標到指定位置、滾動滾輪   |
+| 滑鼠點擊 (mouse_click)             | 點擊座標或模板圖片中心                             |
+| 滑鼠移動 (mouse_move)              | 移動游標到指定座標或模板圖片中心                   |
+| 滑鼠滾輪 (mouse_scroll)            | 滾動滑鼠滾輪指定格數                               |
 | 等待時間 (delay)                   | 固定毫秒延遲                                       |
 | 等待圖片 (wait_image)              | 等待模板圖片出現，可設定相似度門檻、超時與後續動作 |
 | 等待任一圖片 (if_any_image)        | 同時監控多個模板，任一匹配即執行對應分支           |
@@ -170,7 +173,7 @@ Documents\remaku\
 
 ```
 remaku/
-  main.py                         # 進入點，初始化設定與啟動主視窗
+  main.py                         # 進入點，設定記錄器、載入翻譯、遷移舊版資料並啟動主視窗
   paths.py                        # 檔案路徑工具
   theme.py                        # 主題管理
   version.py                      # 版本資訊（從 pyproject.toml 讀取）
@@ -182,8 +185,10 @@ remaku/
   core/
     capture.py                    # 畫面擷取（BetterCam / DXGI）
     dialogs.py                    # 原生對話框輔助工具
+    display.py                    # 顯示器與螢幕資訊工具
     event_bus.py                  # 全域事件系統
     i18n.py                       # 多國語言
+    keymap.py                     # 虛擬鍵碼與按鍵名稱對應
     keys.py                       # 鍵盤輸入模擬（pydirectinput）
     vision.py                     # OpenCV 影像辨識（模板匹配）
     window.py                     # Windows 視窗管理（尋找、前景、權限檢查）
@@ -202,11 +207,15 @@ remaku/
     images/                       # 圖片資源（logo.png）
     locales/                      # Qt 翻譯檔（.ts / .qm）
   services/
+    clipboard_service.py          # 步驟複製／貼上的剪貼簿操作，含模板攜帶
     engine.py                     # JSON 巨集解析與執行引擎
+    hotkey_service.py             # 全域熱鍵註冊與管理
     macro_import_service.py       # 巨集匯入／匯出（ZIP）邏輯
+    macro_recorder.py             # 鍵盤與滑鼠操作錄製
     macro_runner.py               # 巨集執行器（含執行緒管理）
     migration.py                  # 舊版資料遷移
     pack_service.py               # 巨集包目錄擷取與管理
+    template_service.py           # 模板檔案管理（重新命名、刪除、列表）
     updater.py                    # 自動更新檢查與安裝
   views/
     home_view.py                  # 主編輯器檢視（三欄介面）
@@ -216,13 +225,16 @@ remaku/
     settings_view.py              # 設定頁面介面
     components/
       about_dialog.py             # 關於對話框
+      base_overlay.py             # 浮動視窗基礎類別
       center_panel.py             # 中央面板（步驟樹）
       confirm_dialog.py           # 確認對話框
       elided_label.py             # 文字省略標籤元件
+      hotkey_edit.py              # 熱鍵擷取輸入元件
       left_panel.py               # 左側面板（巨集列表）
       message_dialog.py           # 訊息對話框
       new_macro_dialog.py         # 新增巨集對話框
       overlay.py                  # 狀態浮窗元件
+      recording_overlay.py        # 錄製操作浮動控制面板
       rename_macro_dialog.py      # 重新命名巨集對話框
       right_panel.py              # 右側面板（步驟屬性）
       step_menu.py                # 步驟類型右鍵選單
@@ -230,6 +242,10 @@ remaku/
       toolbar.py                  # 工具列（步驟操作）
       update_dialog.py            # 更新對話框（含更新說明）
 tests/
+  conftest.py                     # 共用測試 fixture
+  test_main.py                    # 進入點測試
+  test_paths.py                   # 路徑工具測試
+  test_resources.py               # 資源編譯測試
   controllers/                    # 控制器單元測試
   core/                           # 核心模組單元測試
   models/                         # 模型單元測試

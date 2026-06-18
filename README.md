@@ -24,6 +24,7 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Branch-friendly editor** -- nested steps and branches are shown in a tree, with direct add buttons inside branches
 - **Status bar** -- shows current step, template name, and total elapsed time after execution
 - **Status overlay** -- floating mini status bar on top of fullscreen games with play/stop controls, position remembered and kept within screen bounds
+- **Macro recording** -- record keyboard and mouse actions from outside the app into macro steps
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
 - **Pack Explorer** -- browse official macro packs and import compatible macros from inside the app
 
@@ -33,7 +34,9 @@ This warning is harmless. It appears because the executable is not code-signed. 
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Key (key)                                 | Press a specified key or modifier combination, with configurable hold duration                        |
 | Text Input (text_input)                   | Type custom Unicode text, with an optional delay between characters                                   |
-| Mouse Action (mouse_action)               | Click a coordinate or image center, move the cursor to a position, or scroll the mouse wheel          |
+| Mouse Click (mouse_click)                 | Click at a coordinate or on a matched template                                                        |
+| Mouse Move (mouse_move)                   | Move the cursor to a coordinate or to a matched template                                              |
+| Mouse Scroll (mouse_scroll)               | Scroll the mouse wheel by a specified number of clicks                                                |
 | Delay (delay)                             | A fixed millisecond pause                                                                             |
 | Wait Image (wait_image)                   | Wait for a template image to appear, with configurable similarity threshold, timeout, and next action |
 | Wait Any Image (if_any_image)             | Monitor multiple templates simultaneously, execute the matching branch                                |
@@ -170,7 +173,7 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). GUI uses PySide6 (Qt6
 
 ```
 remaku/
-  main.py                         # Entry point, initializes config and launches the main window
+  main.py                         # Entry point, sets up logging, loads translator, migrates legacy data, and launches the main window
   paths.py                        # File path utilities
   theme.py                        # Theme management
   version.py                      # Version info (read from pyproject.toml)
@@ -182,8 +185,10 @@ remaku/
   core/
     capture.py                    # Screen capture (BetterCam / DXGI)
     dialogs.py                    # Native dialog helpers
+    display.py                    # Display and monitor information utilities
     event_bus.py                  # Application-wide event system
     i18n.py                       # Internationalization
+    keymap.py                     # Virtual key code to key name mapping
     keys.py                       # Keyboard input simulation (pydirectinput)
     vision.py                     # OpenCV image recognition (template matching)
     window.py                     # Windows window management (find, foreground, elevation check)
@@ -202,11 +207,15 @@ remaku/
     images/                       # Image assets (logo.png)
     locales/                      # Qt translation files (.ts / .qm)
   services/
+    clipboard_service.py          # Clipboard operations for step copy/paste with templates
     engine.py                     # JSON macro parsing and execution engine
+    hotkey_service.py             # Global hotkey registration and management
     macro_import_service.py       # Macro import / export (ZIP) logic
+    macro_recorder.py             # Keyboard and mouse action recording
     macro_runner.py               # Macro execution runner with threading
     migration.py                  # Legacy data migration
     pack_service.py               # Pack catalog fetching and management
+    template_service.py           # Template file management (rename, delete, list)
     updater.py                    # Auto-update check and installation
   views/
     home_view.py                  # Main editor view (three-panel layout)
@@ -216,13 +225,16 @@ remaku/
     settings_view.py              # Settings page UI
     components/
       about_dialog.py             # About dialog
+      base_overlay.py             # Base class for floating overlay windows
       center_panel.py             # Center panel (step tree)
       confirm_dialog.py           # Confirmation dialog
       elided_label.py             # Text elision label widget
+      hotkey_edit.py              # Hotkey capture input widget
       left_panel.py               # Left panel (macro list)
       message_dialog.py           # Message dialog
       new_macro_dialog.py         # New macro dialog
       overlay.py                  # Status overlay floating window
+      recording_overlay.py        # Floating overlay for macro recording controls
       rename_macro_dialog.py      # Rename macro dialog
       right_panel.py              # Right panel (step properties)
       step_menu.py                # Step type context menu
@@ -230,6 +242,10 @@ remaku/
       toolbar.py                  # Toolbar with step operations
       update_dialog.py            # Update dialog with release notes
 tests/
+  conftest.py                     # Shared test fixtures
+  test_main.py                    # Entry point tests
+  test_paths.py                   # Path utilities tests
+  test_resources.py               # Resource compilation tests
   controllers/                    # Controller unit tests
   core/                           # Core module unit tests
   models/                         # Model unit tests

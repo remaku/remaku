@@ -391,12 +391,12 @@
     </message>
     <message>
         <location filename="../../controllers/home_controller.py" line="1028"/>
-        <source>{button} Click at {template}</source>
+        <source>{button} click at {template}</source>
         <translation>{button}點擊於 {template}</translation>
     </message>
     <message>
         <location filename="../../controllers/home_controller.py" line="1033"/>
-        <source>{button} Click at ({x}, {y})</source>
+        <source>{button} click at ({x}, {y})</source>
         <translation>{button}點擊於 ({x}, {y})</translation>
     </message>
     <message>

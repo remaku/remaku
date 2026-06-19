@@ -38,9 +38,9 @@ from remaku.views.components.right_panel import RightPanel
 
 @pytest.fixture(autouse=True)
 def _flush_qt_events():
-    """Flush pending Qt events after each test to prevent SVG renderer crashes."""
+    """Flush pending Qt posted events (deferred deletes) to prevent stale paint events."""
     yield
-    QApplication.processEvents()
+    QApplication.sendPostedEvents()
     QApplication.processEvents()
 
 

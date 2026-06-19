@@ -1,7 +1,7 @@
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel, LineEdit, MessageBoxBase, PushButton, TogglePushButton
+from qfluentwidgets import LineEdit, MessageBoxBase, PushButton, SubtitleLabel, TogglePushButton
 
 KEY_CAPTURE_PROPERTY = "remakuKeyboardCapture"
 MODIFIERS = ("shift", "ctrl", "win", "alt")
@@ -181,11 +181,12 @@ class HotkeyPickerDialog(MessageBoxBase):
     def __init__(self, value: str, parent=None):
         super().__init__(parent)
 
-        self.title_label = BodyLabel(self.tr("Select a hotkey"), self)
+        self.title_label = SubtitleLabel(self.tr("Select a hotkey"), self)
         self.picker = HotkeyPicker(self)
         self.picker.setText(value)
 
         self.viewLayout.addWidget(self.title_label)
+        self.viewLayout.addSpacing(4)
         self.viewLayout.addWidget(self.picker)
         self.yesButton.setText(self.tr("OK"))
         self.cancelButton.setText(self.tr("Cancel"))

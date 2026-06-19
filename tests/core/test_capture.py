@@ -41,7 +41,7 @@ class FakeMss:
 
 @pytest.fixture(autouse=True)
 def fake_mss_backend(monkeypatch) -> None:
-    monkeypatch.setattr(capture.mss, "mss", FakeMss)
+    monkeypatch.setattr(capture.mss, "MSS", FakeMss)
 
 
 def test_grabber_uses_bettercam_when_initial_grab_succeeds(monkeypatch) -> None:
@@ -62,7 +62,7 @@ def test_grabber_falls_back_to_mss_when_bettercam_fails(monkeypatch) -> None:
         raise RuntimeError("no camera")
 
     monkeypatch.setattr(capture.bettercam, "create", raise_create)
-    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    monkeypatch.setattr(capture.mss, "MSS", lambda: fake_mss)
 
     grabber = Grabber()
 
@@ -76,7 +76,7 @@ def test_grabber_falls_back_to_mss_when_initial_grab_returns_none(monkeypatch) -
     fake_cam = FakeBetterCam(frame=None)
     fake_mss = FakeMss()
     monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
-    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    monkeypatch.setattr(capture.mss, "MSS", lambda: fake_mss)
 
     grabber = Grabber()
 
@@ -107,7 +107,7 @@ def test_grab_uses_mss_when_rect_is_outside_bettercam_bounds(monkeypatch) -> Non
     fake_cam = FakeBetterCam()
     fake_mss = FakeMss()
     monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
-    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    monkeypatch.setattr(capture.mss, "MSS", lambda: fake_mss)
     grabber = Grabber()
 
     frame = grabber.grab(Rect(left=100, top=650, width=20, height=30))
@@ -168,7 +168,7 @@ def test_mss_grab_returns_bgr_channels(monkeypatch) -> None:
         raise RuntimeError("no camera")
 
     monkeypatch.setattr(capture.bettercam, "create", raise_create)
-    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    monkeypatch.setattr(capture.mss, "MSS", lambda: fake_mss)
     grabber = Grabber()
 
     frame = grabber.grab_frame(1, 2, 4, 6)
@@ -185,7 +185,7 @@ def test_close_closes_mss_backend(monkeypatch) -> None:
         raise RuntimeError("no camera")
 
     monkeypatch.setattr(capture.bettercam, "create", raise_create)
-    monkeypatch.setattr(capture.mss, "mss", lambda: fake_mss)
+    monkeypatch.setattr(capture.mss, "MSS", lambda: fake_mss)
     grabber = Grabber()
 
     grabber.close()

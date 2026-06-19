@@ -125,7 +125,7 @@ def dump_capture_debug(target: display.DisplayTarget, selected_frame: np.ndarray
 
 
 def grab_screen(target: display.DisplayTarget) -> tuple[QPixmap, np.ndarray]:
-    with mss.mss() as screen_capture:
+    with mss.MSS() as screen_capture:
         screenshot = screen_capture.grab(
             {
                 "left": target.physical_rect.left,

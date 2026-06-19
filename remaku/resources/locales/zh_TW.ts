@@ -560,8 +560,8 @@
 <context>
     <name>HotkeyInput</name>
     <message>
-        <location filename="../../views/components/hotkey_edit.py" line="212"/>
-        <location filename="../../views/components/hotkey_edit.py" line="230"/>
+        <location filename="../../views/components/hotkey_edit.py" line="213"/>
+        <location filename="../../views/components/hotkey_edit.py" line="231"/>
         <source>Select a hotkey</source>
         <translation type="unfinished"></translation>
     </message>
@@ -602,12 +602,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../views/components/hotkey_edit.py" line="190"/>
+        <location filename="../../views/components/hotkey_edit.py" line="191"/>
         <source>OK</source>
         <translation>確定</translation>
     </message>
     <message>
-        <location filename="../../views/components/hotkey_edit.py" line="191"/>
+        <location filename="../../views/components/hotkey_edit.py" line="192"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>

@@ -163,7 +163,7 @@ def test_grab_screen_uses_physical_screen_rect(monkeypatch, qtbot) -> None:
             calls.append(region)
             return np.zeros((region["height"], region["width"], 4), dtype=np.uint8)
 
-    monkeypatch.setattr(region_selector.mss, "mss", FakeMss)
+    monkeypatch.setattr(region_selector.mss, "MSS", FakeMss)
 
     pixmap, frame = region_selector.grab_screen(target_display)
 
@@ -199,7 +199,7 @@ def test_grab_screen_writes_debug_images_when_enabled(monkeypatch, tmp_path, qtb
     monkeypatch.setattr(region_selector, "log_dir", lambda: tmp_path)
     monkeypatch.setattr(region_selector.QApplication, "screens", lambda: [screen])
     monkeypatch.setattr(region_selector.display.win32api, "EnumDisplayMonitors", lambda: [])
-    monkeypatch.setattr(region_selector.mss, "mss", FakeMss)
+    monkeypatch.setattr(region_selector.mss, "MSS", FakeMss)
 
     _pixmap, frame = region_selector.grab_screen(target_display)
 

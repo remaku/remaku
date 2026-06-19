@@ -1,8 +1,9 @@
 from typing import Any, ClassVar, cast
 
+import pytest
 from PySide6.QtCore import QModelIndex, QPointF, Qt
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QKeySequence, QMouseEvent, QShortcut
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CheckBox,
@@ -33,6 +34,14 @@ from remaku.views.components.center_panel import CenterPanel
 from remaku.views.components.hotkey_edit import HotkeyEdit, HotkeyInput, HotkeyPicker, HotkeyPickerDialog
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
+
+
+@pytest.fixture(autouse=True)
+def _flush_qt_events():
+    """Flush pending Qt events after each test to prevent SVG renderer crashes."""
+    yield
+    QApplication.processEvents()
+    QApplication.processEvents()
 
 
 class FakeRoundMenu:

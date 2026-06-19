@@ -31,7 +31,7 @@ class Grabber:
 
     def init_backend(self) -> None:
         try:
-            self.sct = mss.mss()
+            self.sct = mss.MSS()
             monitor = self.sct.monitors[0]
             self.screen_left = int(monitor.get("left", 0))
             self.screen_top = int(monitor.get("top", 0))

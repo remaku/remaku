@@ -54,7 +54,7 @@ lrelease:
 translate: lupdate lrelease
 
 dev:
-	@nodemon --watch remaku --ext py --exec "uv run main.py"
+	@nodemon --ext py --exec "uv run main.py"
 
 build:
 	@pwsh -File .\scripts\build.ps1

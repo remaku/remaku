@@ -1057,12 +1057,12 @@ class HomeController(QObject):
                 target = step.get("target", "coordinate")
 
                 if target == "template":
-                    label = self.tr("Click {button} at {template}").format(
+                    label = self.tr("{button} Click at {template}").format(
                         button=button_display,
                         template=self.get_template_label(step.get("template", "")),
                     )
                 else:
-                    label = self.tr("Click {button} at ({x}, {y})").format(
+                    label = self.tr("{button} Click at ({x}, {y})").format(
                         button=button_display,
                         x=step.get("x", 0),
                         y=step.get("y", 0),

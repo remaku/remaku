@@ -1737,10 +1737,10 @@ def test_describe_step_formats_template_branch_and_unknown_types() -> None:
         "If any image Start Button, missing"
     )
     assert controller.describe_step({"type": "mouse_click", "button": "right", "x": 10, "y": 20}) == (
-        "Click Right at (10, 20)"
+        "Right Click at (10, 20)"
     )
     assert controller.describe_step({"type": "mouse_click", "target": "template", "template": "start"}) == (
-        "Click Left at Start Button"
+        "Left Click at Start Button"
     )
     assert controller.describe_step({"type": "mouse_move", "x": 30, "y": 40}) == "Move to (30, 40)"
     assert controller.describe_step({"type": "mouse_move", "target": "template", "template": "start"}) == (

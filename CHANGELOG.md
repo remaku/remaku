@@ -16,6 +16,7 @@
 
 ### Changed
 
+- Mouse click step descriptions now use natural word order (e.g., "Left Click at ..." instead of "Click Left at ...").
 - Keyboard shortcuts (paste, undo, delete, etc.) are now suppressed while any hotkey input field is focused, preventing accidental actions when editing hotkeys.
 - The Tab key is now captured as a hotkey key instead of moving focus when a hotkey field is active.
 - The theme dropdown in Settings now lists Light before Dark.
@@ -41,6 +42,7 @@
 
 ### 變更
 
+- 滑鼠點擊步驟描述現在使用自然語序（例如「左鍵點擊於 ...」取代「點擊左鍵於 ...」）。
 - 當任何快捷鍵輸入欄位取得焦點時，鍵盤快捷鍵（貼上、復原、刪除等）會被暫時停用，避免編輯快捷鍵時誤觸操作。
 - 在快捷鍵欄位使用時，Tab 鍵現在會被擷取為快捷鍵而非移動焦點。
 - 設定中的主題下拉選單順序調整為淺色在深色之前。
@@ -66,6 +68,7 @@
 
 ### 变更
 
+- 鼠标点击步骤描述现在使用自然语序（例如「左键点击于 ...」取代「点击左键于 ...」）。
 - 当任何快捷键输入字段获得焦点时，键盘快捷键（粘贴、撤销、删除等）会被暂时禁用，避免编辑快捷键时误触操作。
 - 在快捷键字段使用时，Tab 键现在会被捕获为快捷键而非移动焦点。
 - 设置中的主题下拉菜单顺序调整为浅色在深色之前。

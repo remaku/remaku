@@ -1,5 +1,5 @@
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal
-from PySide6.QtGui import QFocusEvent, QIntValidator
+from PySide6.QtGui import QFocusEvent, QIcon, QIntValidator
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -67,6 +67,10 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "y",
     }
 )
+
+
+def remaku_qicon(icon: RemakuIcon) -> QIcon:
+    return QIcon(icon.path())
 
 
 class PropertyFormMixin:
@@ -229,7 +233,7 @@ class PropertyFormMixin:
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(6)
 
-        info_icon = IconWidget(RemakuIcon.INFO, row)
+        info_icon = IconWidget(remaku_qicon(RemakuIcon.INFO), row)
         info_icon.setToolTip(hint)
         info_icon.setToolTipDuration(-1)
         info_icon.setCursor(Qt.CursorShape.WhatsThisCursor)
@@ -348,7 +352,7 @@ class PropertyFormMixin:
         trigger_layout.setContentsMargins(0, 6, 0, 6)
         trigger_layout.setSpacing(6)
 
-        icon_widget = IconWidget(RemakuIcon.CHEVRON_RIGHT, trigger)
+        icon_widget = IconWidget(remaku_qicon(RemakuIcon.CHEVRON_RIGHT), trigger)
         icon_widget.setFixedSize(16, 16)
         trigger_layout.addWidget(icon_widget)
 
@@ -371,7 +375,7 @@ class PropertyFormMixin:
         def toggle_card(event):
             card.setVisible(not card.isVisible())
             icon = RemakuIcon.CHEVRON_DOWN if card.isVisible() else RemakuIcon.CHEVRON_RIGHT
-            icon_widget.setIcon(icon)
+            icon_widget.setIcon(remaku_qicon(icon))
 
         trigger.mousePressEvent = toggle_card
 

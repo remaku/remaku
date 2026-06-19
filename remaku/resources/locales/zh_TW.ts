@@ -22,37 +22,37 @@
 <context>
     <name>CenterPanel</name>
     <message>
-        <location filename="../../views/components/center_panel.py" line="189"/>
+        <location filename="../../views/components/center_panel.py" line="202"/>
         <source>No steps yet</source>
         <translation>尚無步驟</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="205"/>
+        <location filename="../../views/components/center_panel.py" line="218"/>
         <source>Copy</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="211"/>
+        <location filename="../../views/components/center_panel.py" line="224"/>
         <source>Cut</source>
         <translation>剪下</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="217"/>
+        <location filename="../../views/components/center_panel.py" line="230"/>
         <source>Paste</source>
         <translation>貼上</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="225"/>
+        <location filename="../../views/components/center_panel.py" line="238"/>
         <source>Duplicate Step</source>
         <translation>複製步驟</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="231"/>
+        <location filename="../../views/components/center_panel.py" line="244"/>
         <source>Delete Step</source>
         <translation>刪除步驟</translation>
     </message>
     <message>
-        <location filename="../../views/components/center_panel.py" line="239"/>
+        <location filename="../../views/components/center_panel.py" line="252"/>
         <source>Wrap in Repeat</source>
         <translation>包入重複</translation>
     </message>
@@ -73,466 +73,466 @@
 <context>
     <name>HomeController</name>
     <message>
-        <location filename="../../controllers/home_controller.py" line="586"/>
+        <location filename="../../controllers/home_controller.py" line="605"/>
         <source>New Macro</source>
         <translation>新增巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="586"/>
-        <location filename="../../controllers/home_controller.py" line="632"/>
+        <location filename="../../controllers/home_controller.py" line="605"/>
+        <location filename="../../controllers/home_controller.py" line="654"/>
         <source>Macro name cannot be empty.</source>
         <translation>巨集名稱不能為空。</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="596"/>
+        <location filename="../../controllers/home_controller.py" line="615"/>
         <source>Created macro: {name}</source>
         <translation>已建立巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="617"/>
-        <location filename="../../controllers/home_controller.py" line="838"/>
+        <location filename="../../controllers/home_controller.py" line="639"/>
+        <location filename="../../controllers/home_controller.py" line="870"/>
         <source>Failed to load macro: {name}</source>
         <translation>載入巨集失敗：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="632"/>
+        <location filename="../../controllers/home_controller.py" line="654"/>
         <source>Rename Macro</source>
         <translation>重新命名巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="642"/>
+        <location filename="../../controllers/home_controller.py" line="664"/>
         <source>Renamed macro: {name}</source>
         <translation>已重新命名巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="652"/>
-        <location filename="../../controllers/home_controller.py" line="661"/>
+        <location filename="../../controllers/home_controller.py" line="677"/>
+        <location filename="../../controllers/home_controller.py" line="686"/>
         <source>Delete Macro</source>
         <translation>刪除巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="653"/>
+        <location filename="../../controllers/home_controller.py" line="678"/>
         <source>Are you sure you want to delete &quot;{name}&quot;?</source>
         <translation>確定要刪除「{name}」嗎？</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="654"/>
+        <location filename="../../controllers/home_controller.py" line="679"/>
         <source>Delete</source>
         <translation>刪除</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="661"/>
+        <location filename="../../controllers/home_controller.py" line="686"/>
         <source>Unable to delete the macro.</source>
         <translation>無法刪除巨集。</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="679"/>
+        <location filename="../../controllers/home_controller.py" line="704"/>
         <source>Deleted macro: {name}</source>
         <translation>已刪除巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="946"/>
+        <location filename="../../controllers/home_controller.py" line="978"/>
         <source>Steps</source>
         <translation>步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="947"/>
+        <location filename="../../controllers/home_controller.py" line="979"/>
         <source>Then</source>
         <translation>符合時</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="948"/>
+        <location filename="../../controllers/home_controller.py" line="980"/>
         <source>Else</source>
         <translation>否則</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="949"/>
+        <location filename="../../controllers/home_controller.py" line="981"/>
         <source>On Next Row</source>
         <translation>換列</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="950"/>
+        <location filename="../../controllers/home_controller.py" line="982"/>
         <source>On Next Column</source>
         <translation>換欄</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="992"/>
+        <location filename="../../controllers/home_controller.py" line="1024"/>
         <source>Press {key}</source>
         <translation>按下 {key}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="994"/>
+        <location filename="../../controllers/home_controller.py" line="1026"/>
         <source>Wait {ms} ms</source>
         <translation>等待 {ms} ms</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="996"/>
+        <location filename="../../controllers/home_controller.py" line="1028"/>
         <source>Wait for {template}</source>
         <translation>等待 {template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1000"/>
+        <location filename="../../controllers/home_controller.py" line="1032"/>
         <source>Hold {key} until {template} gone</source>
         <translation>長按 {key} 直到 {template} 消失</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1009"/>
+        <location filename="../../controllers/home_controller.py" line="1041"/>
         <source>Type text: {text}</source>
         <translation>輸入文字：{text}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1009"/>
+        <location filename="../../controllers/home_controller.py" line="1041"/>
         <source>Type text</source>
         <translation>輸入文字</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1011"/>
+        <location filename="../../controllers/home_controller.py" line="1043"/>
         <source>Repeat {count} times</source>
         <translation>重複 {count} 次</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1013"/>
+        <location filename="../../controllers/home_controller.py" line="1045"/>
         <source>If image {template}</source>
         <translation>如果圖片 {template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1018"/>
+        <location filename="../../controllers/home_controller.py" line="1050"/>
         <source>If any image {templates}</source>
         <translation>如果任一圖片 {templates}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1020"/>
+        <location filename="../../controllers/home_controller.py" line="1052"/>
         <source>Grid navigation ({rows} rows)</source>
         <translation>格子導航 ({rows} 列)</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1099"/>
-        <location filename="../../controllers/home_controller.py" line="1183"/>
-        <location filename="../../controllers/home_controller.py" line="1253"/>
-        <location filename="../../controllers/home_controller.py" line="1290"/>
-        <location filename="../../controllers/home_controller.py" line="1310"/>
-        <location filename="../../controllers/home_controller.py" line="1346"/>
-        <location filename="../../controllers/home_controller.py" line="1366"/>
-        <location filename="../../controllers/home_controller.py" line="1391"/>
-        <location filename="../../controllers/home_controller.py" line="1410"/>
+        <location filename="../../controllers/home_controller.py" line="1139"/>
+        <location filename="../../controllers/home_controller.py" line="1223"/>
+        <location filename="../../controllers/home_controller.py" line="1293"/>
+        <location filename="../../controllers/home_controller.py" line="1330"/>
+        <location filename="../../controllers/home_controller.py" line="1350"/>
+        <location filename="../../controllers/home_controller.py" line="1386"/>
+        <location filename="../../controllers/home_controller.py" line="1406"/>
+        <location filename="../../controllers/home_controller.py" line="1431"/>
+        <location filename="../../controllers/home_controller.py" line="1450"/>
         <source>Select a macro first</source>
         <translation>請先選擇巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1110"/>
+        <location filename="../../controllers/home_controller.py" line="1150"/>
         <source>Unable to duplicate macro. Please try again.</source>
         <translation>無法複製巨集，請再試一次。</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1126"/>
+        <location filename="../../controllers/home_controller.py" line="1166"/>
         <source>Duplicated macro: {name}</source>
         <translation>已複製巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1129"/>
+        <location filename="../../controllers/home_controller.py" line="1169"/>
         <source>Import failed</source>
         <translation>匯入失敗</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1134"/>
+        <location filename="../../controllers/home_controller.py" line="1174"/>
         <source>Import Macro</source>
         <translation>匯入巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1136"/>
-        <location filename="../../controllers/home_controller.py" line="1191"/>
+        <location filename="../../controllers/home_controller.py" line="1176"/>
+        <location filename="../../controllers/home_controller.py" line="1231"/>
         <source>Macro ZIP (*.zip)</source>
         <translation>巨集 ZIP (*.zip)</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1153"/>
+        <location filename="../../controllers/home_controller.py" line="1193"/>
         <source>Template conflict</source>
         <translation>模板衝突</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1154"/>
+        <location filename="../../controllers/home_controller.py" line="1194"/>
         <source>Overwrite existing templates: {names}</source>
         <translation>覆蓋既有模板：{names}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1172"/>
+        <location filename="../../controllers/home_controller.py" line="1212"/>
         <source>Imported macro: {name}</source>
         <translation>已匯入巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1189"/>
+        <location filename="../../controllers/home_controller.py" line="1229"/>
         <source>Export Macro</source>
         <translation>匯出巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1213"/>
+        <location filename="../../controllers/home_controller.py" line="1253"/>
         <source>Failed to export macro</source>
         <translation>匯出巨集失敗</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1217"/>
+        <location filename="../../controllers/home_controller.py" line="1257"/>
         <source>Exported macro: {name}</source>
         <translation>已匯出巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1259"/>
+        <location filename="../../controllers/home_controller.py" line="1299"/>
         <source>Unknown step type</source>
         <translation>未知的步驟類型</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1268"/>
+        <location filename="../../controllers/home_controller.py" line="1308"/>
         <source>Select a valid branch first</source>
         <translation>請先選擇有效的分支</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1295"/>
-        <location filename="../../controllers/home_controller.py" line="1315"/>
-        <location filename="../../controllers/home_controller.py" line="1351"/>
-        <location filename="../../controllers/home_controller.py" line="1371"/>
+        <location filename="../../controllers/home_controller.py" line="1335"/>
+        <location filename="../../controllers/home_controller.py" line="1355"/>
+        <location filename="../../controllers/home_controller.py" line="1391"/>
+        <location filename="../../controllers/home_controller.py" line="1411"/>
         <source>Select a step first</source>
         <translation>請先選擇步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1306"/>
+        <location filename="../../controllers/home_controller.py" line="1346"/>
         <source>Duplicated step</source>
         <translation>已複製步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1342"/>
+        <location filename="../../controllers/home_controller.py" line="1382"/>
         <source>Deleted step</source>
         <translation>已刪除步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1362"/>
+        <location filename="../../controllers/home_controller.py" line="1402"/>
         <source>Wrapped step in repeat</source>
         <translation>已包入重複</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1379"/>
+        <location filename="../../controllers/home_controller.py" line="1419"/>
         <source>Cannot move selected step</source>
         <translation>無法移動選取的步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1384"/>
+        <location filename="../../controllers/home_controller.py" line="1424"/>
         <source>Moved step</source>
         <translation>已移動步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1397"/>
+        <location filename="../../controllers/home_controller.py" line="1437"/>
         <source>Stopping macro: {name}</source>
         <translation>正在停止巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1402"/>
-        <location filename="../../controllers/home_controller.py" line="1580"/>
-        <location filename="../../controllers/home_controller.py" line="1614"/>
+        <location filename="../../controllers/home_controller.py" line="1442"/>
+        <location filename="../../controllers/home_controller.py" line="1620"/>
+        <location filename="../../controllers/home_controller.py" line="1654"/>
         <source>Running macro: {name}</source>
         <translation>執行中：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1424"/>
+        <location filename="../../controllers/home_controller.py" line="1464"/>
         <source>Failed to start recorder: {error}</source>
         <translation>無法啟動錄製器：{error}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1433"/>
+        <location filename="../../controllers/home_controller.py" line="1473"/>
         <source>Recording macro: {name}</source>
         <translation>正在錄製巨集：{name}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1482"/>
+        <location filename="../../controllers/home_controller.py" line="1522"/>
         <source>Recording resumed</source>
         <translation>已繼續錄製</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1488"/>
+        <location filename="../../controllers/home_controller.py" line="1528"/>
         <source>Recording paused</source>
         <translation>錄製已暫停</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1505"/>
+        <location filename="../../controllers/home_controller.py" line="1545"/>
         <source>No steps recorded</source>
         <translation>沒有錄到任何步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1511"/>
+        <location filename="../../controllers/home_controller.py" line="1551"/>
         <source>Failed to insert recorded steps</source>
         <translation>無法插入錄製的步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1514"/>
+        <location filename="../../controllers/home_controller.py" line="1554"/>
         <source>Recorded {count} steps</source>
         <translation>已錄製 {count} 個步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1528"/>
+        <location filename="../../controllers/home_controller.py" line="1568"/>
         <source>Recording cancelled</source>
         <translation>錄製已取消</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1610"/>
+        <location filename="../../controllers/home_controller.py" line="1650"/>
         <source>Paused</source>
         <translation>已暫停</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1660"/>
+        <location filename="../../controllers/home_controller.py" line="1700"/>
         <source>Template {id}</source>
         <translation>模板 {id}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1706"/>
+        <location filename="../../controllers/home_controller.py" line="1755"/>
         <source>Select Template Image</source>
         <translation>選擇模板圖片</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1706"/>
+        <location filename="../../controllers/home_controller.py" line="1755"/>
         <source>PNG Images (*.png)</source>
         <translation>PNG 圖片 (*.png)</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1028"/>
+        <location filename="../../controllers/home_controller.py" line="1060"/>
         <source>{button} click at {template}</source>
         <translation>{button}點擊於 {template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1033"/>
+        <location filename="../../controllers/home_controller.py" line="1065"/>
         <source>{button} click at ({x}, {y})</source>
         <translation>{button}點擊於 ({x}, {y})</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1042"/>
+        <location filename="../../controllers/home_controller.py" line="1074"/>
         <source>Move to {template}</source>
         <translation>移動至 {template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1046"/>
+        <location filename="../../controllers/home_controller.py" line="1078"/>
         <source>Move to ({x}, {y})</source>
         <translation>移動至 ({x}, {y})</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1051"/>
+        <location filename="../../controllers/home_controller.py" line="1083"/>
         <source>Scroll {clicks}</source>
         <translation>滾輪 {clicks}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1023"/>
+        <location filename="../../controllers/home_controller.py" line="1055"/>
         <source>Left</source>
         <translation>左鍵</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="429"/>
+        <location filename="../../controllers/home_controller.py" line="448"/>
         <source>Added {step}</source>
         <translation>新增了 {step}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="433"/>
+        <location filename="../../controllers/home_controller.py" line="452"/>
         <source>Deleted {step}</source>
         <translation>刪除了 {step}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="437"/>
+        <location filename="../../controllers/home_controller.py" line="456"/>
         <source>Changed {before} to {after}</source>
         <translation>將 {before} 改為 {after}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="442"/>
-        <location filename="../../controllers/home_controller.py" line="479"/>
-        <location filename="../../controllers/home_controller.py" line="499"/>
+        <location filename="../../controllers/home_controller.py" line="461"/>
+        <location filename="../../controllers/home_controller.py" line="498"/>
+        <location filename="../../controllers/home_controller.py" line="518"/>
         <source>Updated macro</source>
         <translation>已更新巨集</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="461"/>
+        <location filename="../../controllers/home_controller.py" line="480"/>
         <source>step</source>
         <translation>步驟</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="483"/>
+        <location filename="../../controllers/home_controller.py" line="502"/>
         <source>Undo: {change}</source>
         <translation>復原：{change}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="503"/>
+        <location filename="../../controllers/home_controller.py" line="522"/>
         <source>Redo: {change}</source>
         <translation>重做：{change}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1023"/>
+        <location filename="../../controllers/home_controller.py" line="1055"/>
         <source>Right</source>
         <translation>右鍵</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1023"/>
+        <location filename="../../controllers/home_controller.py" line="1055"/>
         <source>Middle</source>
         <translation>中鍵</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1589"/>
+        <location filename="../../controllers/home_controller.py" line="1629"/>
         <source>Stopped macro: {name} ({elapsed})</source>
         <translation>已停止巨集：{name}（{elapsed}）</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1593"/>
+        <location filename="../../controllers/home_controller.py" line="1633"/>
         <source>Done: {name} ({elapsed})</source>
         <translation>完成：{name}（{elapsed}）</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1598"/>
+        <location filename="../../controllers/home_controller.py" line="1638"/>
         <source>{name}: {message} ({elapsed})</source>
         <translation>{name}：{message}（{elapsed}）</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1620"/>
+        <location filename="../../controllers/home_controller.py" line="1660"/>
         <source>Missing templates: {names}</source>
         <translation>缺少模板：{names}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1621"/>
+        <location filename="../../controllers/home_controller.py" line="1661"/>
         <source>Error: {detail}</source>
         <translation>錯誤：{detail}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1622"/>
+        <location filename="../../controllers/home_controller.py" line="1662"/>
         <source>Macro format error: {errors}</source>
         <translation>巨集格式錯誤：{errors}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1623"/>
+        <location filename="../../controllers/home_controller.py" line="1663"/>
         <source>Wait timeout: {template}</source>
         <translation>等待逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1624"/>
+        <location filename="../../controllers/home_controller.py" line="1664"/>
         <source>Wait any timeout: {templates}</source>
         <translation>等待任一逾時：{templates}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1625"/>
+        <location filename="../../controllers/home_controller.py" line="1665"/>
         <source>Mouse click: empty template</source>
         <translation>滑鼠點擊：模板為空</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1626"/>
+        <location filename="../../controllers/home_controller.py" line="1666"/>
         <source>Mouse click timeout: {template}</source>
         <translation>滑鼠點擊逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1627"/>
+        <location filename="../../controllers/home_controller.py" line="1667"/>
         <source>Mouse move: empty template</source>
         <translation>滑鼠移動：模板為空</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1628"/>
+        <location filename="../../controllers/home_controller.py" line="1668"/>
         <source>Mouse move timeout: {template}</source>
         <translation>滑鼠移動逾時：{template}</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1634"/>
+        <location filename="../../controllers/home_controller.py" line="1674"/>
         <source>Window not found</source>
         <translation>找不到目標視窗</translation>
     </message>
     <message>
-        <location filename="../../controllers/home_controller.py" line="1635"/>
+        <location filename="../../controllers/home_controller.py" line="1675"/>
         <source>Elevation mismatch, do not run target app as admin</source>
         <translation>權限等級不符，請勿以系統管理員身分執行目標應用程式</translation>
     </message>
@@ -548,9 +548,68 @@
 <context>
     <name>HotkeyEdit</name>
     <message>
-        <location filename="../../views/components/hotkey_edit.py" line="12"/>
         <source>Press a hotkey</source>
-        <translation>按下快捷鍵</translation>
+        <translation type="vanished">按下快捷鍵</translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="18"/>
+        <source>Press a key</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyInput</name>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="212"/>
+        <location filename="../../views/components/hotkey_edit.py" line="230"/>
+        <source>Select a hotkey</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyPicker</name>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="95"/>
+        <source>SHIFT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="96"/>
+        <source>CTRL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="97"/>
+        <source>WIN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="98"/>
+        <source>ALT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="115"/>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyPickerDialog</name>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="184"/>
+        <source>Select a hotkey</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="190"/>
+        <source>OK</source>
+        <translation>確定</translation>
+    </message>
+    <message>
+        <location filename="../../views/components/hotkey_edit.py" line="191"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
     </message>
 </context>
 <context>
@@ -589,47 +648,47 @@
 <context>
     <name>MainController</name>
     <message>
-        <location filename="../../controllers/main_controller.py" line="93"/>
+        <location filename="../../controllers/main_controller.py" line="103"/>
         <source>Running: {label}</source>
         <translation>執行中：{label}</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="63"/>
+        <location filename="../../controllers/main_controller.py" line="73"/>
         <source>Open the selected window to continue</source>
         <translation>請開啟指定的視窗以繼續</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="62"/>
+        <location filename="../../controllers/main_controller.py" line="72"/>
         <source>Paused</source>
         <translation>已暫停</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="64"/>
+        <location filename="../../controllers/main_controller.py" line="74"/>
         <source>Switch back to the selected window to continue</source>
         <translation>請切換回指定的視窗以繼續</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="102"/>
+        <location filename="../../controllers/main_controller.py" line="112"/>
         <source>Loop {progress}/{total}</source>
         <translation>迴圈 {progress}/{total}</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="146"/>
+        <location filename="../../controllers/main_controller.py" line="156"/>
         <source>Up to date</source>
         <translation>已是最新版本</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="147"/>
+        <location filename="../../controllers/main_controller.py" line="157"/>
         <source>You are already using the latest version.</source>
         <translation>目前已是最新版本。</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="153"/>
+        <location filename="../../controllers/main_controller.py" line="163"/>
         <source>Update check failed</source>
         <translation>檢查更新失敗</translation>
     </message>
     <message>
-        <location filename="../../controllers/main_controller.py" line="154"/>
+        <location filename="../../controllers/main_controller.py" line="164"/>
         <source>Unable to check for updates.</source>
         <translation>無法檢查更新。</translation>
     </message>
@@ -831,29 +890,29 @@
 <context>
     <name>RecordingOverlay</name>
     <message>
-        <location filename="../../views/components/recording_overlay.py" line="17"/>
+        <location filename="../../views/components/recording_overlay.py" line="35"/>
         <location filename="../../views/components/recording_overlay.py" line="59"/>
         <source>Recording</source>
         <translation>錄製中</translation>
     </message>
     <message>
-        <location filename="../../views/components/recording_overlay.py" line="25"/>
+        <location filename="../../views/components/recording_overlay.py" line="17"/>
         <location filename="../../views/components/recording_overlay.py" line="61"/>
         <source>Pause</source>
         <translation>暫停</translation>
     </message>
     <message>
-        <location filename="../../views/components/recording_overlay.py" line="29"/>
+        <location filename="../../views/components/recording_overlay.py" line="21"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
     <message>
-        <location filename="../../views/components/recording_overlay.py" line="33"/>
+        <location filename="../../views/components/recording_overlay.py" line="25"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../../views/components/recording_overlay.py" line="34"/>
+        <location filename="../../views/components/recording_overlay.py" line="26"/>
         <source>Cancel recording</source>
         <translation>取消錄製</translation>
     </message>
@@ -899,127 +958,127 @@
 <context>
     <name>RightPanel</name>
     <message>
-        <location filename="../../views/components/right_panel.py" line="759"/>
+        <location filename="../../views/components/right_panel.py" line="711"/>
         <source>Macro Properties</source>
         <translation>巨集屬性</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="762"/>
+        <location filename="../../views/components/right_panel.py" line="714"/>
         <source>Select a macro to inspect its metadata.</source>
         <translation>選擇巨集以查看其資訊。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="454"/>
-        <location filename="../../views/components/right_panel.py" line="491"/>
+        <location filename="../../views/components/right_panel.py" line="406"/>
+        <location filename="../../views/components/right_panel.py" line="443"/>
         <source>Key</source>
         <translation>按鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="455"/>
+        <location filename="../../views/components/right_panel.py" line="407"/>
         <source>Hold (ms)</source>
         <translation>按住 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="462"/>
+        <location filename="../../views/components/right_panel.py" line="414"/>
         <source>Duration (ms)</source>
         <translation>持續時間 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="471"/>
-        <location filename="../../views/components/right_panel.py" line="494"/>
-        <location filename="../../views/components/right_panel.py" line="543"/>
-        <location filename="../../views/components/right_panel.py" line="556"/>
-        <location filename="../../views/components/right_panel.py" line="619"/>
-        <location filename="../../views/components/right_panel.py" line="668"/>
+        <location filename="../../views/components/right_panel.py" line="423"/>
+        <location filename="../../views/components/right_panel.py" line="446"/>
+        <location filename="../../views/components/right_panel.py" line="495"/>
+        <location filename="../../views/components/right_panel.py" line="508"/>
+        <location filename="../../views/components/right_panel.py" line="571"/>
+        <location filename="../../views/components/right_panel.py" line="620"/>
         <source>Threshold</source>
         <translation>相似度</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="474"/>
-        <location filename="../../views/components/right_panel.py" line="546"/>
-        <location filename="../../views/components/right_panel.py" line="559"/>
-        <location filename="../../views/components/right_panel.py" line="624"/>
-        <location filename="../../views/components/right_panel.py" line="673"/>
+        <location filename="../../views/components/right_panel.py" line="426"/>
+        <location filename="../../views/components/right_panel.py" line="498"/>
+        <location filename="../../views/components/right_panel.py" line="511"/>
+        <location filename="../../views/components/right_panel.py" line="576"/>
+        <location filename="../../views/components/right_panel.py" line="625"/>
         <source>Timeout (ms)</source>
         <translation>逾時 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="477"/>
-        <location filename="../../views/components/right_panel.py" line="562"/>
-        <location filename="../../views/components/right_panel.py" line="629"/>
-        <location filename="../../views/components/right_panel.py" line="678"/>
+        <location filename="../../views/components/right_panel.py" line="429"/>
+        <location filename="../../views/components/right_panel.py" line="514"/>
+        <location filename="../../views/components/right_panel.py" line="581"/>
+        <location filename="../../views/components/right_panel.py" line="630"/>
         <source>On Timeout</source>
         <translation>逾時動作</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="480"/>
-        <location filename="../../views/components/right_panel.py" line="565"/>
-        <location filename="../../views/components/right_panel.py" line="632"/>
-        <location filename="../../views/components/right_panel.py" line="681"/>
+        <location filename="../../views/components/right_panel.py" line="432"/>
+        <location filename="../../views/components/right_panel.py" line="517"/>
+        <location filename="../../views/components/right_panel.py" line="584"/>
+        <location filename="../../views/components/right_panel.py" line="633"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="481"/>
-        <location filename="../../views/components/right_panel.py" line="566"/>
-        <location filename="../../views/components/right_panel.py" line="633"/>
-        <location filename="../../views/components/right_panel.py" line="682"/>
+        <location filename="../../views/components/right_panel.py" line="433"/>
+        <location filename="../../views/components/right_panel.py" line="518"/>
+        <location filename="../../views/components/right_panel.py" line="585"/>
+        <location filename="../../views/components/right_panel.py" line="634"/>
         <source>Continue</source>
         <translation>繼續</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="497"/>
+        <location filename="../../views/components/right_panel.py" line="449"/>
         <source>Load Delay (ms)</source>
         <translation>載入等待 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="502"/>
+        <location filename="../../views/components/right_panel.py" line="454"/>
         <source>Find Timeout (ms)</source>
         <translation>尋找逾時 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="507"/>
+        <location filename="../../views/components/right_panel.py" line="459"/>
         <source>Gone Grace (ms)</source>
         <translation>消失確認 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="512"/>
+        <location filename="../../views/components/right_panel.py" line="464"/>
         <source>Hard Timeout (ms)</source>
         <translation>硬性上限 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="522"/>
+        <location filename="../../views/components/right_panel.py" line="474"/>
         <source>Text</source>
         <translation>文字</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="524"/>
-        <location filename="../../views/components/right_panel.py" line="694"/>
+        <location filename="../../views/components/right_panel.py" line="476"/>
+        <location filename="../../views/components/right_panel.py" line="646"/>
         <source>Interval (ms)</source>
         <translation>間隔 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="534"/>
+        <location filename="../../views/components/right_panel.py" line="486"/>
         <source>Count</source>
         <translation>次數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="576"/>
+        <location filename="../../views/components/right_panel.py" line="528"/>
         <source>Rows</source>
         <translation>列數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="577"/>
+        <location filename="../../views/components/right_panel.py" line="529"/>
         <source>Start Cell</source>
         <translation>起始格</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="790"/>
+        <location filename="../../views/components/right_panel.py" line="742"/>
         <source>Inside {parent}</source>
         <translation>位於 {parent} 內</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="794"/>
+        <location filename="../../views/components/right_panel.py" line="746"/>
         <source>Add Step</source>
         <translation>新增步驟</translation>
     </message>
@@ -1039,123 +1098,123 @@
         <translation>快捷鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="294"/>
+        <location filename="../../views/components/right_panel.py" line="246"/>
         <source>Enabled</source>
         <translation>啟用</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="304"/>
+        <location filename="../../views/components/right_panel.py" line="256"/>
         <source>Gaming Mode</source>
         <translation>遊戲模式</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="313"/>
+        <location filename="../../views/components/right_panel.py" line="265"/>
         <source>Scales templates for changing game resolutions. Turn it off for desktop apps when the target window size stays the same.</source>
         <translation>會依遊戲解析度變化縮放範本。若用於視窗大小固定的桌面程式，建議關閉。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="321"/>
+        <location filename="../../views/components/right_panel.py" line="273"/>
         <source>Background Input</source>
         <translation>背景輸入</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="331"/>
+        <location filename="../../views/components/right_panel.py" line="283"/>
         <source>Sends keys and mouse messages directly to the target window without focusing it. Some games ignore background messages; turn it off to use normal foreground input.</source>
         <translation>不切換焦點，直接把鍵盤與滑鼠訊息送到目標視窗。有些遊戲會忽略背景訊息；若需要一般前景輸入，請關閉。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="339"/>
+        <location filename="../../views/components/right_panel.py" line="291"/>
         <source>Prevent Focus Loss</source>
         <translation>防止失焦</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="349"/>
+        <location filename="../../views/components/right_panel.py" line="301"/>
         <source>Prevents the game from detecting that it lost focus, so it won&apos;t pause when you click away. May not work with all games.</source>
         <translation>防止遊戲偵測到失焦，讓你切換視窗時遊戲不會暫停。不一定適用所有遊戲。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="356"/>
+        <location filename="../../views/components/right_panel.py" line="308"/>
         <source>Skip</source>
         <translation>跳過</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="367"/>
+        <location filename="../../views/components/right_panel.py" line="319"/>
         <source>Note</source>
         <translation>備註</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="370"/>
+        <location filename="../../views/components/right_panel.py" line="322"/>
         <source>Add a note for this step</source>
         <translation>為此步驟加入備註</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="385"/>
+        <location filename="../../views/components/right_panel.py" line="337"/>
         <source>Add Template</source>
         <translation>新增模板</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="585"/>
+        <location filename="../../views/components/right_panel.py" line="537"/>
         <source>Button</source>
         <translation>按鈕</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="588"/>
+        <location filename="../../views/components/right_panel.py" line="540"/>
         <source>Left</source>
         <translation>左鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="589"/>
+        <location filename="../../views/components/right_panel.py" line="541"/>
         <source>Right</source>
         <translation>右鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="590"/>
+        <location filename="../../views/components/right_panel.py" line="542"/>
         <source>Middle</source>
         <translation>中鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="595"/>
-        <location filename="../../views/components/right_panel.py" line="644"/>
+        <location filename="../../views/components/right_panel.py" line="547"/>
+        <location filename="../../views/components/right_panel.py" line="596"/>
         <source>Target</source>
         <translation>目標</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="598"/>
-        <location filename="../../views/components/right_panel.py" line="647"/>
+        <location filename="../../views/components/right_panel.py" line="550"/>
+        <location filename="../../views/components/right_panel.py" line="599"/>
         <source>Coordinate</source>
         <translation>座標</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="599"/>
-        <location filename="../../views/components/right_panel.py" line="648"/>
+        <location filename="../../views/components/right_panel.py" line="551"/>
+        <location filename="../../views/components/right_panel.py" line="600"/>
         <source>Image Center</source>
         <translation>圖片中心</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="608"/>
-        <location filename="../../views/components/right_panel.py" line="657"/>
+        <location filename="../../views/components/right_panel.py" line="560"/>
+        <location filename="../../views/components/right_panel.py" line="609"/>
         <source>Relative</source>
         <translation>相對位置</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="611"/>
-        <location filename="../../views/components/right_panel.py" line="660"/>
+        <location filename="../../views/components/right_panel.py" line="563"/>
+        <location filename="../../views/components/right_panel.py" line="612"/>
         <source>Client</source>
         <translation>客戶區</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="612"/>
-        <location filename="../../views/components/right_panel.py" line="661"/>
+        <location filename="../../views/components/right_panel.py" line="564"/>
+        <location filename="../../views/components/right_panel.py" line="613"/>
         <source>Absolute</source>
         <translation>螢幕絕對</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="692"/>
+        <location filename="../../views/components/right_panel.py" line="644"/>
         <source>Scroll Clicks</source>
         <translation>滾輪格數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="699"/>
+        <location filename="../../views/components/right_panel.py" line="651"/>
         <source>Positive = scroll up, negative = scroll down</source>
         <translation>正數 = 向上滾，負數 = 向下滾</translation>
     </message>

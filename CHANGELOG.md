@@ -22,6 +22,7 @@
 
 - Editing step notes and template labels can now be undone and redone correctly.
 - The status bar message shown when a macro finishes with an error is now properly translatable.
+- Step tree icons now update correctly when switching from dark theme to light theme.
 
 <!-- lang:zh_tw -->
 
@@ -43,6 +44,7 @@
 
 - 編輯步驟備註與範本名稱後，現在可以正確復原與重做。
 - 巨集因錯誤結束時顯示的狀態列訊息現在可以正確翻譯。
+- 從深色主題切換到淺色主題時，步驟樹圖示現在會正確更新。
 
 <!-- lang:zh_cn -->
 
@@ -64,6 +66,7 @@
 
 - 编辑步骤备注与模板名称后，现在可以正确撤销与重做。
 - 宏因错误结束时显示的状态栏消息现在可以正确翻译。
+- 从深色主题切换到浅色主题时，步骤树图标现在会正确更新。
 
 ## v0.9.0
 

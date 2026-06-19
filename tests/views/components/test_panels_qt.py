@@ -330,6 +330,35 @@ def test_center_panel_preserves_collapsed_state_and_expands_selected_ancestor(qt
     assert root_item.isExpanded()
 
 
+def test_center_panel_refresh_tree_icons_reloads_existing_item_icons(monkeypatch, qtbot) -> None:
+    panel = CenterPanel()
+    qtbot.addWidget(panel)
+    calls = []
+    original_path = center_panel.RemakuIcon.path
+
+    def fake_path(self, *args, **kwargs):
+        calls.append(self)
+        return original_path(self, *args, **kwargs)
+
+    monkeypatch.setattr(center_panel.RemakuIcon, "path", fake_path)
+    parent_step = {"type": "repeat"}
+
+    panel.set_step_tree(
+        [
+            {
+                "label": "Repeat",
+                "step": parent_step,
+                "children": [{"label": "Body", "branch": (parent_step, "steps")}],
+            }
+        ]
+    )
+
+    calls.clear()
+    panel.refresh_tree_icons()
+
+    assert calls == [center_panel.RemakuIcon.REPEAT, center_panel.RemakuIcon.CORNER_DOWN_RIGHT]
+
+
 def test_center_panel_mouse_press_empty_area_clears_selection(qtbot) -> None:
     panel = CenterPanel()
     qtbot.addWidget(panel)

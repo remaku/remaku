@@ -3,7 +3,7 @@ from typing import Any
 from PySide6.QtCore import QModelIndex, QPoint, Qt
 from PySide6.QtGui import QIcon, QKeySequence
 from PySide6.QtWidgets import QTreeWidgetItem, QVBoxLayout
-from qfluentwidgets import Action, BodyLabel, CardWidget, RoundMenu, TreeWidget
+from qfluentwidgets import Action, BodyLabel, CardWidget, RoundMenu, TreeWidget, qconfig
 
 from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
@@ -31,9 +31,11 @@ class CenterPanel(CardWidget):
         self.item_to_step: dict[QTreeWidgetItem, object] = {}
         self.item_to_branch: dict[QTreeWidgetItem, tuple[object, str]] = {}
         self.item_to_state_key: dict[QTreeWidgetItem, object] = {}
+        self.item_to_icon: dict[QTreeWidgetItem, RemakuIcon] = {}
         self.has_clipboard = False
 
         event_bus.clipboard_changed.connect(self.set_has_clipboard)
+        qconfig.themeChangedFinished.connect(self.refresh_tree_icons)
 
         self.init_ui()
 
@@ -59,6 +61,7 @@ class CenterPanel(CardWidget):
         self.item_to_step = {}
         self.item_to_branch = {}
         self.item_to_state_key = {}
+        self.item_to_icon = {}
         selected_item: QTreeWidgetItem | None = None
 
         for item_data in items:
@@ -128,7 +131,7 @@ class CenterPanel(CardWidget):
             self.item_to_state_key[item] = state_key
 
         if "branch" in item_data:
-            item.setIcon(0, QIcon(RemakuIcon.CORNER_DOWN_RIGHT.path()))
+            self.set_item_icon(item, RemakuIcon.CORNER_DOWN_RIGHT)
             parent_step, branch_key = item_data["branch"]
             self.item_to_branch[item] = (parent_step, branch_key)
         else:
@@ -137,7 +140,7 @@ class CenterPanel(CardWidget):
             step_icon = STEP_TYPE_ICONS.get(step_type)
 
             if step_icon is not None:
-                item.setIcon(0, QIcon(step_icon.path()))
+                self.set_item_icon(item, step_icon)
 
             self.item_to_step[item] = step
 
@@ -145,6 +148,16 @@ class CenterPanel(CardWidget):
             item.addChild(self.build_tree_item(child_data))
 
         return item
+
+    def set_item_icon(self, item: QTreeWidgetItem, icon: RemakuIcon) -> None:
+        self.item_to_icon[item] = icon
+        item.setIcon(0, QIcon(icon.path()))
+
+    def refresh_tree_icons(self) -> None:
+        for item, icon in self.item_to_icon.items():
+            item.setIcon(0, QIcon(icon.path()))
+
+        self.step_list.viewport().update()
 
     def handle_step_selected(self, current: QTreeWidgetItem | None) -> None:
         if current is not None and current in self.item_to_branch:

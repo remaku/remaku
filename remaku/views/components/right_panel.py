@@ -1,5 +1,5 @@
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal
-from PySide6.QtGui import QFocusEvent, QIntValidator, QKeyEvent, QKeySequence
+from PySide6.QtGui import QFocusEvent, QIntValidator
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -16,7 +16,7 @@ from qfluentwidgets import (
     ToolTipPosition,
 )
 
-from remaku.core import keys, window
+from remaku.core import window
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
     DelayStep,
@@ -36,7 +36,7 @@ from remaku.models.macro_model import (
 )
 from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
-from remaku.views.components.hotkey_edit import HotkeyEdit
+from remaku.views.components.hotkey_edit import HotkeyInput
 from remaku.views.components.step_menu import show_step_menu
 from remaku.views.components.template_editor import TemplateEditor
 
@@ -208,7 +208,7 @@ class PropertyFormMixin:
 
     def add_hotkey_text_input(self, macro: Macro) -> None:
         self.add_field_label(QCoreApplication.translate("RightPanel", "Hotkey"))
-        hotkey_edit = HotkeyEdit(self.content_widget)
+        hotkey_edit = HotkeyInput(self.content_widget)
         hotkey_edit.setText(macro.meta.hotkey)
 
         hotkey_edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
@@ -217,59 +217,11 @@ class PropertyFormMixin:
 
     def add_key_input(self, label: str, value: str) -> None:
         self.add_field_label(label)
-        field = LineEdit(self.content_widget)
+        field = HotkeyInput(self.content_widget)
         field.setText(value)
-        field.setReadOnly(True)
-        field.setClearButtonEnabled(True)
-
-        field.textChanged.connect(lambda text: event_bus.step_property_changed.emit("key", "") if not text else None)
-        field.keyPressEvent = lambda e: self.capture_key(e, field)
+        field.textChanged.connect(lambda text: event_bus.step_property_changed.emit("key", text))
 
         self.content_layout.addWidget(field)
-
-    def capture_key(self, event: QKeyEvent, edit: LineEdit) -> None:
-        key = event.key()
-
-        if key in (
-            Qt.Key.Key_Shift,
-            Qt.Key.Key_Control,
-            Qt.Key.Key_Alt,
-            Qt.Key.Key_Meta,
-        ):
-            return
-
-        key_name = QKeySequence(key).toString().lower()
-        key_name = {
-            "return": "enter",
-            "del": "delete",
-            "pgdown": "pagedown",
-            "pgup": "pageup",
-            "ins": "insert",
-            "print": "printscreen",
-        }.get(key_name, key_name)
-
-        parts: list[str] = []
-        mods = event.modifiers()
-
-        if mods & Qt.KeyboardModifier.ControlModifier:
-            parts.append("ctrl")
-        if mods & Qt.KeyboardModifier.AltModifier:
-            parts.append("alt")
-        if mods & Qt.KeyboardModifier.ShiftModifier:
-            parts.append("shift")
-        if mods & Qt.KeyboardModifier.MetaModifier:
-            parts.append("win")
-
-        parts.append(key_name)
-        key_combo = "+".join(parts)
-
-        if not keys.is_valid_key(key_combo):
-            return
-
-        edit.blockSignals(True)
-        edit.setText(key_combo)
-        edit.blockSignals(False)
-        event_bus.step_property_changed.emit("key", key_combo)
 
     def add_checkbox_with_hint(self, checkbox: CheckBox, hint: str) -> None:
         row = QWidget(self.content_widget)

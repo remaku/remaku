@@ -12,7 +12,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QApplication, QFileDialog
 
 from remaku.core import display, window
 from remaku.core.dialogs import show_confirm_dialog, show_message_dialog
@@ -57,6 +57,7 @@ from remaku.services.macro_runner import MacroRunner
 from remaku.services.template_service import TemplateService
 from remaku.version import __version__
 from remaku.views.components.about_dialog import AboutDialog
+from remaku.views.components.hotkey_edit import KEY_CAPTURE_PROPERTY
 from remaku.views.components.new_macro_dialog import NewMacroDialog
 from remaku.views.components.recording_overlay import RecordingOverlay
 from remaku.views.components.rename_macro_dialog import RenameMacroDialog
@@ -190,11 +191,28 @@ class HomeController(QObject):
 
         for key, handler in shortcut_map.items():
             shortcut = QShortcut(QKeySequence(key), self.view)
-            shortcut.activated.connect(handler)
+            shortcut.activated.connect(lambda handler=handler: self.handle_shortcut(handler))
             self.shortcuts.append(shortcut)
 
             if key in editing_keys:
                 self.editing_shortcuts.append(shortcut)
+
+    def handle_shortcut(self, handler: Callable[[], None]) -> None:
+        if self.is_hotkey_input_focused():
+            return
+
+        handler()
+
+    def is_hotkey_input_focused(self) -> bool:
+        widget = QApplication.focusWidget()
+
+        while widget is not None:
+            if widget.property(KEY_CAPTURE_PROPERTY):
+                return True
+
+            widget = widget.parentWidget()
+
+        return False
 
     def set_current_macro(self, macro: Macro | None) -> None:
         self.current_macro = macro

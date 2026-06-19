@@ -4,7 +4,7 @@ from qfluentwidgets import BodyLabel, CardWidget, CheckBox, ComboBox, LineEdit, 
 
 from remaku.core.i18n import settings_language_options
 from remaku.models.config_model import config_model
-from remaku.views.components.hotkey_edit import HotkeyEdit
+from remaku.views.components.hotkey_edit import HotkeyInput
 
 
 class SettingsView(ScrollArea):
@@ -12,7 +12,7 @@ class SettingsView(ScrollArea):
         super().__init__(parent)
 
         self.setObjectName("settings")
-        self.widgets: dict[str, CheckBox | ComboBox | LineEdit | HotkeyEdit] = {}
+        self.widgets: dict[str, CheckBox | ComboBox | LineEdit | HotkeyInput] = {}
 
         self.init_ui()
 
@@ -134,7 +134,7 @@ class SettingsView(ScrollArea):
         layout.addWidget(BodyLabel(label, card))
         layout.addStretch(1)
 
-        edit = HotkeyEdit(card)
+        edit = HotkeyInput(card)
         edit.setText(value)
         layout.addWidget(edit)
 

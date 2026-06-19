@@ -6,6 +6,7 @@
 
 ### Added
 
+- Hotkey picker dialog: click "Select a hotkey" to open a dialog with toggle buttons for modifier keys (Shift, Ctrl, Win, Alt) and a key capture field. Used in Settings, macro properties, and step key editing.
 - Macro recording: click the Record button to capture keyboard and mouse actions outside the application, then stop to insert the recorded steps into your macro. The recording overlay shows elapsed time and event count, and typed text is recorded correctly for your keyboard layout.
 - The status bar now shows elapsed time when a macro finishes or is stopped (e.g., `Done: MyMacro (01:23)`).
 - Background Input: a new macro option (enabled by default) that sends keystrokes and mouse actions directly to the target window without switching focus. Turn it off to use normal foreground input when a game ignores background messages.
@@ -15,6 +16,8 @@
 
 ### Changed
 
+- Keyboard shortcuts (paste, undo, delete, etc.) are now suppressed while any hotkey input field is focused, preventing accidental actions when editing hotkeys.
+- The Tab key is now captured as a hotkey key instead of moving focus when a hotkey field is active.
 - The theme dropdown in Settings now lists Light before Dark.
 - When a macro is running, the right panel, File/Edit menus, and global actions (Settings, New Macro, Duplicate Macro, Import/Export, Pack Explorer) are now disabled to prevent changes that could affect the runner.
 
@@ -28,6 +31,7 @@
 
 ### 新增
 
+- 快捷鍵選擇對話框：點擊「選擇快捷鍵」開啟對話框，內含修飾鍵（Shift、Ctrl、Win、Alt）切換按鈕與按鍵擷取欄位。適用於設定、巨集屬性與步驟按鍵編輯。
 - 巨集錄製：按下「錄製」按鈕即可捕捉應用程式外部的鍵盤與滑鼠操作，停止後將錄製的步驟插入目前巨集。錄製浮動面板會顯示已耗時間與事件數量，且輸入的文字會根據你的鍵盤佈局正確錄製。
 - 狀態列現在會在巨集完成或停止時顯示經過時間（例如 `完成：MyMacro（01:23）`）。
 - 背景輸入：新增巨集選項（預設開啟），直接將按鍵和滑鼠操作送到目標視窗而不切換焦點。當遊戲忽略背景訊息時，可關閉此選項改用一般前景輸入。
@@ -37,6 +41,8 @@
 
 ### 變更
 
+- 當任何快捷鍵輸入欄位取得焦點時，鍵盤快捷鍵（貼上、復原、刪除等）會被暫時停用，避免編輯快捷鍵時誤觸操作。
+- 在快捷鍵欄位使用時，Tab 鍵現在會被擷取為快捷鍵而非移動焦點。
 - 設定中的主題下拉選單順序調整為淺色在深色之前。
 - 巨集執行期間，右側面板、檔案/編輯選單和全域操作（設定、新增巨集、複製巨集、匯入/匯出、套件瀏覽器）現在會停用，防止變更影響執行中的巨集。
 
@@ -50,6 +56,7 @@
 
 ### 新增
 
+- 快捷键选择对话框：点击「选择快捷键」打开对话框，内含修饰键（Shift、Ctrl、Win、Alt）切换按钮与按键捕获字段。适用于设置、宏属性与步骤按键编辑。
 - 宏录制：按下「录制」按钮即可捕捉应用程序外部的键盘与鼠标操作，停止后将录制的步骤插入当前宏。录制浮动面板会显示已用时间与事件数量，且输入的文字会根据你的键盘布局正确录制。
 - 状态栏现在会在宏完成或停止时显示经过时间（例如 `完成：MyMacro（01:23）`）。
 - 背景输入：新增宏选项（默认开启），直接将按键和鼠标操作发送到目标窗口而不切换焦点。当游戏忽略背景消息时，可关闭此选项改用常规前台输入。
@@ -59,6 +66,8 @@
 
 ### 变更
 
+- 当任何快捷键输入字段获得焦点时，键盘快捷键（粘贴、撤销、删除等）会被暂时禁用，避免编辑快捷键时误触操作。
+- 在快捷键字段使用时，Tab 键现在会被捕获为快捷键而非移动焦点。
 - 设置中的主题下拉菜单顺序调整为浅色在深色之前。
 - 宏执行期间，右侧面板、文件/编辑菜单和全局操作（设置、新建宏、复制宏、导入/导出、包浏览器）现在会禁用，防止变更影响运行中的宏。
 

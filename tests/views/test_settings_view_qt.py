@@ -2,6 +2,7 @@ from qfluentwidgets import CheckBox, ComboBox, LineEdit
 
 from remaku.models.config_model import AppConfig
 from remaku.views import settings_view
+from remaku.views.components.hotkey_edit import HotkeyInput
 from remaku.views.settings_view import SettingsView
 
 
@@ -61,7 +62,7 @@ def test_settings_view_applies_config_values_to_widgets(monkeypatch, qtbot) -> N
     assert always_on_top.isChecked()
     assert isinstance(overlay_enabled, CheckBox)
     assert not overlay_enabled.isChecked()
-    assert isinstance(pause_hotkey, LineEdit)
+    assert isinstance(pause_hotkey, HotkeyInput)
     assert pause_hotkey.text() == "ctrl+break"
     assert isinstance(update_channel, ComboBox)
     assert update_channel.currentData() == "beta"

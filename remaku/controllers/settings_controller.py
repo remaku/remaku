@@ -8,6 +8,7 @@ from qfluentwidgets import CheckBox, ComboBox, LineEdit
 from remaku.core.event_bus import event_bus
 from remaku.models.config_model import config_model
 from remaku.theme import apply_theme
+from remaku.views.components.hotkey_edit import HotkeyInput
 from remaku.views.main_window import MainWindow
 from remaku.views.settings_view import SettingsView
 
@@ -25,6 +26,9 @@ class SettingsController(QObject):
 
             elif isinstance(widget, ComboBox):
                 widget.currentIndexChanged.connect(lambda index, k=key: self.on_combo_changed(k))
+
+            elif isinstance(widget, HotkeyInput):
+                widget.textChanged.connect(lambda text, k=key: self.on_text_changed(k))
 
             elif isinstance(widget, LineEdit):
                 if key == "general.pause_hotkey":
@@ -48,6 +52,10 @@ class SettingsController(QObject):
     def on_text_changed(self, key: str) -> None:
         widget = self.view.widgets.get(key)
         if widget is None:
+            return
+
+        if isinstance(widget, HotkeyInput):
+            self.apply_setting(key, widget.text().strip().lower())
             return
 
         assert isinstance(widget, LineEdit)

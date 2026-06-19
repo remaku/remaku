@@ -14,6 +14,7 @@ from remaku.services import hotkey_service, macro_import_service
 from remaku.services.clipboard_service import ClipboardService
 from remaku.services.engine import Status
 from remaku.services.template_service import TemplateService
+from remaku.views.components.hotkey_edit import HotkeyEdit
 
 
 class FakeMacroModel:
@@ -415,6 +416,28 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller_view.toolbar.undo_button.enabled is False
     assert controller_view.toolbar.redo_button.enabled is False
     assert controller_view.center_panel.step_tree_items == []
+
+
+def test_handle_shortcut_ignores_action_while_hotkey_input_focused(monkeypatch, qtbot) -> None:
+    controller = make_controller()
+    edit = HotkeyEdit()
+    qtbot.addWidget(edit)
+    calls = []
+    monkeypatch.setattr(home_controller.QApplication, "focusWidget", lambda: edit)
+
+    controller.handle_shortcut(lambda: calls.append("paste"))
+
+    assert calls == []
+
+
+def test_handle_shortcut_runs_action_when_hotkey_input_not_focused(monkeypatch) -> None:
+    controller = make_controller()
+    calls = []
+    monkeypatch.setattr(home_controller.QApplication, "focusWidget", lambda: None)
+
+    controller.handle_shortcut(lambda: calls.append("paste"))
+
+    assert calls == ["paste"]
 
 
 def test_set_editing_locked_disables_editing_controls() -> None:

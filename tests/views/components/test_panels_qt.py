@@ -1,9 +1,17 @@
 from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import QModelIndex, QPointF, Qt
-from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
+from PySide6.QtGui import QFocusEvent, QKeyEvent, QKeySequence, QMouseEvent, QShortcut
 from PySide6.QtWidgets import QWidget
-from qfluentwidgets import BodyLabel, CheckBox, ComboBox, LineEdit, TextEdit
+from qfluentwidgets import (
+    BodyLabel,
+    CheckBox,
+    ComboBox,
+    LineEdit,
+    MessageBoxBase,
+    TextEdit,
+    TogglePushButton,
+)
 
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
@@ -20,9 +28,9 @@ from remaku.models.macro_model import (
     TemplateInfo,
     WaitImageStep,
 )
-from remaku.views.components import center_panel, left_panel, right_panel
+from remaku.views.components import center_panel, hotkey_edit, left_panel, right_panel
 from remaku.views.components.center_panel import CenterPanel
-from remaku.views.components.hotkey_edit import HotkeyEdit
+from remaku.views.components.hotkey_edit import HotkeyEdit, HotkeyInput, HotkeyPicker, HotkeyPickerDialog
 from remaku.views.components.left_panel import LeftPanel
 from remaku.views.components.right_panel import RightPanel
 
@@ -543,71 +551,6 @@ def test_right_panel_refresh_target_windows_selects_foreground_default(monkeypat
     assert combo.currentData() == ""
 
 
-def test_right_panel_capture_key_normalizes_supported_key(monkeypatch, qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
-    qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "delete")
-    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Delete, Qt.KeyboardModifier.NoModifier)
-
-    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
-        panel.capture_key(event, edit)
-
-    assert edit.text() == "delete"
-    assert blocker.args == ["key", "delete"]
-
-
-def test_right_panel_capture_key_includes_modifier_keys(monkeypatch, qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
-    qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "ctrl+shift+s")
-    event = QKeyEvent(
-        QKeyEvent.Type.KeyPress,
-        Qt.Key.Key_S,
-        Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier,
-    )
-
-    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
-        panel.capture_key(event, edit)
-
-    assert edit.text() == "ctrl+shift+s"
-    assert blocker.args == ["key", "ctrl+shift+s"]
-
-
-def test_right_panel_capture_key_includes_alt_and_win_modifiers(monkeypatch, qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
-    qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: key == "alt+win+a")
-    event = QKeyEvent(
-        QKeyEvent.Type.KeyPress,
-        Qt.Key.Key_A,
-        Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.MetaModifier,
-    )
-
-    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
-        panel.capture_key(event, edit)
-
-    assert edit.text() == "alt+win+a"
-    assert blocker.args == ["key", "alt+win+a"]
-
-
-def test_right_panel_capture_key_ignores_modifier_only_key(qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
-    qtbot.addWidget(edit)
-    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Shift, Qt.KeyboardModifier.ShiftModifier)
-
-    panel.capture_key(event, edit)
-
-    assert edit.text() == ""
-
-
 def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
     edit = HotkeyEdit()
     qtbot.addWidget(edit)
@@ -621,11 +564,11 @@ def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
         edit.keyPressEvent(event)
 
-    assert edit.text() == "ctrl+alt+f1"
-    assert blocker.args == ["hotkey", "ctrl+alt+f1"]
+    assert edit.text() == "f1"
+    assert blocker.args == ["hotkey", "f1"]
 
 
-def test_right_panel_capture_hotkey_includes_shift_modifier(qtbot) -> None:
+def test_right_panel_capture_hotkey_ignores_typed_modifier_keys(qtbot) -> None:
     edit = HotkeyEdit()
     qtbot.addWidget(edit)
     edit.textChanged.connect(lambda text: event_bus.macro_meta_changed.emit("hotkey", text))
@@ -634,8 +577,185 @@ def test_right_panel_capture_hotkey_includes_shift_modifier(qtbot) -> None:
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
         edit.keyPressEvent(event)
 
-    assert edit.text() == "shift+f2"
-    assert blocker.args == ["hotkey", "shift+f2"]
+    assert edit.text() == "f2"
+    assert blocker.args == ["hotkey", "f2"]
+
+
+def test_hotkey_edit_captures_shortcut_used_by_parent(qtbot) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    edit = HotkeyEdit(parent)
+    shortcut_calls = []
+    shortcut = QShortcut(QKeySequence("Ctrl+V"), parent)
+    shortcut.activated.connect(lambda: shortcut_calls.append("paste"))
+
+    parent.show()
+    edit.setFocus()
+    qtbot.keyClick(edit, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)
+
+    assert edit.text() == "v"
+    assert shortcut_calls == []
+
+
+def test_hotkey_edit_captures_tab_instead_of_moving_focus(qtbot) -> None:
+    edit = HotkeyEdit()
+    qtbot.addWidget(edit)
+
+    edit.show()
+    qtbot.waitExposed(edit)
+    edit.setFocus()
+    qtbot.keyClick(edit, Qt.Key.Key_Tab)
+
+    assert edit.text() == "tab"
+    assert not edit.focusNextPrevChild(True)
+
+
+def test_hotkey_edit_captures_shift_tab_as_hotkey(qtbot) -> None:
+    edit = HotkeyEdit()
+    qtbot.addWidget(edit)
+
+    edit.show()
+    qtbot.waitExposed(edit)
+    edit.setFocus()
+    qtbot.keyClick(edit, Qt.Key.Key_Backtab, Qt.KeyboardModifier.ShiftModifier)
+
+    assert edit.text() == "tab"
+    assert not edit.focusNextPrevChild(False)
+
+
+def test_hotkey_picker_builds_alt_tab_with_modifier_button(qtbot) -> None:
+    edit = HotkeyPicker()
+    qtbot.addWidget(edit)
+
+    edit.modifier_buttons["alt"].click()
+    edit.set_key("tab")
+
+    assert edit.text() == "alt+tab"
+
+
+def test_hotkey_picker_keeps_clicked_modifier_for_tab_key(qtbot) -> None:
+    edit = HotkeyPicker()
+    qtbot.addWidget(edit)
+    tab_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Tab, Qt.KeyboardModifier.NoModifier)
+
+    edit.modifier_buttons["alt"].click()
+    edit.key_edit.keyPressEvent(tab_event)
+
+    assert edit.text() == "alt+tab"
+
+
+def test_hotkey_picker_replaces_previous_main_key(qtbot) -> None:
+    edit = HotkeyPicker()
+    qtbot.addWidget(edit)
+    ctrl_a_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    capslock_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_CapsLock, Qt.KeyboardModifier.NoModifier)
+
+    edit.key_edit.keyPressEvent(ctrl_a_event)
+    edit.key_edit.keyPressEvent(capslock_event)
+
+    assert edit.text() == "capslock"
+
+
+def test_hotkey_picker_does_not_add_modifiers_from_keypress(qtbot) -> None:
+    edit = HotkeyPicker()
+    qtbot.addWidget(edit)
+    ctrl_a_event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    ctrl_shift_a_event = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        Qt.Key.Key_A,
+        Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier,
+    )
+
+    edit.key_edit.keyPressEvent(ctrl_a_event)
+    assert edit.text() == "a"
+
+    edit.key_edit.keyPressEvent(ctrl_shift_a_event)
+    assert edit.text() == "a"
+
+    edit.modifier_buttons["ctrl"].click()
+    edit.key_edit.keyPressEvent(ctrl_a_event)
+    assert edit.text() == "ctrl+a"
+
+
+def test_hotkey_input_stays_compact_and_does_not_embed_modifier_buttons(qtbot) -> None:
+    edit = HotkeyInput()
+    qtbot.addWidget(edit)
+
+    assert edit.text() == ""
+    assert not hasattr(edit, "modifier_buttons")
+    assert edit.findChildren(LineEdit) == []
+    assert edit.select_button.text() == "Select a hotkey"
+
+
+def test_hotkey_input_button_displays_selected_hotkey(qtbot) -> None:
+    edit = HotkeyInput()
+    qtbot.addWidget(edit)
+
+    edit.setText("alt+tab")
+
+    assert edit.text() == "alt+tab"
+    assert edit.select_button.text() == "alt+tab"
+
+
+def test_hotkey_input_picker_keeps_clicked_modifiers(monkeypatch, qtbot) -> None:
+    calls = []
+
+    class FakeDialog:
+        def __init__(self, value: str, parent=None) -> None:
+            calls.append(value)
+
+        def exec(self) -> bool:
+            return True
+
+        def text(self) -> str:
+            return "alt+tab"
+
+    monkeypatch.setattr(hotkey_edit, "HotkeyPickerDialog", FakeDialog)
+    edit = HotkeyInput()
+    qtbot.addWidget(edit)
+
+    edit.open_picker()
+
+    assert calls == [""]
+    assert edit.text() == "alt+tab"
+
+
+def test_hotkey_picker_uses_fluent_widgets(qtbot) -> None:
+    picker = HotkeyPicker()
+    qtbot.addWidget(picker)
+
+    assert all(isinstance(button, TogglePushButton) for button in picker.modifier_buttons.values())
+
+
+def test_hotkey_picker_dialog_uses_fluent_message_box(qtbot) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    dialog = HotkeyPickerDialog("alt+tab", parent)
+
+    assert isinstance(dialog, MessageBoxBase)
+    assert dialog.text() == "alt+tab"
+
+
+def test_right_panel_key_input_uses_compact_hotkey_widget(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.add_key_input("Key", "")
+    edit = panel.findChildren(HotkeyInput)[0]
+
+    assert edit.text() == ""
+    assert not hasattr(edit, "modifier_buttons")
+
+
+def test_right_panel_key_input_emits_selected_hotkey(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.add_key_input("Key", "")
+    edit = panel.findChildren(HotkeyInput)[0]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        edit.set_value("alt+tab", emit=True)
+
+    assert blocker.args == ["key", "alt+tab"]
 
 
 def test_right_panel_capture_hotkey_ignores_modifier_only_key(qtbot) -> None:
@@ -656,10 +776,11 @@ def test_right_panel_show_macro_properties_renders_fields(monkeypatch, qtbot) ->
 
     panel.show_macro_properties(macro)
 
-    line_edits = panel.findChildren(LineEdit)
-    assert len(line_edits) == 1, "should have exactly the hotkey LineEdit"
-    hotkey_edit = line_edits[0]
+    hotkey_inputs = panel.findChildren(HotkeyInput)
+    assert len(hotkey_inputs) == 1, "should have exactly the hotkey input"
+    hotkey_edit = hotkey_inputs[0]
     assert hotkey_edit.text() == "ctrl+f1"
+    assert hotkey_edit.select_button.text() == "ctrl+f1"
 
 
 def test_right_panel_macro_option_hints_have_tooltips(monkeypatch, qtbot) -> None:
@@ -917,25 +1038,12 @@ def test_right_panel_hotkey_text_clear_emits_empty_value(qtbot) -> None:
     qtbot.addWidget(panel)
     macro = Macro(meta=MacroMeta(hotkey="ctrl+f1"))
     panel.add_hotkey_text_input(macro)
-    edit = panel.findChildren(LineEdit)[-1]
+    edit = panel.findChildren(HotkeyInput)[-1]
 
     with qtbot.waitSignal(event_bus.macro_meta_changed, timeout=100) as blocker:
-        edit.setText("")
+        edit.clear()
 
     assert blocker.args == ["hotkey", ""]
-
-
-def test_right_panel_capture_key_ignores_unsupported_key(monkeypatch, qtbot) -> None:
-    panel = RightPanel()
-    qtbot.addWidget(panel)
-    edit = LineEdit()
-    qtbot.addWidget(edit)
-    monkeypatch.setattr(right_panel.keys, "is_valid_key", lambda key: False)
-    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_A, Qt.KeyboardModifier.NoModifier)
-
-    panel.capture_key(event, edit)
-
-    assert edit.text() == ""
 
 
 def test_right_panel_template_card_toggles_visibility(monkeypatch, qtbot) -> None:

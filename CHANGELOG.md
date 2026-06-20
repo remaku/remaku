@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- Hotkey-related translations ("Select a hotkey", "Press a key", "Remove") are now properly translated in both Traditional and Simplified Chinese.
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 快捷鍵相關翻譯（「選擇快捷鍵」、「按下按鍵」、「移除」）現已正確翻譯為正體中文。
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 快捷键相关翻译（「选择快捷键」、「按下按键」、「移除」）现已正确翻译为简体中文。
+
 ## v0.10.0
 
 <!-- lang:en -->

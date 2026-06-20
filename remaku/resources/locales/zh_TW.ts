@@ -554,7 +554,7 @@
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="18"/>
         <source>Press a key</source>
-        <translation type="unfinished"></translation>
+        <translation>按下按鍵</translation>
     </message>
 </context>
 <context>
@@ -563,7 +563,7 @@
         <location filename="../../views/components/hotkey_edit.py" line="213"/>
         <location filename="../../views/components/hotkey_edit.py" line="231"/>
         <source>Select a hotkey</source>
-        <translation type="unfinished"></translation>
+        <translation>選擇快捷鍵</translation>
     </message>
 </context>
 <context>
@@ -571,27 +571,27 @@
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="95"/>
         <source>SHIFT</source>
-        <translation type="unfinished"></translation>
+        <translation>Shift</translation>
     </message>
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="96"/>
         <source>CTRL</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl</translation>
     </message>
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="97"/>
         <source>WIN</source>
-        <translation type="unfinished"></translation>
+        <translation>Win</translation>
     </message>
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="98"/>
         <source>ALT</source>
-        <translation type="unfinished"></translation>
+        <translation>Alt</translation>
     </message>
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="115"/>
         <source>Remove</source>
-        <translation type="unfinished"></translation>
+        <translation>移除</translation>
     </message>
 </context>
 <context>
@@ -599,7 +599,7 @@
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="184"/>
         <source>Select a hotkey</source>
-        <translation type="unfinished"></translation>
+        <translation>選擇快捷鍵</translation>
     </message>
     <message>
         <location filename="../../views/components/hotkey_edit.py" line="191"/>

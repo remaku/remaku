@@ -21,7 +21,8 @@
 - The Tab key is now captured as a hotkey key instead of moving focus when a hotkey field is active.
 - The theme dropdown in Settings now lists Light before Dark.
 - Light and dark themes now use warmer accent colors for buttons, highlights, and other themed controls.
-- When a macro is running, the right panel, File/Edit menus, and global actions (Settings, New Macro, Duplicate Macro, Import/Export, Pack Explorer) are now disabled to prevent changes that could affect the runner.
+- When a macro is running, the right panel, File/Edit menus, and global actions (Settings, New Macro, Duplicate Macro, Import/Export, Macro Explorer) are now disabled to prevent changes that could affect the runner.
+- "Pack Explorer" has been renamed to "Macro Explorer".
 
 ### Fixed
 
@@ -48,7 +49,8 @@
 - 在快捷鍵欄位使用時，Tab 鍵現在會被擷取為快捷鍵而非移動焦點。
 - 設定中的主題下拉選單順序調整為淺色在深色之前。
 - 淺色與深色主題現在會在按鈕、醒目提示和其他主題控制項使用較溫暖的強調色。
-- 巨集執行期間，右側面板、檔案/編輯選單和全域操作（設定、新增巨集、複製巨集、匯入/匯出、套件瀏覽器）現在會停用，防止變更影響執行中的巨集。
+- 巨集執行期間，右側面板、檔案/編輯選單和全域操作（設定、新增巨集、複製巨集、匯入/匯出、巨集瀏覽器）現在會停用，防止變更影響執行中的巨集。
+- 「Pack Explorer」已重新命名為「Macro Explorer」。
 
 ### 修正
 
@@ -75,7 +77,8 @@
 - 在快捷键字段使用时，Tab 键现在会被捕获为快捷键而非移动焦点。
 - 设置中的主题下拉菜单顺序调整为浅色在深色之前。
 - 浅色与深色主题现在会在按钮、高亮和其他主题控件使用更温暖的强调色。
-- 宏执行期间，右侧面板、文件/编辑菜单和全局操作（设置、新建宏、复制宏、导入/导出、包浏览器）现在会禁用，防止变更影响运行中的宏。
+- 宏执行期间，右侧面板、文件/编辑菜单和全局操作（设置、新建宏、复制宏、导入/导出、宏浏览器）现在会禁用，防止变更影响运行中的宏。
+- 「Pack Explorer」已重命名为「Macro Explorer」。
 
 ### 修复
 

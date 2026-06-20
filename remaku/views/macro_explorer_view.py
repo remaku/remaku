@@ -16,7 +16,7 @@ from remaku.models.pack_model import PackCatalogEntry, PackListItem, PackStatus
 from remaku.services import pack_service
 
 
-class PackExplorerView(QWidget):
+class MacroExplorerView(QWidget):
     pack_selected = Signal(str)
     import_requested = Signal(str, str)
     search_changed = Signal(str)
@@ -26,7 +26,7 @@ class PackExplorerView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setObjectName("pack_explorer")
+        self.setObjectName("macro_explorer")
         self.items: list[PackListItem] = []
         self.current_pack_id = ""
         self.current_pack_status: PackStatus = "available"
@@ -41,7 +41,7 @@ class PackExplorerView(QWidget):
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(12)
 
-        title = TitleLabel(self.tr("Pack Explorer"), self)
+        title = TitleLabel(self.tr("Macro Explorer"), self)
         root.addWidget(title)
 
         filter_card = CardWidget(self)

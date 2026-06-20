@@ -3,8 +3,8 @@ from typing import Any, cast
 
 from PySide6.QtCore import QObject, Signal
 
-from remaku.controllers import pack_explorer_controller
-from remaku.controllers.pack_explorer_controller import PackExplorerController
+from remaku.controllers import macro_explorer_controller
+from remaku.controllers.macro_explorer_controller import MacroExplorerController
 from remaku.models.config_model import config_model
 from remaku.models.pack_model import PackCatalog
 
@@ -99,14 +99,14 @@ def make_catalog() -> PackCatalog:
     )
 
 
-def make_controller(monkeypatch) -> tuple[PackExplorerController, FakeView]:
+def make_controller(monkeypatch) -> tuple[MacroExplorerController, FakeView]:
     view = FakeView()
 
     def fetch_catalog_async(parent, on_done, on_error) -> None:
         on_done(make_catalog())
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
-    controller = PackExplorerController(cast(Any, view), cast(Any, object()))
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
+    controller = MacroExplorerController(cast(Any, view), cast(Any, object()))
     return controller, view
 
 
@@ -128,9 +128,9 @@ def test_refresh_reports_catalog_error(monkeypatch) -> None:
     def fetch_catalog_async(parent, on_done, on_error) -> None:
         on_error("bad")
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
 
-    controller = PackExplorerController(cast(Any, view), cast(Any, object()))
+    controller = MacroExplorerController(cast(Any, view), cast(Any, object()))
     controller.ensure_loaded()
 
     assert view.statuses == ["bad"]
@@ -144,9 +144,9 @@ def test_ensure_loaded_does_not_start_duplicate_catalog_load(monkeypatch) -> Non
     def fetch_catalog_async(parent, on_done, on_error) -> None:
         calls.append(parent)
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "fetch_catalog_async", fetch_catalog_async)
 
-    controller = PackExplorerController(cast(Any, view), cast(Any, object()))
+    controller = MacroExplorerController(cast(Any, view), cast(Any, object()))
     controller.ensure_loaded()
     controller.ensure_loaded()
 
@@ -205,7 +205,7 @@ def test_start_download_reports_progress(monkeypatch) -> None:
         fake_download.on_progress = on_progress
         return fake_download
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "download_pack", download_pack)
 
     controller.import_pack("fh6.sample")
     fake_download.progress(5, 10)
@@ -226,8 +226,8 @@ def test_import_pack_shows_imported_status_after_refresh(monkeypatch, tmp_path) 
         fake_download.on_done = on_done
         return fake_download
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "import_pack_as_macro", lambda path, model: object())
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "import_pack_as_macro", lambda path, model: object())
 
     controller.import_pack("fh6.sample")
     fake_download.finish(str(tmp_path / "sample.zip"))
@@ -246,14 +246,14 @@ def test_import_pack_shows_import_error(monkeypatch, tmp_path) -> None:
         fake_download.on_done = on_done
         return fake_download
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "download_pack", download_pack)
     monkeypatch.setattr(
-        pack_explorer_controller.pack_service,
+        macro_explorer_controller.pack_service,
         "import_pack_as_macro",
         lambda path, model: (_ for _ in ()).throw(ValueError("bad archive")),
     )
     monkeypatch.setattr(
-        pack_explorer_controller,
+        macro_explorer_controller,
         "show_message_dialog",
         lambda parent, title, message: messages.append((title, message)),
     )
@@ -276,9 +276,9 @@ def test_import_pack_shows_download_error(monkeypatch) -> None:
         fake_download.on_error = on_error
         return fake_download
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "download_pack", download_pack)
     monkeypatch.setattr(
-        pack_explorer_controller,
+        macro_explorer_controller,
         "show_message_dialog",
         lambda parent, title, message: messages.append((title, message)),
     )
@@ -333,7 +333,7 @@ def test_import_pack_ignores_missing_pack(monkeypatch) -> None:
     controller.ensure_loaded()
     calls = []
     monkeypatch.setattr(
-        pack_explorer_controller.pack_service,
+        macro_explorer_controller.pack_service,
         "download_pack",
         lambda parent, entry, on_progress, on_done, on_error, selected_language="": calls.append(entry.pack_id),
     )
@@ -349,7 +349,7 @@ def test_incompatible_pack_does_not_download(monkeypatch) -> None:
     controller.items[0].status = "incompatible"
     calls = []
     monkeypatch.setattr(
-        pack_explorer_controller.pack_service,
+        macro_explorer_controller.pack_service,
         "download_pack",
         lambda parent, entry, on_progress, on_done, on_error, selected_language="": calls.append(entry.pack_id),
     )
@@ -368,7 +368,7 @@ def test_import_pack_passes_selected_language(monkeypatch) -> None:
         calls.append((entry.pack_id, selected_language))
         return FakeDownload()
 
-    monkeypatch.setattr(pack_explorer_controller.pack_service, "download_pack", download_pack)
+    monkeypatch.setattr(macro_explorer_controller.pack_service, "download_pack", download_pack)
 
     controller.import_pack("fh6.sample", "zh_TW")
 

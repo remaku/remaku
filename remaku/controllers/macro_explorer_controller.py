@@ -8,11 +8,11 @@ from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
 from remaku.models.pack_model import PackCatalog, PackListItem
 from remaku.services import pack_service
-from remaku.views.pack_explorer_view import PackExplorerView
+from remaku.views.macro_explorer_view import MacroExplorerView
 
 
-class PackExplorerController(QObject):
-    def __init__(self, view: PackExplorerView, macro_model: MacroModel):
+class MacroExplorerController(QObject):
+    def __init__(self, view: MacroExplorerView, macro_model: MacroModel):
         super().__init__(view)
 
         self.view = view

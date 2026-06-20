@@ -26,7 +26,7 @@
 - **状态浮窗** -- 全屏游戏上方显示运行状态的迷你浮动窗口，含播放/停止按钮，位置自动记忆且不超出屏幕范围
 - **宏录制** -- 从应用程序外部录制键盘与鼠标操作，转换为宏步骤
 - **自动更新** -- 启动时检查 GitHub Release，支持稳定版与测试版频道
-- **Pack Explorer** -- 在应用程序内浏览官方宏包并导入兼容宏
+- **Macro Explorer** -- 在应用程序内浏览官方宏包并导入兼容宏
 
 ## 支持的步骤类型
 
@@ -120,7 +120,7 @@
 
 ## 宏包
 
-- 从文件菜单打开 Pack Explorer
+- 从文件菜单打开 Macro Explorer
 - 在 Remaku 内浏览官方宏包
 - 将兼容宏直接导入本地宏文件夹
 
@@ -180,7 +180,7 @@ remaku/
   controllers/
     home_controller.py            # 主编辑器控制器（步骤编辑、宏管理）
     main_controller.py            # 应用层控制器（菜单、更新、窗口）
-    pack_explorer_controller.py   # Pack Explorer 浏览与导入逻辑
+    macro_explorer_controller.py   # Macro Explorer 浏览与导入逻辑
     settings_controller.py        # 设置页面控制器
   core/
     capture.py                    # 画面捕获（BetterCam / DXGI）
@@ -220,7 +220,7 @@ remaku/
   views/
     home_view.py                  # 主编辑器视图（三栏界面）
     main_window.py                # 主应用程序窗口
-    pack_explorer_view.py         # Pack Explorer 界面
+    macro_explorer_view.py         # Macro Explorer 界面
     region_selector.py            # 屏幕区域选取工具
     settings_view.py              # 设置页面界面
     components/

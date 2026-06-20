@@ -26,7 +26,7 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Status overlay** -- floating mini status bar on top of fullscreen games with play/stop controls, position remembered and kept within screen bounds
 - **Macro recording** -- record keyboard and mouse actions from outside the app into macro steps
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
-- **Pack Explorer** -- browse official macro packs and import compatible macros from inside the app
+- **Macro Explorer** -- browse official macro packs and import compatible macros from inside the app
 
 ## Supported Step Types
 
@@ -120,7 +120,7 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 
 ## Macro Packs
 
-- Open Pack Explorer from the File menu
+- Open Macro Explorer from the File menu
 - Browse official macro packs from inside Remaku
 - Import compatible macros directly into your local macro folder
 
@@ -180,7 +180,7 @@ remaku/
   controllers/
     home_controller.py            # Main editor controller (step editing, macro management)
     main_controller.py            # Application-level controller (menus, updates, window)
-    pack_explorer_controller.py   # Pack Explorer browse and import logic
+    macro_explorer_controller.py   # Macro Explorer browse and import logic
     settings_controller.py        # Settings page controller
   core/
     capture.py                    # Screen capture (BetterCam / DXGI)
@@ -220,7 +220,7 @@ remaku/
   views/
     home_view.py                  # Main editor view (three-panel layout)
     main_window.py                # Main application window
-    pack_explorer_view.py         # Pack Explorer UI
+    macro_explorer_view.py         # Macro Explorer UI
     region_selector.py            # Screen region selection tool
     settings_view.py              # Settings page UI
     components/

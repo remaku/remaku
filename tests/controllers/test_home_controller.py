@@ -410,7 +410,7 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller.selected_macro_id == ""
     assert controller.actions["run"] == controller.run_current_macro
     assert controller.actions["settings"] == controller.open_settings
-    assert controller.actions["pack_explorer"] == controller.open_pack_explorer
+    assert controller.actions["macro_explorer"] == controller.open_macro_explorer
     assert len(shortcuts) == 12
     assert len(controller.editing_shortcuts) == 12
     assert controller_view.toolbar.undo_button.enabled is False
@@ -2267,7 +2267,7 @@ def test_open_folders_settings_and_quit_emit_or_call(tmp_path: Path, monkeypatch
         controller.open_settings()
 
     with qtbot.waitSignal(home_controller.event_bus.switch_page_requested, timeout=100) as packs_page:
-        controller.open_pack_explorer()
+        controller.open_macro_explorer()
 
     controller.quit_application()
 

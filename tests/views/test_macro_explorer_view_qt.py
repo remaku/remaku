@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt
 
 from remaku.models.config_model import config_model
 from remaku.models.pack_model import PackCatalogEntry, PackListItem, PackStatus
-from remaku.views.pack_explorer_view import PackExplorerView
+from remaku.views.macro_explorer_view import MacroExplorerView
 
 
 def make_item(status: PackStatus = "available") -> PackListItem:
@@ -26,9 +26,9 @@ def make_item(status: PackStatus = "available") -> PackListItem:
     return PackListItem(entry=entry, status=status, game_label="Forza Horizon 6")
 
 
-def test_pack_explorer_view_sets_pack_list(qtbot) -> None:
+def test_macro_explorer_view_sets_pack_list(qtbot) -> None:
     config_model.config.general.language = "en_US"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_pack_items([make_item()])
@@ -38,8 +38,8 @@ def test_pack_explorer_view_sets_pack_list(qtbot) -> None:
     assert view.empty_label.isHidden()
 
 
-def test_pack_explorer_view_sets_loading_status(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_sets_loading_status(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_loading()
@@ -48,9 +48,9 @@ def test_pack_explorer_view_sets_loading_status(qtbot) -> None:
     assert not view.status_label.isHidden()
 
 
-def test_pack_explorer_view_updates_detail_and_buttons(qtbot) -> None:
+def test_macro_explorer_view_updates_detail_and_buttons(qtbot) -> None:
     config_model.config.general.language = "en_US"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item("available")
 
@@ -65,8 +65,8 @@ def test_pack_explorer_view_updates_detail_and_buttons(qtbot) -> None:
     assert view.import_button.isEnabled() is True
 
 
-def test_pack_explorer_view_disables_import_for_incompatible_pack(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_disables_import_for_incompatible_pack(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item("incompatible")
 
@@ -75,8 +75,8 @@ def test_pack_explorer_view_disables_import_for_incompatible_pack(qtbot) -> None
     assert view.import_button.isEnabled() is False
 
 
-def test_pack_explorer_view_disables_import_while_importing(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_disables_import_while_importing(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_selected_pack(make_item())
@@ -89,9 +89,9 @@ def test_pack_explorer_view_disables_import_while_importing(qtbot) -> None:
     assert view.import_button.isEnabled() is True
 
 
-def test_pack_explorer_view_language_combo_defaults_to_current_language(qtbot) -> None:
+def test_macro_explorer_view_language_combo_defaults_to_current_language(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_selected_pack(make_item())
@@ -100,9 +100,9 @@ def test_pack_explorer_view_language_combo_defaults_to_current_language(qtbot) -
     assert view.language_combo.currentData() == "zh_TW"
 
 
-def test_pack_explorer_view_language_combo_falls_back_to_default_language(qtbot) -> None:
+def test_macro_explorer_view_language_combo_falls_back_to_default_language(qtbot) -> None:
     config_model.config.general.language = "zh_CN"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_selected_pack(make_item())
@@ -110,9 +110,9 @@ def test_pack_explorer_view_language_combo_falls_back_to_default_language(qtbot)
     assert view.language_combo.currentData() == "en_US"
 
 
-def test_pack_explorer_view_preserves_language_when_same_pack_refreshes(qtbot) -> None:
+def test_macro_explorer_view_preserves_language_when_same_pack_refreshes(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item()
 
@@ -124,9 +124,9 @@ def test_pack_explorer_view_preserves_language_when_same_pack_refreshes(qtbot) -
     assert view.current_pack_language == "en_US"
 
 
-def test_pack_explorer_view_preserves_language_when_pack_changes(qtbot) -> None:
+def test_macro_explorer_view_preserves_language_when_pack_changes(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     first_item = make_item()
     second_item = make_item()
@@ -139,9 +139,9 @@ def test_pack_explorer_view_preserves_language_when_pack_changes(qtbot) -> None:
     assert view.language_combo.currentData() == "en_US"
 
 
-def test_pack_explorer_view_preserves_language_after_pack_list_refresh(qtbot) -> None:
+def test_macro_explorer_view_preserves_language_after_pack_list_refresh(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item()
     view.pack_selected.connect(lambda _pack_id: view.set_selected_pack(item))
@@ -154,8 +154,8 @@ def test_pack_explorer_view_preserves_language_after_pack_list_refresh(qtbot) ->
     assert view.current_pack_language == "en_US"
 
 
-def test_pack_explorer_view_hides_language_combo_for_legacy_pack(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_hides_language_combo_for_legacy_pack(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item()
     item.entry.default_language = ""
@@ -167,9 +167,9 @@ def test_pack_explorer_view_hides_language_combo_for_legacy_pack(qtbot) -> None:
     assert view.current_pack_language == ""
 
 
-def test_pack_explorer_view_import_emits_selected_language(qtbot) -> None:
+def test_macro_explorer_view_import_emits_selected_language(qtbot) -> None:
     config_model.config.general.language = "en_US"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     view.set_selected_pack(make_item())
     view.language_combo.setCurrentIndex(view.language_combo.findData("zh_TW"))
@@ -180,9 +180,9 @@ def test_pack_explorer_view_import_emits_selected_language(qtbot) -> None:
     assert blocker.args == ["fh6.sample", "zh_TW"]
 
 
-def test_pack_explorer_view_uses_selected_language(qtbot) -> None:
+def test_macro_explorer_view_uses_selected_language(qtbot) -> None:
     config_model.config.general.language = "zh_TW"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_selected_pack(make_item())
@@ -191,9 +191,9 @@ def test_pack_explorer_view_uses_selected_language(qtbot) -> None:
     assert view.description_label.text() == "範例描述"
 
 
-def test_pack_explorer_view_keeps_status_separate_from_description(qtbot) -> None:
+def test_macro_explorer_view_keeps_status_separate_from_description(qtbot) -> None:
     config_model.config.general.language = "en_US"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_selected_pack(make_item())
@@ -204,8 +204,8 @@ def test_pack_explorer_view_keeps_status_separate_from_description(qtbot) -> Non
     assert not view.status_label.isHidden()
 
 
-def test_pack_explorer_view_shows_loading_status(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_shows_loading_status(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_loading()
@@ -214,8 +214,8 @@ def test_pack_explorer_view_shows_loading_status(qtbot) -> None:
     assert not view.status_label.isHidden()
 
 
-def test_pack_explorer_view_emits_selection(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_emits_selection(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     view.set_pack_items([make_item()])
 
@@ -227,8 +227,8 @@ def test_pack_explorer_view_emits_selection(qtbot) -> None:
     assert blocker.args == ["fh6.sample"]
 
 
-def test_pack_explorer_view_clears_empty_detail(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_clears_empty_detail(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.set_pack_items([])
@@ -239,9 +239,9 @@ def test_pack_explorer_view_clears_empty_detail(qtbot) -> None:
     assert view.import_button.isEnabled() is False
 
 
-def test_pack_explorer_view_selects_requested_pack_and_labels_incompatible(qtbot) -> None:
+def test_macro_explorer_view_selects_requested_pack_and_labels_incompatible(qtbot) -> None:
     config_model.config.general.language = "en_US"
-    view = PackExplorerView()
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     available_item = make_item("available")
     incompatible_item = make_item("incompatible")
@@ -253,8 +253,8 @@ def test_pack_explorer_view_selects_requested_pack_and_labels_incompatible(qtbot
     assert view.pack_list.item(1).text() == "Sample Pack (Incompatible)"
 
 
-def test_pack_explorer_view_resets_missing_filter_to_all(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_resets_missing_filter_to_all(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
 
     view.update_filter(view.game_filter, "All games", [("fh6", "Forza Horizon 6")])
@@ -264,8 +264,8 @@ def test_pack_explorer_view_resets_missing_filter_to_all(qtbot) -> None:
     assert view.current_filter_value(view.game_filter) == "all"
 
 
-def test_pack_explorer_view_emits_filter_changes(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_emits_filter_changes(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     view.set_filter_options([("fh6", "Forza Horizon 6")])
 
@@ -279,8 +279,8 @@ def test_pack_explorer_view_emits_filter_changes(qtbot) -> None:
     assert compatibility_blocker.args == ["incompatible"]
 
 
-def test_pack_explorer_view_ignores_empty_selection(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_ignores_empty_selection(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     emissions = []
     view.pack_selected.connect(emissions.append)
@@ -290,8 +290,8 @@ def test_pack_explorer_view_ignores_empty_selection(qtbot) -> None:
     assert emissions == []
 
 
-def test_pack_explorer_view_clears_selected_pack_none(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_clears_selected_pack_none(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     view.set_selected_pack(make_item())
 
@@ -301,8 +301,8 @@ def test_pack_explorer_view_clears_selected_pack_none(qtbot) -> None:
     assert view.name_label.text() == "Select a pack"
 
 
-def test_pack_explorer_view_formats_compatibility_ranges(qtbot) -> None:
-    view = PackExplorerView()
+def test_macro_explorer_view_formats_compatibility_ranges(qtbot) -> None:
+    view = MacroExplorerView()
     qtbot.addWidget(view)
     item = make_item()
 

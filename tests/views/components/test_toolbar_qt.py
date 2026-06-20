@@ -184,7 +184,7 @@ def test_toolbar_file_menu_contains_expected_actions(monkeypatch, qtbot) -> None
         "import_macro",
         "export_macro",
         "open_macro_folder",
-        "pack_explorer",
+        "macro_explorer",
         "settings",
         "quit",
     ]

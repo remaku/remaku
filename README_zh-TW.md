@@ -26,7 +26,7 @@
 - **狀態浮窗** — 全螢幕遊戲上方顯示執行狀態的迷你浮動視窗，含播放/停止按鈕，位置自動記憶且不超出螢幕範圍
 - **巨集錄製** — 從應用程式外部錄製鍵盤與滑鼠操作，轉換為巨集步驟
 - **自動更新** — 啟動時檢查 GitHub Release，支援穩定版與測試版頻道
-- **Pack Explorer** — 在應用程式內瀏覽官方巨集包並匯入相容巨集
+- **Macro Explorer** — 在應用程式內瀏覽官方巨集包並匯入相容巨集
 
 ## 支援的步驟類型
 
@@ -120,7 +120,7 @@
 
 ## 巨集包
 
-- 從檔案選單開啟 Pack Explorer
+- 從檔案選單開啟 Macro Explorer
 - 在 Remaku 內瀏覽官方巨集包
 - 將相容巨集直接匯入本機巨集資料夾
 
@@ -180,7 +180,7 @@ remaku/
   controllers/
     home_controller.py            # 主編輯器控制器（步驟編輯、巨集管理）
     main_controller.py            # 應用層控制器（選單、更新、視窗）
-    pack_explorer_controller.py   # Pack Explorer 瀏覽與匯入邏輯
+    macro_explorer_controller.py   # Macro Explorer 瀏覽與匯入邏輯
     settings_controller.py        # 設定頁面控制器
   core/
     capture.py                    # 畫面擷取（BetterCam / DXGI）
@@ -220,7 +220,7 @@ remaku/
   views/
     home_view.py                  # 主編輯器檢視（三欄介面）
     main_window.py                # 主應用程式視窗
-    pack_explorer_view.py         # Pack Explorer 介面
+    macro_explorer_view.py         # Macro Explorer 介面
     region_selector.py            # 螢幕區域選取工具
     settings_view.py              # 設定頁面介面
     components/

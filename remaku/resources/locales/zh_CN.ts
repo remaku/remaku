@@ -646,6 +646,142 @@
     </message>
 </context>
 <context>
+    <name>MacroExplorerController</name>
+    <message>
+        <location filename="../../controllers/macro_explorer_controller.py" line="145"/>
+        <location filename="../../controllers/macro_explorer_controller.py" line="152"/>
+        <source>Downloading pack...</source>
+        <translation>正在下载包...</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/macro_explorer_controller.py" line="150"/>
+        <source>Downloading pack... {percent}%</source>
+        <translation>正在下载包... {percent}%</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/macro_explorer_controller.py" line="157"/>
+        <source>Imported macro: {name}</source>
+        <translation>已导入宏：{name}</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/macro_explorer_controller.py" line="159"/>
+        <source>Pack import failed</source>
+        <translation>包导入失败</translation>
+    </message>
+    <message>
+        <location filename="../../controllers/macro_explorer_controller.py" line="169"/>
+        <source>Pack download failed</source>
+        <translation>包下载失败</translation>
+    </message>
+</context>
+<context>
+    <name>MacroExplorerView</name>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="44"/>
+        <source>Macro Explorer</source>
+        <translation>宏浏览器</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="53"/>
+        <source>Search packs</source>
+        <translation>搜索包</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="63"/>
+        <source>All compatibility</source>
+        <translation>所有兼容性</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="64"/>
+        <location filename="../../views/macro_explorer_view.py" line="341"/>
+        <source>Compatible</source>
+        <translation>兼容</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="65"/>
+        <location filename="../../views/macro_explorer_view.py" line="253"/>
+        <source>Incompatible</source>
+        <translation>不兼容</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="82"/>
+        <source>Packs</source>
+        <translation>包</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="89"/>
+        <source>No packs found</source>
+        <translation>找不到包</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="101"/>
+        <location filename="../../views/macro_explorer_view.py" line="289"/>
+        <source>Select a pack</source>
+        <translation>选择包</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="108"/>
+        <location filename="../../views/macro_explorer_view.py" line="292"/>
+        <source>Choose a pack from the list to view details.</source>
+        <translation>从列表中选择包以查看详细信息。</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="132"/>
+        <source>Language</source>
+        <translation>语言</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="140"/>
+        <source>Import Macro</source>
+        <translation>导入宏</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="155"/>
+        <source>Game</source>
+        <translation>游戏</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="156"/>
+        <source>Author</source>
+        <translation>作者</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="157"/>
+        <source>Compatibility</source>
+        <translation>兼容性</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="168"/>
+        <source>Loading packs...</source>
+        <translation>正在加载包...</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="179"/>
+        <source>All games</source>
+        <translation>所有游戏</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="252"/>
+        <source>Available</source>
+        <translation>可用</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="333"/>
+        <source>Requires Remaku {minimum} to {maximum}</source>
+        <translation>需要 Remaku {minimum} 至 {maximum}</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="336"/>
+        <source>Requires Remaku {minimum} or newer</source>
+        <translation>需要 Remaku {minimum} 或更新版本</translation>
+    </message>
+    <message>
+        <location filename="../../views/macro_explorer_view.py" line="339"/>
+        <source>Requires Remaku {maximum} or older</source>
+        <translation>需要 Remaku {maximum} 或旧版本</translation>
+    </message>
+</context>
+<context>
     <name>MainController</name>
     <message>
         <location filename="../../controllers/main_controller.py" line="103"/>
@@ -752,142 +888,6 @@
     </message>
 </context>
 <context>
-    <name>PackExplorerController</name>
-    <message>
-        <location filename="../../controllers/pack_explorer_controller.py" line="145"/>
-        <location filename="../../controllers/pack_explorer_controller.py" line="152"/>
-        <source>Downloading pack...</source>
-        <translation>正在下载包...</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/pack_explorer_controller.py" line="150"/>
-        <source>Downloading pack... {percent}%</source>
-        <translation>正在下载包... {percent}%</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/pack_explorer_controller.py" line="157"/>
-        <source>Imported macro: {name}</source>
-        <translation>已导入宏：{name}</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/pack_explorer_controller.py" line="159"/>
-        <source>Pack import failed</source>
-        <translation>包导入失败</translation>
-    </message>
-    <message>
-        <location filename="../../controllers/pack_explorer_controller.py" line="169"/>
-        <source>Pack download failed</source>
-        <translation>包下载失败</translation>
-    </message>
-</context>
-<context>
-    <name>PackExplorerView</name>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="44"/>
-        <source>Pack Explorer</source>
-        <translation>包浏览器</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="53"/>
-        <source>Search packs</source>
-        <translation>搜索包</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="63"/>
-        <source>All compatibility</source>
-        <translation>所有兼容性</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="64"/>
-        <location filename="../../views/pack_explorer_view.py" line="341"/>
-        <source>Compatible</source>
-        <translation>兼容</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="65"/>
-        <location filename="../../views/pack_explorer_view.py" line="253"/>
-        <source>Incompatible</source>
-        <translation>不兼容</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="82"/>
-        <source>Packs</source>
-        <translation>包</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="89"/>
-        <source>No packs found</source>
-        <translation>找不到包</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="101"/>
-        <location filename="../../views/pack_explorer_view.py" line="289"/>
-        <source>Select a pack</source>
-        <translation>选择包</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="108"/>
-        <location filename="../../views/pack_explorer_view.py" line="292"/>
-        <source>Choose a pack from the list to view details.</source>
-        <translation>从列表中选择包以查看详细信息。</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="132"/>
-        <source>Language</source>
-        <translation>语言</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="140"/>
-        <source>Import Macro</source>
-        <translation>导入宏</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="155"/>
-        <source>Game</source>
-        <translation>游戏</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="156"/>
-        <source>Author</source>
-        <translation>作者</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="157"/>
-        <source>Compatibility</source>
-        <translation>兼容性</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="168"/>
-        <source>Loading packs...</source>
-        <translation>正在加载包...</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="179"/>
-        <source>All games</source>
-        <translation>所有游戏</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="252"/>
-        <source>Available</source>
-        <translation>可用</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="333"/>
-        <source>Requires Remaku {minimum} to {maximum}</source>
-        <translation>需要 Remaku {minimum} 至 {maximum}</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="336"/>
-        <source>Requires Remaku {minimum} or newer</source>
-        <translation>需要 Remaku {minimum} 或更新版本</translation>
-    </message>
-    <message>
-        <location filename="../../views/pack_explorer_view.py" line="339"/>
-        <source>Requires Remaku {maximum} or older</source>
-        <translation>需要 Remaku {maximum} 或旧版本</translation>
-    </message>
-</context>
-<context>
     <name>RecordingOverlay</name>
     <message>
         <location filename="../../views/components/recording_overlay.py" line="35"/>
@@ -958,263 +958,263 @@
 <context>
     <name>RightPanel</name>
     <message>
-        <location filename="../../views/components/right_panel.py" line="711"/>
+        <location filename="../../views/components/right_panel.py" line="715"/>
         <source>Macro Properties</source>
         <translation>宏属性</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="714"/>
+        <location filename="../../views/components/right_panel.py" line="718"/>
         <source>Select a macro to inspect its metadata.</source>
         <translation>选择宏以查看其信息。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="406"/>
-        <location filename="../../views/components/right_panel.py" line="443"/>
+        <location filename="../../views/components/right_panel.py" line="410"/>
+        <location filename="../../views/components/right_panel.py" line="447"/>
         <source>Key</source>
         <translation>按键</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="407"/>
+        <location filename="../../views/components/right_panel.py" line="411"/>
         <source>Hold (ms)</source>
         <translation>按住 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="414"/>
+        <location filename="../../views/components/right_panel.py" line="418"/>
         <source>Duration (ms)</source>
         <translation>持续时间 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="423"/>
-        <location filename="../../views/components/right_panel.py" line="446"/>
-        <location filename="../../views/components/right_panel.py" line="495"/>
-        <location filename="../../views/components/right_panel.py" line="508"/>
-        <location filename="../../views/components/right_panel.py" line="571"/>
-        <location filename="../../views/components/right_panel.py" line="620"/>
+        <location filename="../../views/components/right_panel.py" line="427"/>
+        <location filename="../../views/components/right_panel.py" line="450"/>
+        <location filename="../../views/components/right_panel.py" line="499"/>
+        <location filename="../../views/components/right_panel.py" line="512"/>
+        <location filename="../../views/components/right_panel.py" line="575"/>
+        <location filename="../../views/components/right_panel.py" line="624"/>
         <source>Threshold</source>
         <translation>相似度</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="426"/>
-        <location filename="../../views/components/right_panel.py" line="498"/>
-        <location filename="../../views/components/right_panel.py" line="511"/>
-        <location filename="../../views/components/right_panel.py" line="576"/>
-        <location filename="../../views/components/right_panel.py" line="625"/>
+        <location filename="../../views/components/right_panel.py" line="430"/>
+        <location filename="../../views/components/right_panel.py" line="502"/>
+        <location filename="../../views/components/right_panel.py" line="515"/>
+        <location filename="../../views/components/right_panel.py" line="580"/>
+        <location filename="../../views/components/right_panel.py" line="629"/>
         <source>Timeout (ms)</source>
         <translation>超时 (ms)</translation>
-    </message>
-    <message>
-        <location filename="../../views/components/right_panel.py" line="429"/>
-        <location filename="../../views/components/right_panel.py" line="514"/>
-        <location filename="../../views/components/right_panel.py" line="581"/>
-        <location filename="../../views/components/right_panel.py" line="630"/>
-        <source>On Timeout</source>
-        <translation>超时动作</translation>
-    </message>
-    <message>
-        <location filename="../../views/components/right_panel.py" line="432"/>
-        <location filename="../../views/components/right_panel.py" line="517"/>
-        <location filename="../../views/components/right_panel.py" line="584"/>
-        <location filename="../../views/components/right_panel.py" line="633"/>
-        <source>Stop</source>
-        <translation>停止</translation>
     </message>
     <message>
         <location filename="../../views/components/right_panel.py" line="433"/>
         <location filename="../../views/components/right_panel.py" line="518"/>
         <location filename="../../views/components/right_panel.py" line="585"/>
         <location filename="../../views/components/right_panel.py" line="634"/>
+        <source>On Timeout</source>
+        <translation>超时动作</translation>
+    </message>
+    <message>
+        <location filename="../../views/components/right_panel.py" line="436"/>
+        <location filename="../../views/components/right_panel.py" line="521"/>
+        <location filename="../../views/components/right_panel.py" line="588"/>
+        <location filename="../../views/components/right_panel.py" line="637"/>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <location filename="../../views/components/right_panel.py" line="437"/>
+        <location filename="../../views/components/right_panel.py" line="522"/>
+        <location filename="../../views/components/right_panel.py" line="589"/>
+        <location filename="../../views/components/right_panel.py" line="638"/>
         <source>Continue</source>
         <translation>继续</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="449"/>
+        <location filename="../../views/components/right_panel.py" line="453"/>
         <source>Load Delay (ms)</source>
         <translation>加载等待 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="454"/>
+        <location filename="../../views/components/right_panel.py" line="458"/>
         <source>Find Timeout (ms)</source>
         <translation>查找超时 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="459"/>
+        <location filename="../../views/components/right_panel.py" line="463"/>
         <source>Gone Grace (ms)</source>
         <translation>消失确认 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="464"/>
+        <location filename="../../views/components/right_panel.py" line="468"/>
         <source>Hard Timeout (ms)</source>
         <translation>硬性上限 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="474"/>
+        <location filename="../../views/components/right_panel.py" line="478"/>
         <source>Text</source>
         <translation>文字</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="476"/>
-        <location filename="../../views/components/right_panel.py" line="646"/>
+        <location filename="../../views/components/right_panel.py" line="480"/>
+        <location filename="../../views/components/right_panel.py" line="650"/>
         <source>Interval (ms)</source>
         <translation>间隔 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="486"/>
+        <location filename="../../views/components/right_panel.py" line="490"/>
         <source>Count</source>
         <translation>次数</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="528"/>
+        <location filename="../../views/components/right_panel.py" line="532"/>
         <source>Rows</source>
         <translation>行数</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="529"/>
+        <location filename="../../views/components/right_panel.py" line="533"/>
         <source>Start Cell</source>
         <translation>起始格</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="742"/>
+        <location filename="../../views/components/right_panel.py" line="746"/>
         <source>Inside {parent}</source>
         <translation>位于 {parent} 内</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="746"/>
+        <location filename="../../views/components/right_panel.py" line="750"/>
         <source>Add Step</source>
         <translation>添加步骤</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="193"/>
+        <location filename="../../views/components/right_panel.py" line="197"/>
         <source>Target window</source>
         <translation>目标窗口</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="176"/>
+        <location filename="../../views/components/right_panel.py" line="180"/>
         <source>(Use foreground window)</source>
         <translation>(使用前台窗口)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="210"/>
+        <location filename="../../views/components/right_panel.py" line="214"/>
         <source>Hotkey</source>
         <translation>快捷键</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="246"/>
+        <location filename="../../views/components/right_panel.py" line="250"/>
         <source>Enabled</source>
         <translation>启用</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="256"/>
+        <location filename="../../views/components/right_panel.py" line="260"/>
         <source>Gaming Mode</source>
         <translation>游戏模式</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="265"/>
+        <location filename="../../views/components/right_panel.py" line="269"/>
         <source>Scales templates for changing game resolutions. Turn it off for desktop apps when the target window size stays the same.</source>
         <translation>会根据游戏分辨率变化缩放模板。若用于窗口大小固定的桌面程序，建议关闭。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="273"/>
+        <location filename="../../views/components/right_panel.py" line="277"/>
         <source>Background Input</source>
         <translation>背景输入</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="283"/>
+        <location filename="../../views/components/right_panel.py" line="287"/>
         <source>Sends keys and mouse messages directly to the target window without focusing it. Some games ignore background messages; turn it off to use normal foreground input.</source>
         <translation>不切换焦点，直接把键盘和鼠标消息发送到目标窗口。有些游戏会忽略背景消息；若需要常规前台输入，请关闭。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="291"/>
+        <location filename="../../views/components/right_panel.py" line="295"/>
         <source>Prevent Focus Loss</source>
         <translation>防止失焦</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="301"/>
+        <location filename="../../views/components/right_panel.py" line="305"/>
         <source>Prevents the game from detecting that it lost focus, so it won&apos;t pause when you click away. May not work with all games.</source>
         <translation>防止游戏检测到失焦，让你切换窗口时游戏不会暂停。不一定适用于所有游戏。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="308"/>
+        <location filename="../../views/components/right_panel.py" line="312"/>
         <source>Skip</source>
         <translation>跳过</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="319"/>
+        <location filename="../../views/components/right_panel.py" line="323"/>
         <source>Note</source>
         <translation>备注</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="322"/>
+        <location filename="../../views/components/right_panel.py" line="326"/>
         <source>Add a note for this step</source>
         <translation>为此步骤添加备注</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="337"/>
+        <location filename="../../views/components/right_panel.py" line="341"/>
         <source>Add Template</source>
         <translation>添加模板</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="537"/>
+        <location filename="../../views/components/right_panel.py" line="541"/>
         <source>Button</source>
         <translation>按钮</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="540"/>
+        <location filename="../../views/components/right_panel.py" line="544"/>
         <source>Left</source>
         <translation>左键</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="541"/>
+        <location filename="../../views/components/right_panel.py" line="545"/>
         <source>Right</source>
         <translation>右键</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="542"/>
+        <location filename="../../views/components/right_panel.py" line="546"/>
         <source>Middle</source>
         <translation>中键</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="547"/>
-        <location filename="../../views/components/right_panel.py" line="596"/>
+        <location filename="../../views/components/right_panel.py" line="551"/>
+        <location filename="../../views/components/right_panel.py" line="600"/>
         <source>Target</source>
         <translation>目标</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="550"/>
-        <location filename="../../views/components/right_panel.py" line="599"/>
+        <location filename="../../views/components/right_panel.py" line="554"/>
+        <location filename="../../views/components/right_panel.py" line="603"/>
         <source>Coordinate</source>
         <translation>坐标</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="551"/>
-        <location filename="../../views/components/right_panel.py" line="600"/>
+        <location filename="../../views/components/right_panel.py" line="555"/>
+        <location filename="../../views/components/right_panel.py" line="604"/>
         <source>Image Center</source>
         <translation>图片中心</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="560"/>
-        <location filename="../../views/components/right_panel.py" line="609"/>
+        <location filename="../../views/components/right_panel.py" line="564"/>
+        <location filename="../../views/components/right_panel.py" line="613"/>
         <source>Relative</source>
         <translation>相对位置</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="563"/>
-        <location filename="../../views/components/right_panel.py" line="612"/>
+        <location filename="../../views/components/right_panel.py" line="567"/>
+        <location filename="../../views/components/right_panel.py" line="616"/>
         <source>Client</source>
         <translation>客户区</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="564"/>
-        <location filename="../../views/components/right_panel.py" line="613"/>
+        <location filename="../../views/components/right_panel.py" line="568"/>
+        <location filename="../../views/components/right_panel.py" line="617"/>
         <source>Absolute</source>
         <translation>屏幕绝对</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="644"/>
+        <location filename="../../views/components/right_panel.py" line="648"/>
         <source>Scroll Clicks</source>
         <translation>滚轮格数</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="651"/>
+        <location filename="../../views/components/right_panel.py" line="655"/>
         <source>Positive = scroll up, negative = scroll down</source>
         <translation>正数 = 向上滚，负数 = 向下滚</translation>
     </message>
@@ -1496,8 +1496,8 @@
     </message>
     <message>
         <location filename="../../views/components/toolbar.py" line="105"/>
-        <source>Pack Explorer</source>
-        <translation>包浏览器</translation>
+        <source>Macro Explorer</source>
+        <translation>宏浏览器</translation>
     </message>
     <message>
         <location filename="../../views/components/toolbar.py" line="106"/>

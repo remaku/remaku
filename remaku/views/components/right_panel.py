@@ -1,6 +1,6 @@
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal
 from PySide6.QtGui import QFocusEvent, QIcon, QIntValidator
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CardWidget,
@@ -106,7 +106,9 @@ class PropertyFormMixin:
         self.add_field_label(label)
         field = CommitOnFocusOutTextEdit(self.content_widget)
         field.setPlainText(value)
-        field.setMinimumHeight(120)
+        field.setMinimumHeight(80)
+        field.setMaximumHeight(120)
+        field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         if property_key:
             field.text_committed.connect(lambda text, pk=property_key: event_bus.step_property_changed.emit(pk, text))

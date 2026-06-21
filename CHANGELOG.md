@@ -7,18 +7,21 @@
 ### Fixed
 
 - Hotkey-related translations ("Select a hotkey", "Press a key", "Remove") are now properly translated in both Traditional and Simplified Chinese.
+- The text input field in Text Input steps no longer stretches to fill all available space, staying at a comfortable 3-line height instead.
 
 <!-- lang:zh_tw -->
 
 ### 修正
 
 - 快捷鍵相關翻譯（「選擇快捷鍵」、「按下按鍵」、「移除」）現已正確翻譯為正體中文。
+- 文字輸入步驟中的文字欄位不再撐滿所有可用高度，改為維持約 3 行高度的舒適大小。
 
 <!-- lang:zh_cn -->
 
 ### 修复
 
 - 快捷键相关翻译（「选择快捷键」、「按下按键」、「移除」）现已正确翻译为简体中文。
+- 文字输入步骤中的文字字段不再撑满所有可用高度，改为维持约 3 行高度的舒适大小。
 
 ## v0.10.0
 

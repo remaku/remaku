@@ -958,263 +958,263 @@
 <context>
     <name>RightPanel</name>
     <message>
-        <location filename="../../views/components/right_panel.py" line="715"/>
+        <location filename="../../views/components/right_panel.py" line="717"/>
         <source>Macro Properties</source>
         <translation>巨集屬性</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="718"/>
+        <location filename="../../views/components/right_panel.py" line="720"/>
         <source>Select a macro to inspect its metadata.</source>
         <translation>選擇巨集以查看其資訊。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="410"/>
-        <location filename="../../views/components/right_panel.py" line="447"/>
+        <location filename="../../views/components/right_panel.py" line="412"/>
+        <location filename="../../views/components/right_panel.py" line="449"/>
         <source>Key</source>
         <translation>按鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="411"/>
+        <location filename="../../views/components/right_panel.py" line="413"/>
         <source>Hold (ms)</source>
         <translation>按住 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="418"/>
+        <location filename="../../views/components/right_panel.py" line="420"/>
         <source>Duration (ms)</source>
         <translation>持續時間 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="427"/>
-        <location filename="../../views/components/right_panel.py" line="450"/>
-        <location filename="../../views/components/right_panel.py" line="499"/>
-        <location filename="../../views/components/right_panel.py" line="512"/>
-        <location filename="../../views/components/right_panel.py" line="575"/>
-        <location filename="../../views/components/right_panel.py" line="624"/>
+        <location filename="../../views/components/right_panel.py" line="429"/>
+        <location filename="../../views/components/right_panel.py" line="452"/>
+        <location filename="../../views/components/right_panel.py" line="501"/>
+        <location filename="../../views/components/right_panel.py" line="514"/>
+        <location filename="../../views/components/right_panel.py" line="577"/>
+        <location filename="../../views/components/right_panel.py" line="626"/>
         <source>Threshold</source>
         <translation>相似度</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="430"/>
-        <location filename="../../views/components/right_panel.py" line="502"/>
-        <location filename="../../views/components/right_panel.py" line="515"/>
-        <location filename="../../views/components/right_panel.py" line="580"/>
-        <location filename="../../views/components/right_panel.py" line="629"/>
+        <location filename="../../views/components/right_panel.py" line="432"/>
+        <location filename="../../views/components/right_panel.py" line="504"/>
+        <location filename="../../views/components/right_panel.py" line="517"/>
+        <location filename="../../views/components/right_panel.py" line="582"/>
+        <location filename="../../views/components/right_panel.py" line="631"/>
         <source>Timeout (ms)</source>
         <translation>逾時 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="433"/>
-        <location filename="../../views/components/right_panel.py" line="518"/>
-        <location filename="../../views/components/right_panel.py" line="585"/>
-        <location filename="../../views/components/right_panel.py" line="634"/>
+        <location filename="../../views/components/right_panel.py" line="435"/>
+        <location filename="../../views/components/right_panel.py" line="520"/>
+        <location filename="../../views/components/right_panel.py" line="587"/>
+        <location filename="../../views/components/right_panel.py" line="636"/>
         <source>On Timeout</source>
         <translation>逾時動作</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="436"/>
-        <location filename="../../views/components/right_panel.py" line="521"/>
-        <location filename="../../views/components/right_panel.py" line="588"/>
-        <location filename="../../views/components/right_panel.py" line="637"/>
+        <location filename="../../views/components/right_panel.py" line="438"/>
+        <location filename="../../views/components/right_panel.py" line="523"/>
+        <location filename="../../views/components/right_panel.py" line="590"/>
+        <location filename="../../views/components/right_panel.py" line="639"/>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="437"/>
-        <location filename="../../views/components/right_panel.py" line="522"/>
-        <location filename="../../views/components/right_panel.py" line="589"/>
-        <location filename="../../views/components/right_panel.py" line="638"/>
+        <location filename="../../views/components/right_panel.py" line="439"/>
+        <location filename="../../views/components/right_panel.py" line="524"/>
+        <location filename="../../views/components/right_panel.py" line="591"/>
+        <location filename="../../views/components/right_panel.py" line="640"/>
         <source>Continue</source>
         <translation>繼續</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="453"/>
+        <location filename="../../views/components/right_panel.py" line="455"/>
         <source>Load Delay (ms)</source>
         <translation>載入等待 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="458"/>
+        <location filename="../../views/components/right_panel.py" line="460"/>
         <source>Find Timeout (ms)</source>
         <translation>尋找逾時 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="463"/>
+        <location filename="../../views/components/right_panel.py" line="465"/>
         <source>Gone Grace (ms)</source>
         <translation>消失確認 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="468"/>
+        <location filename="../../views/components/right_panel.py" line="470"/>
         <source>Hard Timeout (ms)</source>
         <translation>硬性上限 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="478"/>
+        <location filename="../../views/components/right_panel.py" line="480"/>
         <source>Text</source>
         <translation>文字</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="480"/>
-        <location filename="../../views/components/right_panel.py" line="650"/>
+        <location filename="../../views/components/right_panel.py" line="482"/>
+        <location filename="../../views/components/right_panel.py" line="652"/>
         <source>Interval (ms)</source>
         <translation>間隔 (ms)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="490"/>
+        <location filename="../../views/components/right_panel.py" line="492"/>
         <source>Count</source>
         <translation>次數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="532"/>
+        <location filename="../../views/components/right_panel.py" line="534"/>
         <source>Rows</source>
         <translation>列數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="533"/>
+        <location filename="../../views/components/right_panel.py" line="535"/>
         <source>Start Cell</source>
         <translation>起始格</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="746"/>
+        <location filename="../../views/components/right_panel.py" line="748"/>
         <source>Inside {parent}</source>
         <translation>位於 {parent} 內</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="750"/>
+        <location filename="../../views/components/right_panel.py" line="752"/>
         <source>Add Step</source>
         <translation>新增步驟</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="197"/>
+        <location filename="../../views/components/right_panel.py" line="199"/>
         <source>Target window</source>
         <translation>目標視窗</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="180"/>
+        <location filename="../../views/components/right_panel.py" line="182"/>
         <source>(Use foreground window)</source>
         <translation>(使用前景視窗)</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="214"/>
+        <location filename="../../views/components/right_panel.py" line="216"/>
         <source>Hotkey</source>
         <translation>快捷鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="250"/>
+        <location filename="../../views/components/right_panel.py" line="252"/>
         <source>Enabled</source>
         <translation>啟用</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="260"/>
+        <location filename="../../views/components/right_panel.py" line="262"/>
         <source>Gaming Mode</source>
         <translation>遊戲模式</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="269"/>
+        <location filename="../../views/components/right_panel.py" line="271"/>
         <source>Scales templates for changing game resolutions. Turn it off for desktop apps when the target window size stays the same.</source>
         <translation>會依遊戲解析度變化縮放範本。若用於視窗大小固定的桌面程式，建議關閉。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="277"/>
+        <location filename="../../views/components/right_panel.py" line="279"/>
         <source>Background Input</source>
         <translation>背景輸入</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="287"/>
+        <location filename="../../views/components/right_panel.py" line="289"/>
         <source>Sends keys and mouse messages directly to the target window without focusing it. Some games ignore background messages; turn it off to use normal foreground input.</source>
         <translation>不切換焦點，直接把鍵盤與滑鼠訊息送到目標視窗。有些遊戲會忽略背景訊息；若需要一般前景輸入，請關閉。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="295"/>
+        <location filename="../../views/components/right_panel.py" line="297"/>
         <source>Prevent Focus Loss</source>
         <translation>防止失焦</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="305"/>
+        <location filename="../../views/components/right_panel.py" line="307"/>
         <source>Prevents the game from detecting that it lost focus, so it won&apos;t pause when you click away. May not work with all games.</source>
         <translation>防止遊戲偵測到失焦，讓你切換視窗時遊戲不會暫停。不一定適用所有遊戲。</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="312"/>
+        <location filename="../../views/components/right_panel.py" line="314"/>
         <source>Skip</source>
         <translation>跳過</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="323"/>
+        <location filename="../../views/components/right_panel.py" line="325"/>
         <source>Note</source>
         <translation>備註</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="326"/>
+        <location filename="../../views/components/right_panel.py" line="328"/>
         <source>Add a note for this step</source>
         <translation>為此步驟加入備註</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="341"/>
+        <location filename="../../views/components/right_panel.py" line="343"/>
         <source>Add Template</source>
         <translation>新增模板</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="541"/>
+        <location filename="../../views/components/right_panel.py" line="543"/>
         <source>Button</source>
         <translation>按鈕</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="544"/>
+        <location filename="../../views/components/right_panel.py" line="546"/>
         <source>Left</source>
         <translation>左鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="545"/>
+        <location filename="../../views/components/right_panel.py" line="547"/>
         <source>Right</source>
         <translation>右鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="546"/>
+        <location filename="../../views/components/right_panel.py" line="548"/>
         <source>Middle</source>
         <translation>中鍵</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="551"/>
-        <location filename="../../views/components/right_panel.py" line="600"/>
+        <location filename="../../views/components/right_panel.py" line="553"/>
+        <location filename="../../views/components/right_panel.py" line="602"/>
         <source>Target</source>
         <translation>目標</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="554"/>
-        <location filename="../../views/components/right_panel.py" line="603"/>
+        <location filename="../../views/components/right_panel.py" line="556"/>
+        <location filename="../../views/components/right_panel.py" line="605"/>
         <source>Coordinate</source>
         <translation>座標</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="555"/>
-        <location filename="../../views/components/right_panel.py" line="604"/>
+        <location filename="../../views/components/right_panel.py" line="557"/>
+        <location filename="../../views/components/right_panel.py" line="606"/>
         <source>Image Center</source>
         <translation>圖片中心</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="564"/>
-        <location filename="../../views/components/right_panel.py" line="613"/>
+        <location filename="../../views/components/right_panel.py" line="566"/>
+        <location filename="../../views/components/right_panel.py" line="615"/>
         <source>Relative</source>
         <translation>相對位置</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="567"/>
-        <location filename="../../views/components/right_panel.py" line="616"/>
+        <location filename="../../views/components/right_panel.py" line="569"/>
+        <location filename="../../views/components/right_panel.py" line="618"/>
         <source>Client</source>
         <translation>客戶區</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="568"/>
-        <location filename="../../views/components/right_panel.py" line="617"/>
+        <location filename="../../views/components/right_panel.py" line="570"/>
+        <location filename="../../views/components/right_panel.py" line="619"/>
         <source>Absolute</source>
         <translation>螢幕絕對</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="648"/>
+        <location filename="../../views/components/right_panel.py" line="650"/>
         <source>Scroll Clicks</source>
         <translation>滾輪格數</translation>
     </message>
     <message>
-        <location filename="../../views/components/right_panel.py" line="655"/>
+        <location filename="../../views/components/right_panel.py" line="657"/>
         <source>Positive = scroll up, negative = scroll down</source>
         <translation>正數 = 向上滾，負數 = 向下滾</translation>
     </message>

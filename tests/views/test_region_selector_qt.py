@@ -140,6 +140,25 @@ def test_region_selector_emits_physical_capture_size_for_mixed_dpi(monkeypatch, 
     assert blocker.args == ["123", 12, 8]
 
 
+def test_region_selector_area_mode_emits_rect_without_saving_template(monkeypatch, tmp_path, qtbot) -> None:
+    screen = FakeScreen(make_pixmap(12, 8))
+    target_display = region_selector.display.DisplayTarget(
+        screen=cast(Any, screen),
+        physical_rect=region_selector.display.window.Rect(0, 1080, 12, 8),
+    )
+    monkeypatch.setattr(region_selector, "grab_screen", lambda target: (screen.pixmap, np.ones((8, 12, 3))))
+    monkeypatch.setattr(region_selector, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    selector = RegionSelector("macro", target_display=target_display, save_template=False)
+    selector.resize(6, 4)
+    qtbot.addWidget(selector)
+
+    with qtbot.waitSignal(selector.area_selected, timeout=100) as blocker:
+        selector.save_region(QRect(1, 1, 3, 2))
+
+    assert blocker.args == [2, 2, 6, 4, 12, 8]
+    assert not (tmp_path / "templates").exists()
+
+
 def test_grab_screen_uses_physical_screen_rect(monkeypatch, qtbot) -> None:
     del qtbot
     screen = FakeScreen(make_pixmap(4, 3))

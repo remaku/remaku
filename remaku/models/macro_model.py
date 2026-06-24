@@ -29,6 +29,18 @@ DEFAULT_MOUSE_RELATIVE = True
 DEFAULT_MOUSE_SCROLL_CLICKS = 3
 DEFAULT_TEMPLATE_MATCH_MODE = "grayscale"
 TEMPLATE_MATCH_MODES = ("grayscale", "color")
+DEFAULT_NUMBER_X = 0
+DEFAULT_NUMBER_Y = 0
+DEFAULT_NUMBER_WIDTH = 0
+DEFAULT_NUMBER_HEIGHT = 0
+DEFAULT_NUMBER_RELATIVE = True
+DEFAULT_NUMBER_CAPTURE_WIDTH = 0
+DEFAULT_NUMBER_CAPTURE_HEIGHT = 0
+DEFAULT_NUMBER_OPERATOR = "≥"
+DEFAULT_NUMBER_VALUE = 0
+DEFAULT_NUMBER_STABLE_READS = 2
+DEFAULT_NUMBER_CHECK_FIRST = True
+NUMBER_OPERATORS = ("=", "≠", ">", "≥", "<", "≤")
 
 
 @dataclass(slots=True)
@@ -175,12 +187,169 @@ class TextInputStep:
         return step_to_dict(self)
 
 
+def parse_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        return value.lower() == "true"
+
+    if value is None:
+        return default
+
+    return bool(value)
+
+
+def parse_number_operator(value: Any) -> str:
+    operator = str(value)
+    if operator not in NUMBER_OPERATORS:
+        return DEFAULT_NUMBER_OPERATOR
+
+    return operator
+
+
+@dataclass(slots=True)
+class WaitNumberStep:
+    type: str = "wait_number"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    x: int = DEFAULT_NUMBER_X
+    y: int = DEFAULT_NUMBER_Y
+    width: int = DEFAULT_NUMBER_WIDTH
+    height: int = DEFAULT_NUMBER_HEIGHT
+    relative: bool = DEFAULT_NUMBER_RELATIVE
+    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    operator: str = DEFAULT_NUMBER_OPERATOR
+    value: int = DEFAULT_NUMBER_VALUE
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "WaitNumberStep":
+        default = cls()
+
+        return cls(
+            skip=parse_bool(data.get("skip"), default.skip),
+            note=str(data.get("note", default.note)),
+            x=int(data.get("x", default.x)),
+            y=int(data.get("y", default.y)),
+            width=int(data.get("width", default.width)),
+            height=int(data.get("height", default.height)),
+            relative=parse_bool(data.get("relative"), default.relative),
+            capture_width=int(data.get("capture_width", default.capture_width)),
+            capture_height=int(data.get("capture_height", default.capture_height)),
+            operator=parse_number_operator(data.get("operator", default.operator)),
+            value=int(data.get("value", default.value)),
+            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            stable_reads=int(data.get("stable_reads", default.stable_reads)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
+@dataclass(slots=True)
+class IfNumberStep:
+    type: str = "if_number"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    x: int = DEFAULT_NUMBER_X
+    y: int = DEFAULT_NUMBER_Y
+    width: int = DEFAULT_NUMBER_WIDTH
+    height: int = DEFAULT_NUMBER_HEIGHT
+    relative: bool = DEFAULT_NUMBER_RELATIVE
+    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    operator: str = DEFAULT_NUMBER_OPERATOR
+    value: int = DEFAULT_NUMBER_VALUE
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
+    then: list["Step"] = field(default_factory=list)
+    else_: list["Step"] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "IfNumberStep":
+        default = cls()
+
+        return cls(
+            skip=parse_bool(data.get("skip"), default.skip),
+            note=str(data.get("note", default.note)),
+            x=int(data.get("x", default.x)),
+            y=int(data.get("y", default.y)),
+            width=int(data.get("width", default.width)),
+            height=int(data.get("height", default.height)),
+            relative=parse_bool(data.get("relative"), default.relative),
+            capture_width=int(data.get("capture_width", default.capture_width)),
+            capture_height=int(data.get("capture_height", default.capture_height)),
+            operator=parse_number_operator(data.get("operator", default.operator)),
+            value=int(data.get("value", default.value)),
+            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            stable_reads=int(data.get("stable_reads", default.stable_reads)),
+            then=parse_steps(data.get("then", default.then)),
+            else_=parse_steps(data.get("else", default.else_)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
+@dataclass(slots=True)
+class RepeatUntilNumberStep:
+    type: str = "repeat_until_number"
+    skip: bool = DEFAULT_STEP_SKIP
+    note: str = DEFAULT_STEP_NOTE
+    x: int = DEFAULT_NUMBER_X
+    y: int = DEFAULT_NUMBER_Y
+    width: int = DEFAULT_NUMBER_WIDTH
+    height: int = DEFAULT_NUMBER_HEIGHT
+    relative: bool = DEFAULT_NUMBER_RELATIVE
+    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    operator: str = DEFAULT_NUMBER_OPERATOR
+    value: int = DEFAULT_NUMBER_VALUE
+    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
+    count: int = DEFAULT_REPEAT_COUNT
+    check_first: bool = DEFAULT_NUMBER_CHECK_FIRST
+    steps: list["Step"] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RepeatUntilNumberStep":
+        default = cls()
+
+        return cls(
+            skip=parse_bool(data.get("skip"), default.skip),
+            note=str(data.get("note", default.note)),
+            x=int(data.get("x", default.x)),
+            y=int(data.get("y", default.y)),
+            width=int(data.get("width", default.width)),
+            height=int(data.get("height", default.height)),
+            relative=parse_bool(data.get("relative"), default.relative),
+            capture_width=int(data.get("capture_width", default.capture_width)),
+            capture_height=int(data.get("capture_height", default.capture_height)),
+            operator=parse_number_operator(data.get("operator", default.operator)),
+            value=int(data.get("value", default.value)),
+            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            stable_reads=int(data.get("stable_reads", default.stable_reads)),
+            count=int(data.get("count", default.count)),
+            check_first=parse_bool(data.get("check_first"), default.check_first),
+            steps=parse_steps(data.get("steps", default.steps)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return step_to_dict(self)
+
+
 type Step = (
     KeyStep
     | DelayStep
     | WaitImageStep
     | HoldKeyUntilGoneStep
     | TextInputStep
+    | WaitNumberStep
+    | IfNumberStep
+    | RepeatUntilNumberStep
     | RepeatStep
     | IfImageStep
     | IfAnyImageStep
@@ -420,6 +589,9 @@ STEP_TYPE_REGISTRY: dict[str, type[Step]] = {
     "wait_image": WaitImageStep,
     "hold_key_until_gone": HoldKeyUntilGoneStep,
     "text_input": TextInputStep,
+    "wait_number": WaitNumberStep,
+    "if_number": IfNumberStep,
+    "repeat_until_number": RepeatUntilNumberStep,
     "repeat": RepeatStep,
     "if_image": IfImageStep,
     "if_any_image": IfAnyImageStep,
@@ -683,3 +855,47 @@ def get_step_mouse_relative(step: dict) -> bool:
 
 def get_step_scroll_clicks(step: dict) -> int:
     return step.get("clicks", DEFAULT_MOUSE_SCROLL_CLICKS)
+
+
+def get_step_number_x(step: dict) -> int:
+    return step.get("x", DEFAULT_NUMBER_X)
+
+
+def get_step_number_y(step: dict) -> int:
+    return step.get("y", DEFAULT_NUMBER_Y)
+
+
+def get_step_number_width(step: dict) -> int:
+    return step.get("width", DEFAULT_NUMBER_WIDTH)
+
+
+def get_step_number_height(step: dict) -> int:
+    return step.get("height", DEFAULT_NUMBER_HEIGHT)
+
+
+def get_step_number_relative(step: dict) -> bool:
+    return step.get("relative", DEFAULT_NUMBER_RELATIVE)
+
+
+def get_step_number_capture_width(step: dict) -> int:
+    return step.get("capture_width", DEFAULT_NUMBER_CAPTURE_WIDTH)
+
+
+def get_step_number_capture_height(step: dict) -> int:
+    return step.get("capture_height", DEFAULT_NUMBER_CAPTURE_HEIGHT)
+
+
+def get_step_number_operator(step: dict) -> str:
+    return parse_number_operator(step.get("operator", DEFAULT_NUMBER_OPERATOR))
+
+
+def get_step_number_value(step: dict) -> int:
+    return step.get("value", DEFAULT_NUMBER_VALUE)
+
+
+def get_step_number_stable_reads(step: dict) -> int:
+    return step.get("stable_reads", DEFAULT_NUMBER_STABLE_READS)
+
+
+def get_step_number_check_first(step: dict) -> bool:
+    return step.get("check_first", DEFAULT_NUMBER_CHECK_FIRST)

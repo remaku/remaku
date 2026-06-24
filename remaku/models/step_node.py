@@ -3,8 +3,10 @@ from remaku.models.step_dict import StepDict, get_step_branches, get_step_list, 
 CONTAINER_CHILD_KEYS: dict[str, list[str]] = {
     "repeat": ["steps"],
     "if_image": ["then", "else"],
+    "if_number": ["then", "else"],
     "if_any_image": [],
     "grid_nav": ["on_next_row", "on_next_col"],
+    "repeat_until_number": ["steps"],
 }
 
 

@@ -4,6 +4,10 @@
 
 <!-- lang:en -->
 
+### Added
+
+- Added number recognition steps for selected screen areas, so macros can wait, branch, or repeat until a visible number reaches the target value.
+
 ### Fixed
 
 - Hotkey-related translations ("Select a hotkey", "Press a key", "Remove") are now properly translated in both Traditional and Simplified Chinese.
@@ -11,12 +15,20 @@
 
 <!-- lang:zh_tw -->
 
+### 新增
+
+- 新增選取畫面區域的數字辨識步驟，巨集可以等待、分支，或重複執行直到畫面上的數字達到目標值。
+
 ### 修正
 
 - 快捷鍵相關翻譯（「選擇快捷鍵」、「按下按鍵」、「移除」）現已正確翻譯為正體中文。
 - 文字輸入步驟中的文字欄位不再撐滿所有可用高度，改為維持約 3 行高度的舒適大小。
 
 <!-- lang:zh_cn -->
+
+### 新增
+
+- 新增可选取画面区域的数字识别步骤，宏可以等待、分支，或重复执行直到画面上的数字达到目标值。
 
 ### 修复
 

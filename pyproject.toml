@@ -10,13 +10,14 @@ dependencies = [
   "loguru>=0.7",
   "mss>=10.1",
   "numpy>=2.0",
-  "opencv-python-headless>=4.10",
+  "opencv-python>=4.10",
   "platformdirs>=4.0",
   "pydirectinput-rgx>=2.1",
   "pygetwindow>=0.0.9",
   "pyside6>=6.7",
   "PySide6-Fluent-Widgets>=1.7.0",
   "pywin32>=306",
+  "rapidocr-onnxruntime>=1.4.4",
 ]
 
 [dependency-groups]

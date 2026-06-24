@@ -147,6 +147,7 @@ def grab_screen(target: display.DisplayTarget) -> tuple[QPixmap, np.ndarray]:
 
 class RegionSelector(QWidget):
     region_selected = Signal(str, int, int)
+    area_selected = Signal(int, int, int, int, int, int)
     cancelled = Signal()
 
     def __init__(
@@ -155,10 +156,12 @@ class RegionSelector(QWidget):
         parent=None,
         target_screen: QScreen | None = None,
         target_display: display.DisplayTarget | None = None,
+        save_template: bool = True,
     ) -> None:
         super().__init__(parent)
 
         self.macro_id = macro_id
+        self.save_template = save_template
         self.setWindowFlags(
             Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
@@ -256,6 +259,10 @@ class RegionSelector(QWidget):
         physical = self.to_frame_rect(rect)
         x, y, width, height = physical.x(), physical.y(), physical.width(), physical.height()
         cropped = self.screenshot[y : y + height, x : x + width]
+
+        if not self.save_template:
+            self.area_selected.emit(x, y, width, height, self.frame_width, self.frame_height)
+            return
 
         template_id = str(int(time.time()))
         template_dir = templates_dir(self.macro_id)

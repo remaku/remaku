@@ -7,7 +7,7 @@ import pytest
 from remaku.core.capture import Grabber
 from remaku.core.window import Rect
 from remaku.models.macro_model import Macro
-from remaku.services import engine
+from remaku.services import engine, macro_runner
 from remaku.services.engine import Stopped, StopReason
 from remaku.services.macro_runner import MacroRunner, validate_steps
 
@@ -167,6 +167,12 @@ def test_validate_steps_accepts_text_input_and_checks_interval() -> None:
         "Step 2 (text_input): missing field 'text'",
         "Step 3 (text_input): bad format for 'interval_ms'",
     ]
+
+
+def test_validate_steps_rejects_non_symbol_number_operator() -> None:
+    errors = validate_steps([{"type": "wait_number", "width": 100, "height": 30, "operator": ">=", "value": 999}])
+
+    assert errors == ["Step 1 (wait_number): invalid operator '>='"]
 
 
 def test_exec_step_skips_marked_step() -> None:
@@ -329,6 +335,150 @@ def test_wait_image_timeout_continue_does_not_finish() -> None:
     runner.exec_step({"type": "wait_image", "template": "start", "on_timeout": "continue"}, (("steps", 0),))
 
     assert finishes == []
+
+
+def test_wait_number_finishes_when_condition_times_out() -> None:
+    runner = make_runner([])
+    finishes = []
+    runner.wait_for_number_condition = lambda step: False
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.exec_step(
+        {"type": "wait_number", "width": 100, "height": 30, "operator": "≥", "value": 999},
+        (("steps", 0),),
+    )
+
+    assert finishes == [(StopReason.STALE, "number_timeout: ≥ 999")]
+
+
+def test_if_number_executes_then_or_else_branch() -> None:
+    runner = make_runner([])
+    calls = []
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": calls.append((steps, branch_key))
+    step = {
+        "type": "if_number",
+        "width": 100,
+        "height": 30,
+        "operator": "≥",
+        "value": 999,
+        "then": [{"type": "key", "key": "enter"}],
+        "else": [{"type": "key", "key": "esc"}],
+    }
+
+    runner.wait_for_number_condition = lambda step: True
+    runner.exec_step(step, (("steps", 0),))
+    runner.wait_for_number_condition = lambda step: False
+    runner.exec_step(step, (("steps", 1),))
+
+    assert calls == [(step["then"], "then"), (step["else"], "else")]
+
+
+def test_repeat_until_number_check_first_skips_children_when_already_met() -> None:
+    runner = make_runner([])
+    calls = []
+    runner.wait_for_number_condition = lambda step: True
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": calls.append(steps)
+
+    runner.exec_step(
+        {
+            "type": "repeat_until_number",
+            "width": 100,
+            "height": 30,
+            "operator": "≥",
+            "value": 999,
+            "count": 2,
+            "check_first": True,
+            "steps": [{"type": "key", "key": "space"}],
+        },
+        (("steps", 0),),
+    )
+
+    assert calls == []
+
+
+def test_repeat_until_number_runs_until_condition_is_met() -> None:
+    runner = make_runner([])
+    checks = iter([False, False, True])
+    calls = []
+    runner.wait_for_number_condition = lambda step: next(checks)
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": calls.append((steps, branch_key))
+    step = {
+        "type": "repeat_until_number",
+        "width": 100,
+        "height": 30,
+        "operator": "≥",
+        "value": 999,
+        "count": 3,
+        "check_first": True,
+        "steps": [{"type": "key", "key": "space"}],
+    }
+
+    runner.exec_step(step, (("steps", 0),))
+
+    assert calls == [(step["steps"], "steps"), (step["steps"], "steps")]
+
+
+def test_repeat_until_number_stops_after_max_runs() -> None:
+    runner = make_runner([])
+    finishes = []
+    runner.wait_for_number_condition = lambda step: False
+    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": None
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    runner.exec_step(
+        {
+            "type": "repeat_until_number",
+            "width": 100,
+            "height": 30,
+            "operator": "≥",
+            "value": 999,
+            "count": 2,
+            "check_first": False,
+            "steps": [{"type": "key", "key": "space"}],
+        },
+        (("steps", 0),),
+    )
+
+    assert finishes == [(StopReason.STALE, "number_condition_timeout: ≥ 999")]
+
+
+def test_wait_for_number_condition_requires_stable_matching_reads(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    values = iter([998, 999, 999])
+    sleeps = []
+    runner.capture_tick = lambda: np.ones((10, 10, 3), dtype=np.uint8)
+    runner.read_number_from_step = lambda frame, step: next(values)
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: sleeps.append(period)
+
+    assert runner.wait_for_number_condition(
+        {
+            "type": "wait_number",
+            "width": 10,
+            "height": 10,
+            "operator": "≥",
+            "value": 999,
+            "timeout_ms": 1000,
+            "stable_reads": 2,
+        }
+    )
+    assert sleeps == [0.1, 0.1]
+
+
+def test_wait_for_number_condition_stops_when_ocr_is_unavailable() -> None:
+    runner = make_hold_key_runner()
+    finishes = []
+
+    def raise_unavailable(frame, step) -> int | None:
+        raise macro_runner.ocr.OcrUnavailableError
+
+    runner.capture_tick = lambda: np.ones((10, 10, 3), dtype=np.uint8)
+    runner.read_number_from_step = raise_unavailable
+    runner.finish = lambda reason, message: finishes.append((reason, message))
+
+    assert not runner.wait_for_number_condition(
+        {"type": "wait_number", "width": 10, "height": 10, "operator": "≥", "value": 999, "timeout_ms": 1000}
+    )
+    assert finishes == [(StopReason.ERROR, "ocr_unavailable")]
 
 
 def test_if_any_image_executes_matching_branch() -> None:

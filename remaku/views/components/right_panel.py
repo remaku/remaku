@@ -24,15 +24,18 @@ from remaku.models.macro_model import (
     HoldKeyUntilGoneStep,
     IfAnyImageStep,
     IfImageStep,
+    IfNumberStep,
     KeyStep,
     Macro,
     MouseClickStep,
     MouseMoveStep,
     MouseScrollStep,
     RepeatStep,
+    RepeatUntilNumberStep,
     Step,
     TextInputStep,
     WaitImageStep,
+    WaitNumberStep,
 )
 from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
@@ -65,6 +68,12 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "clicks",
         "x",
         "y",
+        "width",
+        "height",
+        "capture_width",
+        "capture_height",
+        "stable_reads",
+        "value",
     }
 )
 
@@ -383,6 +392,65 @@ class PropertyFormMixin:
 
         self.content_layout.addWidget(card)
 
+    def add_number_area_editor(self, step) -> None:
+        pick_button = PushButton(
+            RemakuIcon.SCAN_SEARCH,
+            QCoreApplication.translate("RightPanel", "Pick Area"),
+            self.content_widget,
+        )
+        pick_button.clicked.connect(event_bus.number_area_pick_requested.emit)
+        self.content_layout.addWidget(pick_button)
+
+        self.add_text_input("X", str(step.x), "x")
+        self.add_text_input("Y", str(step.y), "y")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Width"), str(step.width), "width")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Height"), str(step.height), "height")
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "Relative"),
+            "true" if step.relative else "false",
+            [
+                (QCoreApplication.translate("RightPanel", "Client"), "true"),
+                (QCoreApplication.translate("RightPanel", "Absolute"), "false"),
+            ],
+            "relative",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Capture Width"),
+            str(step.capture_width),
+            "capture_width",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Capture Height"),
+            str(step.capture_height),
+            "capture_height",
+        )
+
+    def add_number_condition_editor(self, step) -> None:
+        self.add_dropdown(
+            QCoreApplication.translate("RightPanel", "Operator"),
+            step.operator,
+            [
+                (QCoreApplication.translate("RightPanel", "Equal to (=)"), "="),
+                (QCoreApplication.translate("RightPanel", "Not equal to (≠)"), "≠"),
+                (QCoreApplication.translate("RightPanel", "Greater than (>)"), ">"),
+                (QCoreApplication.translate("RightPanel", "Greater than or equal to (≥)"), "≥"),
+                (QCoreApplication.translate("RightPanel", "Less than (<)"), "<"),
+                (QCoreApplication.translate("RightPanel", "Less than or equal to (≤)"), "≤"),
+            ],
+            "operator",
+        )
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Value"), str(step.value), "value")
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"),
+            str(step.timeout_ms),
+            "timeout_ms",
+        )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Stable Reads"),
+            str(step.stable_reads),
+            "stable_reads",
+        )
+
 
 class StepPropertiesWidget(QWidget, PropertyFormMixin):
     def __init__(self, macro: Macro, step: Step, title_text: str, skip_enabled: bool = True, parent=None):
@@ -483,6 +551,37 @@ class TextInputStepPropertiesWidget(StepPropertiesWidget):
             str(self.step.interval_ms),
             "interval_ms",
         )
+
+
+class WaitNumberStepPropertiesWidget(StepPropertiesWidget):
+    step: WaitNumberStep
+
+    def add_step_fields(self) -> None:
+        self.add_number_area_editor(self.step)
+        self.add_number_condition_editor(self.step)
+
+
+class IfNumberStepPropertiesWidget(StepPropertiesWidget):
+    step: IfNumberStep
+
+    def add_step_fields(self) -> None:
+        self.add_number_area_editor(self.step)
+        self.add_number_condition_editor(self.step)
+
+
+class RepeatUntilNumberStepPropertiesWidget(StepPropertiesWidget):
+    step: RepeatUntilNumberStep
+
+    def add_step_fields(self) -> None:
+        self.add_number_area_editor(self.step)
+        self.add_number_condition_editor(self.step)
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Max Runs"), str(self.step.count), "count")
+        check_first = CheckBox(QCoreApplication.translate("RightPanel", "Check Before First Run"), self.content_widget)
+        check_first.setChecked(self.step.check_first)
+        check_first.checkStateChanged.connect(
+            lambda state: event_bus.step_property_changed.emit("check_first", str(state == Qt.CheckState.Checked))
+        )
+        self.content_layout.addWidget(check_first)
 
 
 class RepeatStepPropertiesWidget(StepPropertiesWidget):
@@ -666,6 +765,9 @@ STEP_PROPERTIES_WIDGETS: dict[type[Step], type[StepPropertiesWidget]] = {
     WaitImageStep: WaitImageStepPropertiesWidget,
     HoldKeyUntilGoneStep: HoldKeyUntilGoneStepPropertiesWidget,
     TextInputStep: TextInputStepPropertiesWidget,
+    WaitNumberStep: WaitNumberStepPropertiesWidget,
+    IfNumberStep: IfNumberStepPropertiesWidget,
+    RepeatUntilNumberStep: RepeatUntilNumberStepPropertiesWidget,
     RepeatStep: RepeatStepPropertiesWidget,
     IfImageStep: IfImageStepPropertiesWidget,
     IfAnyImageStep: IfAnyImageStepPropertiesWidget,

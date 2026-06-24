@@ -29,9 +29,12 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
         "delay",
         "text_input",
         "wait_image",
+        "wait_number",
         "hold_key_until_gone",
         "repeat",
+        "repeat_until_number",
         "if_image",
+        "if_number",
         "if_any_image",
         "grid_nav",
         "mouse_click",
@@ -43,9 +46,12 @@ def test_step_type_items_returns_expected_step_types(qtbot) -> None:
         "Delay",
         "Text Input",
         "Wait Image",
+        "Wait Number",
         "Hold Key Until Gone",
         "Repeat",
+        "Repeat Until Number",
         "If Image",
+        "If Number",
         "If Any Image",
         "Grid Navigation",
         "Mouse Click",
@@ -65,7 +71,7 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
     step_menu.show_step_menu(parent, anchor, picked.append)
     menu = FakeMenu.instances[0]
 
-    assert len(menu.actions) == 12
+    assert len(menu.actions) == 15
     assert menu.exec_positions == [anchor.mapToGlobal(anchor.rect().bottomLeft())]
 
     for action in menu.actions:
@@ -76,9 +82,12 @@ def test_show_step_menu_adds_actions_and_triggers_pick(monkeypatch, qtbot) -> No
         "delay",
         "text_input",
         "wait_image",
+        "wait_number",
         "hold_key_until_gone",
         "repeat",
+        "repeat_until_number",
         "if_image",
+        "if_number",
         "if_any_image",
         "grid_nav",
         "mouse_click",

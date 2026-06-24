@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 from loguru import logger
 
-from remaku.core import keys, vision, window
+from remaku.core import keys, ocr, vision, window
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import (
     DEFAULT_TEMPLATE_MATCH_MODE,
+    NUMBER_OPERATORS,
     Macro,
     get_step_button,
     get_step_count,
@@ -24,6 +25,17 @@ from remaku.models.macro_model import (
     get_step_mouse_x,
     get_step_mouse_y,
     get_step_ms,
+    get_step_number_capture_height,
+    get_step_number_capture_width,
+    get_step_number_check_first,
+    get_step_number_height,
+    get_step_number_operator,
+    get_step_number_relative,
+    get_step_number_stable_reads,
+    get_step_number_value,
+    get_step_number_width,
+    get_step_number_x,
+    get_step_number_y,
     get_step_on_timeout,
     get_step_rows,
     get_step_scroll_clicks,
@@ -44,6 +56,14 @@ REQUIRED_FIELDS: dict[str, list[tuple[str, type | tuple[type, ...]]]] = {
     "if_any_image": [("templates", list)],
     "hold_key_until_gone": [("key", str), ("template", str)],
     "text_input": [("text", str)],
+    "wait_number": [("width", (int, float)), ("height", (int, float)), ("operator", str), ("value", (int, float))],
+    "if_number": [("width", (int, float)), ("height", (int, float)), ("operator", str), ("value", (int, float))],
+    "repeat_until_number": [
+        ("width", (int, float)),
+        ("height", (int, float)),
+        ("operator", str),
+        ("value", (int, float)),
+    ],
     "repeat": [],
     "grid_nav": [],
     "mouse_click": [("button", str)],
@@ -91,6 +111,22 @@ def validate_steps(steps: list[dict], template_root: Path | None = None, offset:
 
             if not isinstance(interval_ms, int | float):
                 errors.append(f"Step {index} ({step_type}): bad format for 'interval_ms'")
+
+        if step_type in ("wait_number", "if_number", "repeat_until_number"):
+            operator = step.get("operator")
+            if operator not in NUMBER_OPERATORS:
+                errors.append(f"Step {index} ({step_type}): invalid operator '{operator}'")
+
+            for field in ("width", "height"):
+                value = step.get(field)
+                if isinstance(value, int | float) and value <= 0:
+                    errors.append(f"Step {index} ({step_type}): '{field}' must be greater than 0")
+
+            stable_reads = step.get("stable_reads")
+            if stable_reads is not None and not isinstance(stable_reads, int | float):
+                errors.append(f"Step {index} ({step_type}): bad format for 'stable_reads'")
+            elif isinstance(stable_reads, int | float) and stable_reads <= 0:
+                errors.append(f"Step {index} ({step_type}): 'stable_reads' must be greater than 0")
 
         if step_type in ("mouse_click", "mouse_move") and step.get("target") == "template":
             template_value = step.get("template")
@@ -210,6 +246,8 @@ class MacroRunner(Engine):
             details = f"pos={counter + get_step_start(step)}"
         elif action == "text_input":
             details = f"{len(get_step_text(step))} chars"
+        elif action in ("wait_number", "if_number", "repeat_until_number"):
+            details = self.number_condition_label(step)
         elif action == "mouse_click":
             details = get_step_button(step)
         elif action == "mouse_scroll":
@@ -227,6 +265,12 @@ class MacroRunner(Engine):
             self.checkpoint()
             keys.type_text(get_step_text(step), get_step_interval_ms(step), hwnd=self.input_hwnd())
             self.checkpoint()
+
+        elif action == "wait_number":
+            if not self.wait_for_number_condition(step):
+                self.finish(StopReason.STALE, f"number_timeout: {self.number_condition_label(step)}")
+
+                return
 
         elif action == "wait_image":
             timeout = get_step_timeout(step)
@@ -258,6 +302,9 @@ class MacroRunner(Engine):
                 if not self.status.running:
                     return
 
+        elif action == "repeat_until_number":
+            self.do_repeat_until_number(step, step_path)
+
         elif action == "if_image":
             timeout = get_step_timeout(step)
             template_id = get_step_template(step)
@@ -266,6 +313,12 @@ class MacroRunner(Engine):
             found = self.wait_for_template(template_id, timeout, threshold=threshold)
 
             if found:
+                self.exec_steps(step.get("then", []), step_path, "then")
+            else:
+                self.exec_steps(step.get("else", []), step_path, "else")
+
+        elif action == "if_number":
+            if self.wait_for_number_condition(step):
                 self.exec_steps(step.get("then", []), step_path, "then")
             else:
                 self.exec_steps(step.get("else", []), step_path, "else")
@@ -388,6 +441,105 @@ class MacroRunner(Engine):
 
         else:
             logger.warning("macro: unknown action type '{}'", action)
+
+    def do_repeat_until_number(self, step: dict, step_path: tuple[tuple[str, int], ...]) -> None:
+        if get_step_number_check_first(step) and self.wait_for_number_condition(step):
+            return
+
+        count = get_step_count(step)
+        sub_steps = step.get("steps", [])
+
+        for i in range(count):
+            if self.repeat_depth == 0:
+                self.update(progress=i + 1, repeat_total=count)
+
+            logger.info("{}: repeat_until_number {}/{}", self.engine_id, i + 1, count)
+
+            self.repeat_depth += 1
+            self.exec_steps(sub_steps, step_path, "steps")
+            self.repeat_depth -= 1
+
+            if not self.status.running:
+                return
+
+            if self.wait_for_number_condition(step):
+                return
+
+        if self.status.running:
+            self.finish(StopReason.STALE, f"number_condition_timeout: {self.number_condition_label(step)}")
+
+    def number_condition_label(self, step: dict) -> str:
+        return f"{get_step_number_operator(step)} {get_step_number_value(step)}"
+
+    def wait_for_number_condition(self, step: dict) -> bool:
+        timeout_ms = get_step_timeout(step)
+        deadline = self.active_monotonic() + timeout_ms / 1000.0
+        period = 1.0 / max(1, config_model.config.capture.fps)
+        required_stable_reads = max(1, get_step_number_stable_reads(step))
+        last_value: int | None = None
+        stable_reads = 0
+
+        while True:
+            self.checkpoint()
+            if self.active_monotonic() >= deadline:
+                return False
+
+            tick_start = time.monotonic()
+            frame = self.capture_tick()
+            if frame is None:
+                self.sleep_remaining(tick_start, period)
+                continue
+
+            try:
+                value = self.read_number_from_step(frame, step)
+            except ocr.OcrUnavailableError:
+                self.finish(StopReason.ERROR, "ocr_unavailable")
+                return False
+
+            if value is None:
+                logger.info("{}: number OCR unreadable for {}", self.engine_id, self.number_condition_label(step))
+                last_value = None
+                stable_reads = 0
+                self.sleep_remaining(tick_start, period)
+                continue
+
+            if value == last_value:
+                stable_reads += 1
+            else:
+                last_value = value
+                stable_reads = 1
+
+            self.update(message=str(value))
+            logger.info(
+                "{}: number OCR read {} for {} ({}/{})",
+                self.engine_id,
+                value,
+                self.number_condition_label(step),
+                stable_reads,
+                required_stable_reads,
+            )
+
+            if stable_reads >= required_stable_reads and ocr.compare_number(
+                value,
+                get_step_number_operator(step),
+                get_step_number_value(step),
+            ):
+                logger.info("{}: number condition met with {}", self.engine_id, value)
+                return True
+
+            self.sleep_remaining(tick_start, period)
+
+    def read_number_from_step(self, frame: np.ndarray, step: dict) -> int | None:
+        region = ocr.NumberRegion(
+            x=get_step_number_x(step),
+            y=get_step_number_y(step),
+            width=get_step_number_width(step),
+            height=get_step_number_height(step),
+            relative=get_step_number_relative(step),
+            capture_width=get_step_number_capture_width(step),
+            capture_height=get_step_number_capture_height(step),
+        )
+        return ocr.read_number(frame, region, origin_left=self.capture_rect.left, origin_top=self.capture_rect.top)
 
     def do_hold_key_until_gone(self, step: dict) -> None:
         key = get_step_key(step)

@@ -18,6 +18,7 @@ from remaku.models.macro_model import (
     DelayStep,
     GridNavStep,
     IfAnyImageStep,
+    IfNumberStep,
     KeyStep,
     Macro,
     MacroMeta,
@@ -25,8 +26,10 @@ from remaku.models.macro_model import (
     MouseMoveStep,
     MouseScrollStep,
     RepeatStep,
+    RepeatUntilNumberStep,
     TemplateInfo,
     WaitImageStep,
+    WaitNumberStep,
 )
 from remaku.views.components import center_panel, hotkey_edit, left_panel, right_panel
 from remaku.views.components.center_panel import CenterPanel
@@ -809,6 +812,9 @@ def test_right_panel_show_step_properties_for_common_step_types(monkeypatch, qtb
         DelayStep(ms=250),
         right_panel.TextInputStep(text="hello", interval_ms=25),
         WaitImageStep(template="button", threshold=0.9),
+        WaitNumberStep(width=100, height=30, value=999),
+        IfNumberStep(width=100, height=30, value=999),
+        RepeatUntilNumberStep(width=100, height=30, value=999),
         RepeatStep(count=3),
         IfAnyImageStep(templates=["button"]),
         GridNavStep(rows=2, start=1),
@@ -890,6 +896,43 @@ def test_right_panel_template_list_editor_add_button_emits(monkeypatch, qtbot) -
 
     with qtbot.waitSignal(event_bus.template_add_requested, timeout=100):
         qtbot.mouseClick(buttons[-1], Qt.MouseButton.LeftButton)
+
+
+def test_right_panel_number_area_button_emits(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+
+    panel.show_step_properties(Macro(), "Step", WaitNumberStep(width=100, height=30))
+    button = panel.findChildren(right_panel.PushButton)[0]
+
+    with qtbot.waitSignal(event_bus.number_area_pick_requested, timeout=100):
+        qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+
+
+def test_right_panel_number_operator_dropdown_uses_readable_labels(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+
+    panel.show_step_properties(Macro(), "Step", WaitNumberStep(width=100, height=30, operator="≥"))
+    operator_combo = panel.findChildren(ComboBox)[1]
+
+    assert [operator_combo.itemText(index) for index in range(operator_combo.count())] == [
+        "Equal to (=)",
+        "Not equal to (≠)",
+        "Greater than (>)",
+        "Greater than or equal to (≥)",
+        "Less than (<)",
+        "Less than or equal to (≤)",
+    ]
+    assert [operator_combo.itemData(index) for index in range(operator_combo.count())] == [
+        "=",
+        "≠",
+        ">",
+        "≥",
+        "<",
+        "≤",
+    ]
+    assert operator_combo.currentData() == "≥"
 
 
 def test_right_panel_enabled_checkbox_emits_macro_meta(qtbot) -> None:

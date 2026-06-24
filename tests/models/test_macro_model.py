@@ -14,6 +14,17 @@ from remaku.models.macro_model import (
     DEFAULT_KEY,
     DEFAULT_KEY_HOLD_MS,
     DEFAULT_LOAD_DELAY_MS,
+    DEFAULT_NUMBER_CAPTURE_HEIGHT,
+    DEFAULT_NUMBER_CAPTURE_WIDTH,
+    DEFAULT_NUMBER_CHECK_FIRST,
+    DEFAULT_NUMBER_HEIGHT,
+    DEFAULT_NUMBER_OPERATOR,
+    DEFAULT_NUMBER_RELATIVE,
+    DEFAULT_NUMBER_STABLE_READS,
+    DEFAULT_NUMBER_VALUE,
+    DEFAULT_NUMBER_WIDTH,
+    DEFAULT_NUMBER_X,
+    DEFAULT_NUMBER_Y,
     DEFAULT_ON_TIMEOUT,
     DEFAULT_REPEAT_COUNT,
     DEFAULT_TEMPLATE_MATCH_MODE,
@@ -25,6 +36,7 @@ from remaku.models.macro_model import (
     HoldKeyUntilGoneStep,
     IfAnyImageStep,
     IfImageStep,
+    IfNumberStep,
     KeyStep,
     Macro,
     MacroModel,
@@ -32,8 +44,10 @@ from remaku.models.macro_model import (
     MouseMoveStep,
     MouseScrollStep,
     RepeatStep,
+    RepeatUntilNumberStep,
     TextInputStep,
     WaitImageStep,
+    WaitNumberStep,
     get_step_button,
     get_step_count,
     get_step_find_timeout,
@@ -48,6 +62,17 @@ from remaku.models.macro_model import (
     get_step_mouse_x,
     get_step_mouse_y,
     get_step_ms,
+    get_step_number_capture_height,
+    get_step_number_capture_width,
+    get_step_number_check_first,
+    get_step_number_height,
+    get_step_number_operator,
+    get_step_number_relative,
+    get_step_number_stable_reads,
+    get_step_number_value,
+    get_step_number_width,
+    get_step_number_x,
+    get_step_number_y,
     get_step_on_timeout,
     get_step_rows,
     get_step_scroll_clicks,
@@ -203,6 +228,62 @@ def test_text_input_parses_string_values() -> None:
     assert step.interval_ms == 25
 
 
+def test_number_steps_parse_string_values() -> None:
+    wait_step = parse_step(
+        {
+            "type": "wait_number",
+            "x": "10",
+            "y": "20",
+            "width": "120",
+            "height": "40",
+            "relative": "false",
+            "capture_width": "1920",
+            "capture_height": "1080",
+            "operator": "≥",
+            "value": "999",
+            "timeout_ms": "500",
+            "stable_reads": "3",
+        }
+    )
+    if_step = parse_step(
+        {
+            "type": "if_number",
+            "operator": "bad",
+            "then": [{"type": "key", "key": "enter"}],
+            "else": [{"type": "delay", "ms": 50}],
+        }
+    )
+    repeat_step = parse_step(
+        {
+            "type": "repeat_until_number",
+            "count": "20",
+            "check_first": "false",
+            "steps": [{"type": "key", "key": "space"}],
+        }
+    )
+
+    assert isinstance(wait_step, WaitNumberStep)
+    assert wait_step.x == 10
+    assert wait_step.y == 20
+    assert wait_step.width == 120
+    assert wait_step.height == 40
+    assert wait_step.relative is False
+    assert wait_step.capture_width == 1920
+    assert wait_step.capture_height == 1080
+    assert wait_step.operator == "≥"
+    assert wait_step.value == 999
+    assert wait_step.timeout_ms == 500
+    assert wait_step.stable_reads == 3
+    assert isinstance(if_step, IfNumberStep)
+    assert if_step.operator == DEFAULT_NUMBER_OPERATOR
+    assert isinstance(if_step.then[0], KeyStep)
+    assert isinstance(if_step.else_[0], DelayStep)
+    assert isinstance(repeat_step, RepeatUntilNumberStep)
+    assert repeat_step.count == 20
+    assert repeat_step.check_first is False
+    assert isinstance(repeat_step.steps[0], KeyStep)
+
+
 def test_mouse_steps_parse_string_values() -> None:
     click_step = parse_step(
         {
@@ -284,6 +365,17 @@ def test_step_getters_return_defaults_for_missing_values() -> None:
     assert get_step_mouse_y(step) == 0
     assert get_step_mouse_relative(step) is True
     assert get_step_scroll_clicks(step) == 3
+    assert get_step_number_x(step) == DEFAULT_NUMBER_X
+    assert get_step_number_y(step) == DEFAULT_NUMBER_Y
+    assert get_step_number_width(step) == DEFAULT_NUMBER_WIDTH
+    assert get_step_number_height(step) == DEFAULT_NUMBER_HEIGHT
+    assert get_step_number_relative(step) == DEFAULT_NUMBER_RELATIVE
+    assert get_step_number_capture_width(step) == DEFAULT_NUMBER_CAPTURE_WIDTH
+    assert get_step_number_capture_height(step) == DEFAULT_NUMBER_CAPTURE_HEIGHT
+    assert get_step_number_operator(step) == DEFAULT_NUMBER_OPERATOR
+    assert get_step_number_value(step) == DEFAULT_NUMBER_VALUE
+    assert get_step_number_stable_reads(step) == DEFAULT_NUMBER_STABLE_READS
+    assert get_step_number_check_first(step) == DEFAULT_NUMBER_CHECK_FIRST
 
 
 def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
@@ -293,6 +385,9 @@ def test_all_step_to_dict_methods_return_dataclass_dicts() -> None:
         WaitImageStep(template="start"),
         HoldKeyUntilGoneStep(key="space", template="loading"),
         TextInputStep(text="hello", interval_ms=20),
+        WaitNumberStep(width=100, height=30, value=999),
+        IfNumberStep(then=[KeyStep(key="a")], else_=[DelayStep(ms=1)]),
+        RepeatUntilNumberStep(steps=[KeyStep(key="space")]),
         RepeatStep(steps=[KeyStep(key="tab")]),
         IfImageStep(then=[KeyStep(key="a")], else_=[DelayStep(ms=1)]),
         IfAnyImageStep(templates=["one"], branches={"one": [KeyStep(key="b")]}),

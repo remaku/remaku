@@ -25,6 +25,7 @@ from remaku.models.macro_model import (
     HoldKeyUntilGoneStep,
     IfAnyImageStep,
     IfImageStep,
+    IfNumberStep,
     KeyStep,
     Macro,
     MacroMeta,
@@ -34,9 +35,12 @@ from remaku.models.macro_model import (
     MouseMoveStep,
     MouseScrollStep,
     RepeatStep,
+    RepeatUntilNumberStep,
     Step,
     TextInputStep,
     WaitImageStep,
+    WaitNumberStep,
+    get_step_number_operator,
     parse_step,
     step_to_dict,
 )
@@ -150,6 +154,7 @@ class HomeController(QObject):
         event_bus.template_pick_requested.connect(self.handle_template_pick)
         event_bus.template_delete_requested.connect(self.handle_template_delete)
         event_bus.template_add_requested.connect(self.handle_template_add)
+        event_bus.number_area_pick_requested.connect(self.handle_number_area_pick)
         event_bus.step_add_requested.connect(self.add_step)
         event_bus.macro_meta_changed.connect(self.handle_macro_meta_changed)
         event_bus.step_property_changed.connect(self.handle_step_property_changed)
@@ -782,6 +787,9 @@ class HomeController(QObject):
         if key in ("skip", "relative"):
             return value.lower() == "true"
 
+        if key == "check_first":
+            return value.lower() == "true"
+
         if key in (
             "ms",
             "hold_ms",
@@ -797,6 +805,12 @@ class HomeController(QObject):
             "clicks",
             "x",
             "y",
+            "width",
+            "height",
+            "capture_width",
+            "capture_height",
+            "stable_reads",
+            "value",
         ):
             return int(value)
 
@@ -945,7 +959,7 @@ class HomeController(QObject):
     def build_step_item(self, node: StepNode, path: tuple[tuple[str, int], ...]) -> dict:
         children: list[dict[str, Any]] = []
 
-        if node.step_type == "repeat":
+        if node.step_type in ("repeat", "repeat_until_number"):
             child_list = node.get_child_list("steps")
             children = [
                 self.build_step_item(child, (*path, ("steps", index))) for index, child in enumerate(child_list)
@@ -1039,11 +1053,26 @@ class HomeController(QObject):
                 if len(preview) > 20:
                     preview = f"{preview[:20]}..."
                 label = self.tr("Type text: {text}").format(text=preview) if preview else self.tr("Type text")
+            case "wait_number":
+                label = self.tr("Wait for number {operator} {value}").format(
+                    operator=get_step_number_operator(step),
+                    value=step.get("value", 0),
+                )
             case "repeat":
                 label = self.tr("Repeat {count} times").format(count=step.get("count", 1))
+            case "repeat_until_number":
+                label = self.tr("Repeat until number {operator} {value}").format(
+                    operator=get_step_number_operator(step),
+                    value=step.get("value", 0),
+                )
             case "if_image":
                 label = self.tr("If image {template}").format(
                     template=self.get_template_label(step.get("template", ""))
+                )
+            case "if_number":
+                label = self.tr("If number {operator} {value}").format(
+                    operator=get_step_number_operator(step),
+                    value=step.get("value", 0),
                 )
             case "if_any_image":
                 templates = ", ".join([self.get_template_label(t) for t in step.get("templates", [])])
@@ -1272,6 +1301,9 @@ class HomeController(QObject):
             "wait_image": WaitImageStep,
             "hold_key_until_gone": HoldKeyUntilGoneStep,
             "text_input": TextInputStep,
+            "wait_number": WaitNumberStep,
+            "if_number": IfNumberStep,
+            "repeat_until_number": RepeatUntilNumberStep,
             "repeat": RepeatStep,
             "if_image": IfImageStep,
             "if_any_image": IfAnyImageStep,
@@ -1719,6 +1751,36 @@ class HomeController(QObject):
         selector.cancelled.connect(self.view.window().showNormal)
         selector.start()
 
+    def launch_number_area_selector(
+        self,
+        target_display: display.DisplayTarget | None = None,
+    ) -> None:
+        if self.current_macro is None:
+            return
+
+        if target_display is None:
+            target_display = display.target_display_for_macro(self.current_macro.meta.target_window)
+
+        selector = RegionSelector(
+            self.current_macro.meta.id,
+            parent=self.view,
+            target_display=target_display,
+            save_template=False,
+        )
+        selector.area_selected.connect(
+            lambda x, y, width, height, capture_width, capture_height: self.handle_number_area_selected(
+                x,
+                y,
+                width,
+                height,
+                capture_width,
+                capture_height,
+                target_display,
+            )
+        )
+        selector.cancelled.connect(self.view.window().showNormal)
+        selector.start()
+
     def handle_region_captured(self, old_template_id: str, new_template_id: str, width: int, height: int) -> None:
         self.view.window().showNormal()
 
@@ -1737,6 +1799,50 @@ class HomeController(QObject):
         )
         self.mutate_current_macro()
 
+    def handle_number_area_selected(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        capture_width: int,
+        capture_height: int,
+        target_display: display.DisplayTarget | None,
+    ) -> None:
+        self.view.window().showNormal()
+
+        if self.selected_step is None or self.current_macro is None:
+            return
+
+        relative = False
+        stored_x = x
+        stored_y = y
+        stored_capture_width = capture_width
+        stored_capture_height = capture_height
+
+        if target_display is not None and self.current_macro.meta.target_window:
+            found_window = window.find_target_window(self.current_macro.meta.target_window)
+            if found_window is not None:
+                target_rect = window.client_rect(found_window)
+                stored_x = target_display.physical_rect.left + x - target_rect.left
+                stored_y = target_display.physical_rect.top + y - target_rect.top
+                stored_capture_width = target_rect.width
+                stored_capture_height = target_rect.height
+                relative = True
+
+        self.push_undo(self.selected_step_flat_index())
+        self.selected_step["x"] = stored_x
+        self.selected_step["y"] = stored_y
+        self.selected_step["width"] = width
+        self.selected_step["height"] = height
+        self.selected_step["relative"] = relative
+        self.selected_step["capture_width"] = stored_capture_width
+        self.selected_step["capture_height"] = stored_capture_height
+        self.sync_macro_steps_from_tree()
+        self.save_current_macro()
+        self.refresh_step_tree()
+        self.refresh_selected_step()
+
     def handle_template_capture(self, template_id: str) -> None:
         if self.current_macro is None:
             return
@@ -1746,6 +1852,16 @@ class HomeController(QObject):
         self.view.window().showMinimized()
 
         QTimer.singleShot(200, lambda: self.launch_region_selector(template_id, target_display))
+
+    def handle_number_area_pick(self) -> None:
+        if self.current_macro is None or self.selected_step is None:
+            return
+
+        target_display = display.target_display_for_macro(self.current_macro.meta.target_window)
+
+        self.view.window().showMinimized()
+
+        QTimer.singleShot(200, lambda: self.launch_number_area_selector(target_display))
 
     def handle_template_pick(self, template_id: str) -> None:
         if self.selected_step is None or self.current_macro is None:

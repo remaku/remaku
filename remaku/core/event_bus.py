@@ -25,6 +25,7 @@ class EventBus(QObject):
     template_pick_requested = Signal(str)
     template_delete_requested = Signal(str)
     template_add_requested = Signal()
+    number_area_pick_requested = Signal()
     step_add_requested = Signal(str)
     show_toolbar_step_menu_requested = Signal()
     macro_meta_changed = Signal(str, str)

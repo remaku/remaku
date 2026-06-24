@@ -418,6 +418,51 @@ def test_init_wires_actions_shortcuts_and_initial_state(monkeypatch) -> None:
     assert controller_view.center_panel.step_tree_items == []
 
 
+def test_handle_number_area_selected_saves_client_relative_area(monkeypatch) -> None:
+    controller = make_controller()
+    step = {
+        "type": "wait_number",
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+        "operator": "≥",
+        "value": 999,
+    }
+    macro = Macro(meta=MacroMeta(id="macro", target_window="Game"))
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.selected_macro_id = "macro"
+    controller.selected_step = step
+    controller.step_tree = StepTree([step])
+    controller.sync_runner_macro_from_current = lambda: None
+    target_display = home_controller.display.DisplayTarget(
+        screen=cast(Any, object()),
+        physical_rect=home_controller.window.Rect(1000, 500, 1920, 1080),
+    )
+
+    class TargetWindow:
+        _hWnd = 123
+
+    monkeypatch.setattr(home_controller.window, "find_target_window", lambda title="": TargetWindow())
+    monkeypatch.setattr(
+        home_controller.window,
+        "client_rect",
+        lambda found_window: home_controller.window.Rect(900, 450, 1280, 720),
+    )
+
+    controller.handle_number_area_selected(120, 80, 200, 40, 1920, 1080, target_display)
+
+    assert step["x"] == 220
+    assert step["y"] == 130
+    assert step["width"] == 200
+    assert step["height"] == 40
+    assert step["relative"] is True
+    assert step["capture_width"] == 1280
+    assert step["capture_height"] == 720
+    assert cast(Any, controller.macro_model).saved[-1].steps[0].width == 200
+
+
 def test_handle_shortcut_ignores_action_while_hotkey_input_focused(monkeypatch, qtbot) -> None:
     controller = make_controller()
     edit = HotkeyEdit()

@@ -157,6 +157,7 @@ class MacroRunner(Engine):
         self.keep_target_focused = macro.keep_target_focused
         self.template_ids = list(macro.templates.keys())
         self.macro = macro.to_dict()
+        self.current_step: dict | None = None
         self.current_step_path: tuple[tuple[str, int], ...] | None = None
         self.grid_counters: dict[int, int] = {}
         self.repeat_depth: int = 0

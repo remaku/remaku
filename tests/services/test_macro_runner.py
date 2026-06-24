@@ -97,6 +97,20 @@ def test_validate_steps_accepts_existing_templates(tmp_path: Path) -> None:
     assert validate_steps([{"type": "wait_image", "template": "start"}], template_root=tmp_path) == []
 
 
+def test_runner_initializes_current_step_state() -> None:
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "runner", "label": "Runner"},
+            "steps": [{"type": "key", "key": "enter"}],
+        }
+    )
+
+    runner = MacroRunner(macro)
+
+    assert runner.current_step is None
+    assert runner.current_step_path is None
+
+
 def test_pause_resume_are_idempotent() -> None:
     runner = make_runner([])
 

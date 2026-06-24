@@ -34,6 +34,26 @@ def test_apply_captured_template_replaces_step_ref_and_preserves_label(tmp_path:
     assert macro.templates["new"].match_mode == "color"
 
 
+def test_apply_captured_template_keeps_shared_template_for_other_steps(tmp_path: Path) -> None:
+    selected_step = {"type": "wait_image", "template": "old"}
+    other_step = {"type": "mouse_click", "template": "old"}
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo(label="Old label", match_mode="color")})
+    old_file = tmp_path / "templates" / "macro" / "old.png"
+    old_file.parent.mkdir(parents=True)
+    old_file.write_bytes(b"old")
+    step_tree = StepTree([selected_step, other_step])
+    service = make_service(tmp_path)
+
+    service.apply_captured_template(macro, selected_step, "old", "new", 320, 180, step_tree)
+
+    assert old_file.read_bytes() == b"old"
+    assert selected_step["template"] == "new"
+    assert other_step["template"] == "old"
+    assert set(macro.templates) == {"old", "new"}
+    assert macro.templates["new"].label == "Old label"
+    assert macro.templates["new"].match_mode == "color"
+
+
 def test_pick_template_copies_file_and_rewrites_any_image_branch(tmp_path: Path) -> None:
     source = tmp_path / "source.png"
     source.write_bytes(b"png")

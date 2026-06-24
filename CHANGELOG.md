@@ -8,10 +8,15 @@
 
 - Added number recognition steps for selected screen areas, so macros can wait, branch, or repeat until a visible number reaches the target value.
 
+### Changed
+
+- Duplicating or pasting steps now creates independent template copies instead of sharing the original template.
+
 ### Fixed
 
 - Hotkey-related translations ("Select a hotkey", "Press a key", "Remove") are now properly translated in both Traditional and Simplified Chinese.
 - The text input field in Text Input steps no longer stretches to fill all available space, staying at a comfortable 3-line height instead.
+- Re-capturing or replacing a template on one step no longer removes the template file when other steps also use that template.
 - The running overlay no longer crashes when a macro starts before its first step is shown.
 
 <!-- lang:zh_tw -->
@@ -20,10 +25,15 @@
 
 - 新增選取畫面區域的數字辨識步驟，巨集可以等待、分支，或重複執行直到畫面上的數字達到目標值。
 
+### 變更
+
+- 複製或貼上步驟現在會建立獨立的模板副本，而非共享原來模板。
+
 ### 修正
 
 - 快捷鍵相關翻譯（「選擇快捷鍵」、「按下按鍵」、「移除」）現已正確翻譯為正體中文。
 - 文字輸入步驟中的文字欄位不再撐滿所有可用高度，改為維持約 3 行高度的舒適大小。
+- 重新截取或替換步驟的模板時，若其他步驟也使用相同模板，不再會誤刪模板檔案。
 - 巨集剛開始執行、第一個步驟尚未顯示時，執行浮動面板不再當機。
 
 <!-- lang:zh_cn -->
@@ -32,10 +42,15 @@
 
 - 新增可选取画面区域的数字识别步骤，宏可以等待、分支，或重复执行直到画面上的数字达到目标值。
 
+### 变更
+
+- 复制或粘贴步骤现在会创建独立的模板副本，而非共享原来模板。
+
 ### 修复
 
 - 快捷键相关翻译（「选择快捷键」、「按下按键」、「移除」）现已正确翻译为简体中文。
 - 文字输入步骤中的文字字段不再撑满所有可用高度，改为维持约 3 行高度的舒适大小。
+- 重新截取或替换步骤的模板时，若其他步骤也使用相同模板，不再会误删模板文件。
 - 宏刚开始执行、第一步尚未显示时，运行浮动面板不再崩溃。
 
 ## v0.10.0

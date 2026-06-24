@@ -96,7 +96,10 @@ class HomeController(QObject):
         self.undo_selection_indexes: dict[str, list[int | None]] = {}
         self.redo_selection_indexes: dict[str, list[int | None]] = {}
         self.step_clipboard: dict | None = None
-        self.clipboard_service = ClipboardService()
+        self.clipboard_service = ClipboardService(
+            template_id_provider=self.generate_template_id,
+            label_provider=self.default_template_label,
+        )
         self.template_service = TemplateService(
             self.generate_template_id,
             self.default_template_label,
@@ -536,6 +539,7 @@ class HomeController(QObject):
 
         clipboard = self.clipboard_service.copy_selected_steps(self.current_macro, self.step_tree, selected)
         if clipboard is None:
+            self.view.set_status_text(self.tr("Select a step first"))
             return
 
         self.step_clipboard = clipboard
@@ -1358,7 +1362,7 @@ class HomeController(QObject):
         self.save_current_macro()
 
     def duplicate_selected_step(self) -> None:
-        if self.step_tree is None:
+        if self.step_tree is None or self.current_macro is None:
             self.view.set_status_text(self.tr("Select a macro first"))
             return
 
@@ -1367,11 +1371,25 @@ class HomeController(QObject):
             self.view.set_status_text(self.tr("Select a step first"))
             return
 
+        clipboard = self.clipboard_service.copy_selected_steps(self.current_macro, self.step_tree, selected)
+        if clipboard is None:
+            self.view.set_status_text(self.tr("Select a step first"))
+            return
+
         self.push_undo()
 
         duplicated = self.step_tree.duplicate_nodes(selected)
         if not duplicated:
             return
+
+        used_template_ids = set(self.current_macro.templates)
+        for node in duplicated:
+            self.clipboard_service.clone_template_refs_for_step(
+                self.current_macro,
+                clipboard,
+                node.step,
+                used_template_ids,
+            )
 
         self.mutate_current_macro()
         self.set_selected_step(duplicated[-1].step)
@@ -1796,6 +1814,7 @@ class HomeController(QObject):
             new_template_id,
             width,
             height,
+            self.step_tree,
         )
         self.mutate_current_macro()
 
@@ -1881,6 +1900,7 @@ class HomeController(QObject):
             self.selected_step,
             template_id,
             file_path,
+            step_tree=self.step_tree,
         )
         self.mutate_current_macro()
 

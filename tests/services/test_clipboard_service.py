@@ -5,10 +5,14 @@ from remaku.models.step_tree import StepTree
 from remaku.services.clipboard_service import ClipboardService
 
 
-def make_service(tmp_path: Path) -> ClipboardService:
+def make_service(tmp_path: Path, ids: list[str] | None = None) -> ClipboardService:
+    id_iter = iter(ids or ["copied"])
+
     return ClipboardService(
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
         lambda macro_id: tmp_path / "templates" / macro_id,
+        lambda: next(id_iter),
+        lambda template_id: f"Template {template_id}",
     )
 
 
@@ -42,7 +46,7 @@ def test_copy_selected_steps_includes_template_data_and_meta(tmp_path: Path) -> 
     }
 
 
-def test_paste_steps_writes_template_and_merges_existing_meta(tmp_path: Path) -> None:
+def test_paste_steps_clones_template_and_metadata(tmp_path: Path) -> None:
     macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
     service = make_service(tmp_path)
     step_tree = StepTree([])
@@ -56,10 +60,40 @@ def test_paste_steps_writes_template_and_merges_existing_meta(tmp_path: Path) ->
 
     assert result.changed is True
     assert result.selected_step == step_tree.steps[0]
-    assert (tmp_path / "templates" / "macro" / "button.png").read_bytes() == b"png"
-    assert macro.templates["button"].label == "Button"
-    assert macro.templates["button"].capture_width == 320
-    assert macro.templates["button"].capture_height == 180
+    assert step_tree.steps[0]["template"] == "copied"
+    assert (tmp_path / "templates" / "macro" / "copied.png").read_bytes() == b"png"
+    assert macro.templates["button"].label == ""
+    assert macro.templates["copied"].label == "Button"
+    assert macro.templates["copied"].capture_width == 320
+    assert macro.templates["copied"].capture_height == 180
+
+
+def test_paste_steps_clones_each_template_slot_independently(tmp_path: Path) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    service = make_service(tmp_path, ["copy", "copy", "copy"])
+    step_tree = StepTree([])
+    clipboard = {
+        "steps": [
+            {
+                "type": "if_any_image",
+                "templates": ["button"],
+                "branches": {"button": [{"type": "wait_image", "template": "button"}]},
+            },
+            {"type": "wait_image", "template": "button"},
+        ],
+        "templates": {"button": b"png"},
+        "template_meta": {"button": {"label": "Button", "capture_width": 320, "capture_height": 180}},
+    }
+
+    service.paste_steps(macro, step_tree, clipboard, None, None)
+
+    assert step_tree.steps[0]["templates"] == ["copy"]
+    assert step_tree.steps[0]["branches"]["copy"][0]["template"] == "copy1"
+    assert step_tree.steps[1]["template"] == "copy2"
+    assert set(macro.templates) == {"copy", "copy1", "copy2"}
+    assert (tmp_path / "templates" / "macro" / "copy.png").read_bytes() == b"png"
+    assert (tmp_path / "templates" / "macro" / "copy1.png").read_bytes() == b"png"
+    assert (tmp_path / "templates" / "macro" / "copy2.png").read_bytes() == b"png"
 
 
 def test_paste_steps_returns_unchanged_for_empty_steps(tmp_path: Path) -> None:

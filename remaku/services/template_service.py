@@ -5,6 +5,7 @@ from pathlib import Path
 from remaku.models.macro_model import DEFAULT_TEMPLATE_MATCH_MODE, TEMPLATE_MATCH_MODES, Macro, TemplateInfo
 from remaku.models.step_tree import StepTree
 from remaku.paths import template_path
+from remaku.services.template_ids import generate_unique_template_id
 
 
 class TemplateService:
@@ -28,6 +29,7 @@ class TemplateService:
         new_template_id: str,
         width: int,
         height: int,
+        step_tree: StepTree | None = None,
     ) -> None:
         self.replace_template(
             current_macro,
@@ -37,6 +39,7 @@ class TemplateService:
             width,
             height,
             remove_old_file=True,
+            step_tree=step_tree,
         )
 
     def pick_template(
@@ -47,6 +50,7 @@ class TemplateService:
         source_path: str,
         capture_width: int | None = None,
         capture_height: int | None = None,
+        step_tree: StepTree | None = None,
     ) -> str:
         if capture_width is None or capture_height is None:
             w, h = self.screen_size_provider()
@@ -66,6 +70,7 @@ class TemplateService:
             capture_width,
             capture_height,
             remove_old_file=True,
+            step_tree=step_tree,
         )
 
         return new_template_id
@@ -79,13 +84,21 @@ class TemplateService:
         capture_width: int,
         capture_height: int,
         remove_old_file: bool = False,
+        step_tree: StepTree | None = None,
     ) -> None:
-        if remove_old_file:
+        old_template_is_owned = self.is_template_owned_by_step(step_tree, selected_step, old_template_id)
+        should_remove_old = remove_old_file and old_template_is_owned
+
+        if should_remove_old:
             old_png = self.template_path_provider(current_macro.meta.id, old_template_id)
             if old_png.exists():
                 old_png.unlink()
 
-        old_meta = current_macro.templates.pop(old_template_id, None)
+        if old_template_is_owned:
+            old_meta = current_macro.templates.pop(old_template_id, None)
+        else:
+            old_meta = current_macro.templates.get(old_template_id)
+
         new_meta = current_macro.templates.get(new_template_id)
         if new_meta is None:
             new_meta = TemplateInfo()
@@ -122,6 +135,30 @@ class TemplateService:
         if selected_step.get("template") == old_template_id:
             selected_step["template"] = new_template_id
 
+    def is_template_owned_by_step(self, step_tree: StepTree | None, selected_step: dict, template_id: str) -> bool:
+        if step_tree is None:
+            return True
+
+        selected_ref_count = self.count_direct_template_refs(selected_step, template_id)
+        if selected_ref_count == 0:
+            return False
+
+        total_ref_count = 0
+        for node in step_tree.flatten():
+            total_ref_count += self.count_direct_template_refs(node.step, template_id)
+
+        return total_ref_count <= selected_ref_count
+
+    def count_direct_template_refs(self, step: dict, template_id: str) -> int:
+        count = 0
+
+        if step.get("template") == template_id:
+            count += 1
+
+        count += sum(1 for item in step.get("templates", []) if item == template_id)
+
+        return count
+
     def delete_template(self, current_macro: Macro, step_tree: StepTree, template_id: str) -> None:
         png_path = self.template_path_provider(current_macro.meta.id, template_id)
         if png_path.exists():
@@ -143,34 +180,12 @@ class TemplateService:
                         del step["branches"]
 
     def generate_unique_template_id(self, current_macro: Macro, selected_step: dict | None = None) -> str:
-        base_template_id = str(self.template_id_provider() or "template")
-        used_template_ids = set(current_macro.templates)
-
-        if selected_step is not None:
-            if template_id := selected_step.get("template"):
-                used_template_ids.add(str(template_id))
-
-            used_template_ids.update(str(template_id) for template_id in selected_step.get("templates", []))
-
-            branches = selected_step.get("branches", {})
-            if isinstance(branches, dict):
-                used_template_ids.update(str(template_id) for template_id in branches)
-
-        template_id = base_template_id
-        next_timestamp = int(base_template_id) + 1 if base_template_id.isdecimal() else None
-        suffix = 1
-
-        while (
-            template_id in used_template_ids or self.template_path_provider(current_macro.meta.id, template_id).exists()
-        ):
-            if next_timestamp is not None:
-                template_id = str(next_timestamp)
-                next_timestamp += 1
-            else:
-                template_id = f"{base_template_id}{suffix}"
-                suffix += 1
-
-        return template_id
+        return generate_unique_template_id(
+            current_macro,
+            self.template_id_provider,
+            self.template_path_provider,
+            selected_step=selected_step,
+        )
 
     def add_template(self, current_macro: Macro, selected_step: dict) -> bool:
         if selected_step.get("type") != "if_any_image":

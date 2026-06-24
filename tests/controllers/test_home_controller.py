@@ -344,6 +344,8 @@ def make_controller() -> HomeController:
     controller.clipboard_service = ClipboardService(
         lambda macro_id, template_id: home_controller.template_path(macro_id, template_id),
         lambda macro_id: home_controller.templates_dir(macro_id),
+        controller.generate_template_id,
+        controller.default_template_label,
     )
     controller.template_service = TemplateService(
         controller.generate_template_id,
@@ -2066,6 +2068,7 @@ def test_clipboard_copy_cut_and_paste_steps(tmp_path: Path, monkeypatch, qtbot) 
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(home_controller.time, "time", lambda: 900.0)
 
     with qtbot.waitSignal(home_controller.event_bus.clipboard_changed, timeout=100) as clipboard_changed:
         controller.copy_selected_steps()
@@ -2081,7 +2084,9 @@ def test_clipboard_copy_cut_and_paste_steps(tmp_path: Path, monkeypatch, qtbot) 
 
     controller.paste_steps()
 
-    assert controller.step_tree.steps[0]["template"] == "button"
+    assert controller.step_tree.steps[0]["template"] == "900"
+    assert (tmp_path / "templates" / "macro" / "900.png").read_bytes() == b"png"
+    assert controller.current_macro.templates["900"].label == "Button"
     assert controller.selected_step == controller.step_tree.steps[0]
 
 
@@ -2171,6 +2176,45 @@ def test_duplicate_delete_wrap_and_move_selected_step_paths() -> None:
     controller.delete_selected_step()
 
     assert cast(Any, controller.view).statuses[-1] == "Deleted step"
+
+
+def test_duplicate_selected_step_clones_template(tmp_path: Path, monkeypatch) -> None:
+    step = {"type": "wait_image", "template": "button"}
+    macro = Macro.from_dict(
+        {
+            "meta": {"name": "macro"},
+            "templates": {"button": {"label": "Button", "capture_width": 320}},
+            "steps": [step],
+        }
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([step])
+    controller.selected_macro_id = "macro"
+    item = object()
+    center = cast(Any, controller.view).center_panel
+    center.step_list.selectedItems = lambda: [item]
+    center.item_to_step = {item: step}
+    template_file = tmp_path / "templates" / "macro" / "button.png"
+    template_file.parent.mkdir(parents=True)
+    template_file.write_bytes(b"png")
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(home_controller.time, "time", lambda: 904.0)
+
+    controller.duplicate_selected_step()
+
+    assert controller.step_tree.steps[0]["template"] == "button"
+    assert controller.step_tree.steps[1]["template"] == "904"
+    assert (tmp_path / "templates" / "macro" / "904.png").read_bytes() == b"png"
+    assert macro.templates["button"].label == "Button"
+    assert macro.templates["904"].label == "Button"
+    assert macro.templates["904"].capture_width == 320
 
 
 def test_delete_selected_step_removes_unused_template(tmp_path: Path) -> None:
@@ -2267,7 +2311,7 @@ def test_step_actions_report_missing_macro_or_step() -> None:
         "Select a macro first",
         "Select a macro first",
         "Select a macro first",
-        "Select a step first",
+        "Select a macro first",
         "Select a step first",
         "Select a step first",
         "Select a step first",
@@ -2535,13 +2579,16 @@ def test_paste_steps_merges_existing_template_metadata(tmp_path: Path, monkeypat
         "template_path",
         lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
     )
+    monkeypatch.setattr(home_controller.time, "time", lambda: 901.0)
 
     controller.paste_steps()
 
-    assert (tmp_path / "templates" / "macro" / "button.png").read_bytes() == b"png"
-    assert macro.templates["button"].label == "Button"
-    assert macro.templates["button"].capture_width == 320
-    assert macro.templates["button"].capture_height == 180
+    assert controller.step_tree.steps[0]["template"] == "901"
+    assert (tmp_path / "templates" / "macro" / "901.png").read_bytes() == b"png"
+    assert macro.templates["button"].label == ""
+    assert macro.templates["901"].label == "Button"
+    assert macro.templates["901"].capture_width == 320
+    assert macro.templates["901"].capture_height == 180
     assert calls == ["mutate"]
 
 
@@ -3028,11 +3075,18 @@ def test_paste_steps_adds_missing_template_metadata(tmp_path: Path, monkeypatch)
     }
     controller.mutate_current_macro = lambda: None
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller.time, "time", lambda: 902.0)
 
     controller.paste_steps()
 
-    assert macro.templates["button"].label == "Button"
-    assert macro.templates["button"].capture_width == 320
+    assert controller.step_tree.steps[0]["template"] == "902"
+    assert macro.templates["902"].label == "Button"
+    assert macro.templates["902"].capture_width == 320
 
 
 def test_paste_steps_creates_template_from_clipboard_meta_when_not_in_macro(tmp_path: Path, monkeypatch) -> None:
@@ -3048,15 +3102,22 @@ def test_paste_steps_creates_template_from_clipboard_meta_when_not_in_macro(tmp_
     }
     controller.mutate_current_macro = lambda: None
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller.time, "time", lambda: 903.0)
 
     controller.paste_steps()
 
     assert "existing" in macro.templates
     assert macro.templates["existing"].label == "Existing"
-    assert "new_one" in macro.templates
-    assert macro.templates["new_one"].label == "New"
-    assert macro.templates["new_one"].capture_width == 640
-    assert macro.templates["new_one"].capture_height == 360
+    assert controller.step_tree.steps[0]["template"] == "903"
+    assert "new_one" not in macro.templates
+    assert macro.templates["903"].label == "New"
+    assert macro.templates["903"].capture_width == 640
+    assert macro.templates["903"].capture_height == 360
 
 
 def test_handle_macro_rename_cancel_does_not_save(monkeypatch) -> None:
@@ -3236,6 +3297,7 @@ def test_import_macro_confirms_and_overwrites_existing_template(tmp_path: Path, 
 def test_duplicate_selected_step_returns_when_duplicate_fails(monkeypatch) -> None:
     step = {"type": "key", "key": "a"}
     controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
     controller.current_runner = cast(Any, FakeRunner())
     controller.step_tree = StepTree([step])
     step_tree = cast(Any, controller.step_tree)
@@ -3245,6 +3307,21 @@ def test_duplicate_selected_step_returns_when_duplicate_fails(monkeypatch) -> No
     controller.duplicate_selected_step()
 
     assert cast(Any, controller.view).statuses == []
+
+
+def test_duplicate_selected_step_reports_when_clipboard_payload_is_empty(monkeypatch) -> None:
+    step = {"type": "key", "key": "a"}
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.step_tree = StepTree([step])
+    step_tree = cast(Any, controller.step_tree)
+    controller.selected_step_nodes = lambda: [step_tree.root_nodes[0]]
+    monkeypatch.setattr(step_tree, "get_top_level", lambda selected: [])
+
+    controller.duplicate_selected_step()
+
+    assert cast(Any, controller.view).statuses == ["Select a step first"]
 
 
 def test_wrap_selected_step_returns_when_top_level_empty(monkeypatch) -> None:

@@ -807,6 +807,7 @@ class HomeController(QObject):
             "start",
             "interval_ms",
             "clicks",
+            "down_up_delay_ms",
             "x",
             "y",
             "width",

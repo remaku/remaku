@@ -26,6 +26,7 @@ DEFAULT_MOUSE_X = 0
 DEFAULT_MOUSE_Y = 0
 DEFAULT_MOUSE_TARGET = "coordinate"
 DEFAULT_MOUSE_RELATIVE = True
+DEFAULT_MOUSE_DOWN_UP_DELAY_MS = 70
 DEFAULT_MOUSE_SCROLL_CLICKS = 3
 DEFAULT_TEMPLATE_MATCH_MODE = "grayscale"
 TEMPLATE_MATCH_MODES = ("grayscale", "color")
@@ -502,6 +503,7 @@ class MouseClickStep:
     threshold: float = DEFAULT_THRESHOLD
     timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
+    down_up_delay_ms: int = DEFAULT_MOUSE_DOWN_UP_DELAY_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "MouseClickStep":
@@ -519,6 +521,7 @@ class MouseClickStep:
             threshold=float(data.get("threshold", default.threshold)),
             timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
+            down_up_delay_ms=int(data.get("down_up_delay_ms", default.down_up_delay_ms)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -851,6 +854,10 @@ def get_step_mouse_y(step: dict) -> int:
 
 def get_step_mouse_relative(step: dict) -> bool:
     return step.get("relative", DEFAULT_MOUSE_RELATIVE)
+
+
+def get_step_down_up_delay_ms(step: dict) -> int:
+    return step.get("down_up_delay_ms", DEFAULT_MOUSE_DOWN_UP_DELAY_MS)
 
 
 def get_step_scroll_clicks(step: dict) -> int:

@@ -13,6 +13,7 @@ from remaku.models.macro_model import (
     Macro,
     get_step_button,
     get_step_count,
+    get_step_down_up_delay_ms,
     get_step_find_timeout,
     get_step_gone_grace,
     get_step_hard_timeout,
@@ -363,6 +364,7 @@ class MacroRunner(Engine):
         elif action == "mouse_click":
             button = get_step_button(step)
             target = get_step_mouse_target(step)
+            down_up_delay_ms = get_step_down_up_delay_ms(step)
 
             if target == "template":
                 template_id = get_step_template(step)
@@ -388,7 +390,7 @@ class MacroRunner(Engine):
 
                     return
 
-                keys.mouse_click(button, center_x, center_y, hwnd=self.input_hwnd())
+                keys.mouse_click(button, center_x, center_y, hwnd=self.input_hwnd(), down_up_delay_ms=down_up_delay_ms)
             else:
                 position = self.resolve_mouse_position(step)
 
@@ -396,7 +398,7 @@ class MacroRunner(Engine):
                     logger.warning("{}: mouse_click could not resolve position", self.engine_id)
                     return
 
-                keys.mouse_click(button, *position, hwnd=self.input_hwnd())
+                keys.mouse_click(button, *position, hwnd=self.input_hwnd(), down_up_delay_ms=down_up_delay_ms)
 
         elif action == "mouse_move":
             target = get_step_mouse_target(step)

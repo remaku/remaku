@@ -691,6 +691,11 @@ class MouseClickStepPropertiesWidget(StepPropertiesWidget):
                 ],
                 "on_timeout",
             )
+        self.add_text_input(
+            QCoreApplication.translate("RightPanel", "Down/Up Delay (ms)"),
+            str(self.step.down_up_delay_ms),
+            "down_up_delay_ms",
+        )
 
 
 class MouseMoveStepPropertiesWidget(StepPropertiesWidget):

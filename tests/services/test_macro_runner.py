@@ -930,7 +930,7 @@ def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         "remaku.services.macro_runner.keys.mouse_click",
-        lambda button, x, y, hwnd=None: calls.append((button, x, y, hwnd)),
+        lambda button, x, y, hwnd=None, down_up_delay_ms=0: calls.append((button, x, y, hwnd, down_up_delay_ms)),
     )
 
     runner.exec_step(
@@ -938,7 +938,7 @@ def test_exec_step_mouse_click_coordinate(monkeypatch) -> None:
         (("steps", 0),),
     )
 
-    assert calls == [("right", 110, 220, None)]
+    assert calls == [("right", 110, 220, None, 70)]
 
 
 def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_position(monkeypatch) -> None:
@@ -948,7 +948,7 @@ def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_
     runner.finish = lambda reason, message: finishes.append((reason, message))
     monkeypatch.setattr(
         "remaku.services.macro_runner.keys.mouse_click",
-        lambda button, x, y, hwnd=None: clicks.append((button, x, y, hwnd)),
+        lambda button, x, y, hwnd=None, down_up_delay_ms=0: clicks.append((button, x, y, hwnd, down_up_delay_ms)),
     )
 
     runner.exec_step(
@@ -975,7 +975,7 @@ def test_exec_step_mouse_click_template_handles_empty_timeout_found_and_missing_
         (StopReason.STALE, "mouse_click: empty template"),
         (StopReason.STALE, "mouse_click_timeout: Button"),
     ]
-    assert clicks == [("left", 12, 34, None)]
+    assert clicks == [("left", 12, 34, None, 70)]
 
 
 def test_exec_step_mouse_move_coordinate_template_and_empty_timeout(monkeypatch) -> None:

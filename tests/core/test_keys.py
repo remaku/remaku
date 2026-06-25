@@ -341,13 +341,12 @@ def test_is_valid_key_accepts_combo_when_all_parts_are_supported(monkeypatch) ->
 def test_mouse_click_moves_and_clicks_requested_button(monkeypatch, button: str, expected_call: str) -> None:
     calls = []
     monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append(("move", x, y)))
-    monkeypatch.setattr(keys.pdi, "leftClick", lambda: calls.append(("click", "left")))
-    monkeypatch.setattr(keys.pdi, "rightClick", lambda: calls.append(("click", "right")))
-    monkeypatch.setattr(keys.pdi, "middleClick", lambda: calls.append(("click", "middle")))
+    monkeypatch.setattr(keys.pdi, "mouseDown", lambda button: calls.append(("down", button)))
+    monkeypatch.setattr(keys.pdi, "mouseUp", lambda button: calls.append(("up", button)))
 
     keys.mouse_click(button, 10, 20)
 
-    assert calls == [("move", 10, 20), ("click", expected_call)]
+    assert calls == [("move", 10, 20), ("down", expected_call), ("up", expected_call)]
 
 
 def test_mouse_click_stops_when_move_fails(monkeypatch) -> None:
@@ -357,7 +356,8 @@ def test_mouse_click_stops_when_move_fails(monkeypatch) -> None:
         raise RuntimeError("blocked")
 
     monkeypatch.setattr(keys.pdi, "moveTo", raise_move)
-    monkeypatch.setattr(keys.pdi, "leftClick", lambda: calls.append("left"))
+    monkeypatch.setattr(keys.pdi, "mouseDown", lambda button="left": calls.append("down"))
+    monkeypatch.setattr(keys.pdi, "mouseUp", lambda button="left": calls.append("up"))
 
     keys.mouse_click("left", 10, 20)
 
@@ -386,11 +386,13 @@ def test_mouse_click_posts_background_mouse_messages(monkeypatch) -> None:
 def test_mouse_click_logs_click_failure(monkeypatch) -> None:
     calls = []
 
-    def raise_click() -> None:
+    monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append(("move", x, y)))
+
+    def raise_down(button="left") -> None:
         raise RuntimeError("blocked")
 
-    monkeypatch.setattr(keys.pdi, "moveTo", lambda x, y: calls.append(("move", x, y)))
-    monkeypatch.setattr(keys.pdi, "leftClick", raise_click)
+    monkeypatch.setattr(keys.pdi, "mouseDown", raise_down)
+    monkeypatch.setattr(keys.pdi, "mouseUp", lambda button="left": calls.append("up"))
 
     keys.mouse_click("left", 10, 20)
 

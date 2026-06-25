@@ -231,7 +231,7 @@ def post_mouse_click(hwnd: int, button: str, x: int, y: int) -> bool:
     return True
 
 
-def mouse_click(button: str, x: int, y: int, hwnd: int | None = None) -> None:
+def mouse_click(button: str, x: int, y: int, hwnd: int | None = None, down_up_delay_ms: int = 0) -> None:
     if hwnd is not None:
         try:
             if post_mouse_click(hwnd, button, x, y):
@@ -250,11 +250,17 @@ def mouse_click(button: str, x: int, y: int, hwnd: int | None = None) -> None:
 
     try:
         if button == "left":
-            pdi.leftClick()
+            pdi.mouseDown(button="left")
+            sleep_ms(down_up_delay_ms)
+            pdi.mouseUp(button="left")
         elif button == "right":
-            pdi.rightClick()
+            pdi.mouseDown(button="right")
+            sleep_ms(down_up_delay_ms)
+            pdi.mouseUp(button="right")
         elif button == "middle":
-            pdi.middleClick()
+            pdi.mouseDown(button="middle")
+            sleep_ms(down_up_delay_ms)
+            pdi.mouseUp(button="middle")
         logger.debug("keys: {} click ok", button)
     except Exception as error:
         logger.error("keys: {} click failed: {}", button, error)

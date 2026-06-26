@@ -31,6 +31,7 @@ from remaku.models.macro_model import (
     MacroMeta,
     MacroModel,
     MacroSummary,
+    MacroVariable,
     MouseClickStep,
     MouseMoveStep,
     MouseScrollStep,
@@ -40,9 +41,14 @@ from remaku.models.macro_model import (
     TextInputStep,
     WaitImageStep,
     WaitNumberStep,
+    default_variable_value,
     get_step_number_operator,
+    is_variable_ref,
     parse_step,
+    slugify_variable_name,
     step_to_dict,
+    variable_ref,
+    variable_ref_name,
 )
 from remaku.models.step_node import StepNode
 from remaku.models.step_tree import StepTree
@@ -161,6 +167,11 @@ class HomeController(QObject):
         event_bus.step_add_requested.connect(self.add_step)
         event_bus.macro_meta_changed.connect(self.handle_macro_meta_changed)
         event_bus.step_property_changed.connect(self.handle_step_property_changed)
+        event_bus.step_property_variable_changed.connect(self.handle_step_property_variable_changed)
+        event_bus.macro_variable_added.connect(self.handle_macro_variable_added)
+        event_bus.macro_variable_changed.connect(self.handle_macro_variable_changed)
+        event_bus.macro_variable_renamed.connect(self.handle_macro_variable_renamed)
+        event_bus.macro_variable_deleted.connect(self.handle_macro_variable_deleted)
         event_bus.template_meta_changed.connect(self.handle_template_meta_changed)
         event_bus.hotkey_triggered.connect(self.handle_hotkey_triggered)
         event_bus.macro_order_changed.connect(self.handle_macro_order_changed)
@@ -787,6 +798,204 @@ class HomeController(QObject):
         self.refresh_step_tree()
         self.refresh_selected_step()
 
+    def handle_step_property_variable_changed(self, key: str, variable_name: str) -> None:
+        if self.selected_step is None:
+            return
+
+        if variable_name not in self.current_macro_variables():
+            return
+
+        parsed_value = variable_ref(variable_name)
+        if self.selected_step.get(key) == parsed_value:
+            return
+
+        self.push_undo(self.selected_step_flat_index())
+        self.selected_step[key] = parsed_value
+        self.sync_macro_steps_from_tree()
+        self.save_current_macro()
+        self.refresh_step_tree()
+        self.refresh_selected_step()
+
+    def current_macro_variables(self) -> dict[str, MacroVariable]:
+        if self.current_macro is None:
+            return {}
+
+        return self.current_macro.variables
+
+    def handle_macro_variable_added(self) -> None:
+        if self.current_macro is None:
+            return
+
+        name = self.next_variable_name()
+        self.push_undo()
+        self.current_macro.variables[name] = MacroVariable(label=self.tr("Variable"), type="number", value=0)
+        self.save_current_macro()
+        self.show_macro_properties(self.current_macro)
+
+    def next_variable_name(self) -> str:
+        return self.unique_variable_name("variable")
+
+    def unique_variable_name(self, raw_name: str, current_name: str = "") -> str:
+        variables = self.current_macro_variables()
+        base_name = slugify_variable_name(raw_name)
+
+        if base_name == current_name or base_name not in variables:
+            return base_name
+
+        index = 2
+        candidate = f"{base_name}_{index}"
+
+        while candidate in variables and candidate != current_name:
+            index += 1
+            candidate = f"{base_name}_{index}"
+
+        return candidate
+
+    def handle_macro_variable_changed(self, variable_name: str, field: str, value: str) -> None:
+        if self.current_macro is None:
+            return
+
+        variable = self.current_macro.variables.get(variable_name)
+        if variable is None:
+            return
+
+        if field == "label":
+            new_value: object = value
+        elif field == "type":
+            if value not in ("text", "number", "boolean", "key"):
+                return
+
+            new_value = value
+        elif field == "value":
+            try:
+                new_value = self.parse_macro_variable_value(variable.type, value)
+            except ValueError:
+                return
+        else:
+            return
+
+        old_value = getattr(variable, field)
+        if old_value == new_value:
+            return
+
+        self.push_undo()
+        setattr(variable, field, new_value)
+
+        if field == "type":
+            variable.value = default_variable_value(str(new_value))
+
+        self.save_current_macro()
+        self.show_macro_properties(self.current_macro)
+
+    def parse_macro_variable_value(self, variable_type: str, value: str) -> str | int | bool:
+        if variable_type == "number":
+            return int(value)
+
+        if variable_type == "boolean":
+            return value.lower() == "true"
+
+        return value
+
+    def handle_macro_variable_renamed(self, old_name: str, new_name: str) -> None:
+        if self.current_macro is None:
+            return
+
+        variable = self.current_macro.variables.get(old_name)
+        if variable is None:
+            return
+
+        new_label = new_name.strip() or self.tr("Variable")
+        new_variable_name = self.unique_variable_name(new_label, current_name=old_name)
+        label_changed = variable.label != new_label
+        name_changed = old_name != new_variable_name
+
+        if not label_changed and not name_changed:
+            return
+
+        self.push_undo()
+
+        variable.label = new_label
+
+        if name_changed:
+            del self.current_macro.variables[old_name]
+            self.current_macro.variables[new_variable_name] = variable
+            self.rename_variable_references(old_name, new_variable_name)
+
+        self.save_current_macro()
+        self.refresh_step_tree()
+        self.show_macro_properties(self.current_macro)
+
+    def handle_macro_variable_deleted(self, variable_name: str) -> None:
+        if self.current_macro is None or variable_name not in self.current_macro.variables:
+            return
+
+        if self.variable_is_used(variable_name):
+            confirmed = show_confirm_dialog(
+                self.view,
+                self.tr("Delete Variable"),
+                self.tr(
+                    "This variable is used by one or more steps. The macro will stop until those fields are fixed."
+                ),
+                self.tr("Delete"),
+            )
+
+            if not confirmed:
+                return
+
+        self.push_undo()
+        del self.current_macro.variables[variable_name]
+        self.save_current_macro()
+        self.show_macro_properties(self.current_macro)
+
+    def rename_variable_references(self, old_name: str, new_name: str) -> None:
+        if self.step_tree is None:
+            return
+
+        self.walk_step_values(self.step_tree.steps, lambda value: self.rename_variable_ref(value, old_name, new_name))
+        self.sync_macro_steps_from_tree()
+
+    def variable_is_used(self, variable_name: str) -> bool:
+        if self.step_tree is None:
+            return False
+
+        used = False
+
+        def check(value: object) -> object:
+            nonlocal used
+
+            if is_variable_ref(value) and variable_ref_name(value) == variable_name:
+                used = True
+
+            return value
+
+        self.walk_step_values(self.step_tree.steps, check)
+        return used
+
+    def rename_variable_ref(self, value: object, old_name: str, new_name: str) -> object:
+        if is_variable_ref(value) and variable_ref_name(value) == old_name:
+            return variable_ref(new_name)
+
+        return value
+
+    def walk_step_values(self, value: object, visitor: Callable[[object], object]) -> object:
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                value[index] = self.walk_step_values(item, visitor)
+
+            return value
+
+        if isinstance(value, dict):
+            replacement = visitor(value)
+            if replacement is not value:
+                return replacement
+
+            for key, item in list(value.items()):
+                value[key] = self.walk_step_values(item, visitor)
+
+            return value
+
+        return visitor(value)
+
     def parse_step_property(self, key: str, value: str) -> int | float | bool | str:
         if key in ("skip", "relative"):
             return value.lower() == "true"
@@ -1040,35 +1249,39 @@ class HomeController(QObject):
 
         match step_type:
             case "key":
-                label = self.tr("Press {key}").format(key=step.get("key", ""))
+                label = self.tr("Press {key}").format(key=self.describe_step_value(step.get("key", "")))
             case "delay":
-                label = self.tr("Wait {ms} ms").format(ms=step.get("ms", 0))
+                label = self.tr("Wait {ms} ms").format(ms=self.describe_step_value(step.get("ms", 0)))
             case "wait_image":
                 label = self.tr("Wait for {template}").format(
                     template=self.get_template_label(step.get("template", ""))
                 )
             case "hold_key_until_gone":
                 label = self.tr("Hold {key} until {template} gone").format(
-                    key=step.get("key", ""),
+                    key=self.describe_step_value(step.get("key", "")),
                     template=self.get_template_label(step.get("template", "")),
                 )
             case "text_input":
-                text = str(step.get("text", ""))
-                preview = text.replace("\r", " ").replace("\n", " ")
-                if len(preview) > 20:
-                    preview = f"{preview[:20]}..."
+                preview = self.describe_step_value(step.get("text", ""))
+
+                if not is_variable_ref(step.get("text", "")):
+                    preview = preview.replace("\r", " ").replace("\n", " ")
+
+                    if len(preview) > 20:
+                        preview = f"{preview[:20]}..."
+
                 label = self.tr("Type text: {text}").format(text=preview) if preview else self.tr("Type text")
             case "wait_number":
                 label = self.tr("Wait for number {operator} {value}").format(
                     operator=get_step_number_operator(step),
-                    value=step.get("value", 0),
+                    value=self.describe_step_value(step.get("value", 0)),
                 )
             case "repeat":
-                label = self.tr("Repeat {count} times").format(count=step.get("count", 1))
+                label = self.tr("Repeat {count} times").format(count=self.describe_step_value(step.get("count", 1)))
             case "repeat_until_number":
                 label = self.tr("Repeat until number {operator} {value}").format(
                     operator=get_step_number_operator(step),
-                    value=step.get("value", 0),
+                    value=self.describe_step_value(step.get("value", 0)),
                 )
             case "if_image":
                 label = self.tr("If image {template}").format(
@@ -1077,13 +1290,15 @@ class HomeController(QObject):
             case "if_number":
                 label = self.tr("If number {operator} {value}").format(
                     operator=get_step_number_operator(step),
-                    value=step.get("value", 0),
+                    value=self.describe_step_value(step.get("value", 0)),
                 )
             case "if_any_image":
                 templates = ", ".join([self.get_template_label(t) for t in step.get("templates", [])])
                 label = self.tr("If any image {templates}").format(templates=templates)
             case "grid_nav":
-                label = self.tr("Grid navigation ({rows} rows)").format(rows=step.get("rows", 1))
+                label = self.tr("Grid navigation ({rows} rows)").format(
+                    rows=self.describe_step_value(step.get("rows", 1))
+                )
             case "mouse_click":
                 button = step.get("button", "left")
                 button_labels = {"left": self.tr("Left"), "right": self.tr("Right"), "middle": self.tr("Middle")}
@@ -1098,8 +1313,8 @@ class HomeController(QObject):
                 else:
                     label = self.tr("{button} click at ({x}, {y})").format(
                         button=button_display,
-                        x=step.get("x", 0),
-                        y=step.get("y", 0),
+                        x=self.describe_step_value(step.get("x", 0)),
+                        y=self.describe_step_value(step.get("y", 0)),
                     )
             case "mouse_move":
                 target = step.get("target", "coordinate")
@@ -1110,11 +1325,11 @@ class HomeController(QObject):
                     )
                 else:
                     label = self.tr("Move to ({x}, {y})").format(
-                        x=step.get("x", 0),
-                        y=step.get("y", 0),
+                        x=self.describe_step_value(step.get("x", 0)),
+                        y=self.describe_step_value(step.get("y", 0)),
                     )
             case "mouse_scroll":
-                label = self.tr("Scroll {clicks}").format(clicks=step.get("clicks", 3))
+                label = self.tr("Scroll {clicks}").format(clicks=self.describe_step_value(step.get("clicks", 3)))
             case _:
                 label = step_type
 
@@ -1122,6 +1337,25 @@ class HomeController(QObject):
             label = f"{label} ({note})"
 
         return label
+
+    def describe_step_value(self, value: object) -> str:
+        if not is_variable_ref(value):
+            return str(value)
+
+        variable_name = variable_ref_name(value)
+        variable_label = self.get_variable_label(variable_name)
+        return f"${{{variable_label}}}"
+
+    def get_variable_label(self, variable_name: str) -> str:
+        if self.current_macro is None:
+            return variable_name
+
+        variable = self.current_macro.variables.get(variable_name)
+
+        if variable and variable.label:
+            return variable.label
+
+        return variable_name
 
     def get_template_label(self, template_id: str) -> str:
         if self.current_macro is None:

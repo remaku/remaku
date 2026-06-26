@@ -47,10 +47,11 @@ def make_hold_key_runner() -> MacroRunner:
     return runner
 
 
-def make_runner(steps: list[dict], templates: dict | None = None) -> MacroRunner:
+def make_runner(steps: list[dict], templates: dict | None = None, variables: dict | None = None) -> MacroRunner:
     macro = Macro.from_dict(
         {
             "meta": {"name": "runner", "label": "Runner"},
+            "variables": variables or {},
             "templates": templates or {},
             "steps": steps,
         }
@@ -227,6 +228,20 @@ def test_exec_step_runs_delay() -> None:
     runner.exec_step({"type": "delay", "ms": 250}, (("steps", 0),))
 
     assert sleeps == [250]
+
+
+def test_loop_resolves_delay_variable() -> None:
+    runner = make_runner(
+        [{"type": "delay", "ms": {"kind": "variable", "name": "wait_ms"}}],
+        variables={"wait_ms": {"type": "number", "value": 250}},
+    )
+    sleeps = []
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: sleeps.append(ms)
+
+    runner.loop()
+
+    assert sleeps == [250]
+    assert runner.status.last_reason == StopReason.DONE
 
 
 def test_exec_step_types_text_with_interval(monkeypatch) -> None:

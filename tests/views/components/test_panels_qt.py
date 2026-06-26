@@ -9,6 +9,7 @@ from qfluentwidgets import (
     ComboBox,
     LineEdit,
     MessageBoxBase,
+    PushButton,
     TextEdit,
     TogglePushButton,
 )
@@ -22,6 +23,7 @@ from remaku.models.macro_model import (
     KeyStep,
     Macro,
     MacroMeta,
+    MacroVariable,
     MouseClickStep,
     MouseMoveStep,
     MouseScrollStep,
@@ -828,6 +830,57 @@ def test_right_panel_show_step_properties_for_common_step_types(monkeypatch, qtb
         assert panel.content_layout.count() > 0
 
 
+def test_right_panel_variable_mode_emits_step_variable_change(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(variables={"runs": MacroVariable(label="Runs", type="number", value=3)})
+
+    panel.show_step_properties(macro, "Step", RepeatStep(count=1))
+    mode_combo = next(combo for combo in panel.findChildren(ComboBox) if combo.findData("variable") >= 0)
+    variable_combo = next(combo for combo in panel.findChildren(ComboBox) if combo.findData("runs") >= 0)
+
+    assert variable_combo.currentText() == "Runs"
+
+    with qtbot.waitSignal(event_bus.step_property_variable_changed, timeout=100) as blocker:
+        mode_combo.setCurrentIndex(mode_combo.findData("variable"))
+
+    assert blocker.args == ["count", "runs"]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as fixed_blocker:
+        mode_combo.setCurrentIndex(mode_combo.findData("fixed"))
+
+    assert fixed_blocker.args == ["count", "1"]
+
+
+def test_right_panel_macro_variables_show_field_labels(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(variables={"runs": MacroVariable(label="Runs", type="number", value=3)})
+
+    panel.show_macro_properties(macro)
+
+    labels = [label.text() for label in panel.findChildren(BodyLabel)]
+    edits = [edit.text() for edit in panel.findChildren(LineEdit)]
+    assert "Variable name" in labels
+    assert "Type" in labels
+    assert "Default value" in labels
+    assert "Runs" in edits
+
+
+def test_right_panel_macro_variable_delete_emits_variable_name(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(variables={"runs": MacroVariable(label="Runs", type="number", value=3)})
+
+    panel.show_macro_properties(macro)
+    delete_button = next(button for button in panel.findChildren(PushButton) if button.text() == "Delete Variable")
+
+    with qtbot.waitSignal(event_bus.macro_variable_deleted, timeout=100) as blocker:
+        delete_button.click()
+
+    assert blocker.args == ["runs"]
+
+
 def test_right_panel_show_step_properties_ignores_unknown_step_type(qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)
@@ -914,7 +967,7 @@ def test_right_panel_number_operator_dropdown_uses_readable_labels(qtbot) -> Non
     qtbot.addWidget(panel)
 
     panel.show_step_properties(Macro(), "Step", WaitNumberStep(width=100, height=30, operator="≥"))
-    operator_combo = panel.findChildren(ComboBox)[1]
+    operator_combo = next(combo for combo in panel.findChildren(ComboBox) if combo.findData("≥") >= 0)
 
     assert [operator_combo.itemText(index) for index in range(operator_combo.count())] == [
         "Equal to (=)",

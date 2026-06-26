@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import QObject, QProcess, Qt
+from PySide6.QtCore import QObject, QProcess
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import CheckBox, ComboBox, LineEdit
 
@@ -22,7 +22,7 @@ class SettingsController(QObject):
 
         for key, widget in self.view.widgets.items():
             if isinstance(widget, CheckBox):
-                widget.checkStateChanged.connect(lambda state, k=key: self.on_checkbox_changed(k, state))
+                widget.toggled.connect(lambda checked, k=key: self.on_checkbox_changed(k, checked))
 
             elif isinstance(widget, ComboBox):
                 widget.currentIndexChanged.connect(lambda index, k=key: self.on_combo_changed(k))
@@ -36,9 +36,8 @@ class SettingsController(QObject):
                 else:
                     widget.editingFinished.connect(lambda k=key: self.on_text_changed(k))
 
-    def on_checkbox_changed(self, key: str, state: Qt.CheckState) -> None:
-        value = state == Qt.CheckState.Checked
-        self.apply_setting(key, value)
+    def on_checkbox_changed(self, key: str, checked: bool) -> None:
+        self.apply_setting(key, checked)
 
     def on_combo_changed(self, key: str) -> None:
         widget = self.view.widgets.get(key)

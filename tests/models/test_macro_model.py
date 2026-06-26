@@ -40,6 +40,7 @@ from remaku.models.macro_model import (
     KeyStep,
     Macro,
     MacroModel,
+    MacroVariable,
     MouseClickStep,
     MouseMoveStep,
     MouseScrollStep,
@@ -84,6 +85,9 @@ from remaku.models.macro_model import (
     get_step_timeout,
     parse_step,
     parse_steps,
+    resolve_step_variables,
+    slugify_variable_name,
+    variable_ref,
 )
 
 
@@ -151,6 +155,58 @@ def test_macro_background_options_default_and_round_trip(sample_macro_dict: dict
     assert configured_macro.keep_target_focused is True
     assert Macro.from_dict(configured_macro.to_dict()).background_input is False
     assert Macro.from_dict(configured_macro.to_dict()).keep_target_focused is True
+
+
+def test_macro_variables_round_trip_and_step_refs(sample_macro_dict: dict) -> None:
+    sample_macro_dict["variables"] = {
+        "repeat_count": {"label": "Repeat Count", "type": "number", "value": "3"},
+        "message": {"label": "Message", "type": "text", "value": "Hello"},
+        "bad-name": {"label": "Bad", "type": "number", "value": 1},
+    }
+    sample_macro_dict["steps"] = [
+        {"type": "repeat", "count": variable_ref("repeat_count"), "steps": []},
+        {"type": "text_input", "text": variable_ref("message")},
+    ]
+
+    macro = Macro.from_dict(sample_macro_dict)
+    data = macro.to_dict()
+
+    assert set(macro.variables) == {"repeat_count", "message"}
+    assert macro.variables["repeat_count"].value == 3
+    assert data["variables"]["message"]["value"] == "Hello"
+    assert data["steps"][0]["count"] == variable_ref("repeat_count")
+    assert data["steps"][1]["text"] == variable_ref("message")
+
+
+def test_slugify_variable_name_normalizes_user_text() -> None:
+    assert slugify_variable_name("Repeat Count!") == "repeat_count"
+    assert slugify_variable_name("  3 runs  ") == "variable_3_runs"
+    assert slugify_variable_name("") == "variable"
+
+
+def test_resolve_step_variables_replaces_supported_refs_and_reports_errors() -> None:
+    steps = [
+        {
+            "type": "repeat",
+            "count": variable_ref("repeat_count"),
+            "steps": [{"type": "key", "key": variable_ref("go")}],
+        },
+        {"type": "delay", "ms": variable_ref("missing")},
+        {"type": "text_input", "text": variable_ref("repeat_count")},
+    ]
+    variables = {
+        "repeat_count": MacroVariable(type="number", value=2),
+        "go": MacroVariable(type="key", value="enter"),
+    }
+
+    resolved, errors = resolve_step_variables(steps, variables)
+
+    assert resolved[0]["count"] == 2
+    assert resolved[0]["steps"][0]["key"] == "enter"
+    assert errors == [
+        "Step 2: missing variable 'missing' for field 'ms'",
+        "Step 3: variable 'repeat_count' for field 'text' must be text",
+    ]
 
 
 def test_template_match_mode_round_trips_and_rejects_unknown_value(sample_macro_dict: dict) -> None:

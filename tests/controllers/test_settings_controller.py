@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, cast
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import ComboBox, LineEdit
 
@@ -37,7 +36,7 @@ class FakeSignal:
 
 class FakeCheckBox:
     def __init__(self) -> None:
-        self.checkStateChanged = FakeSignal()
+        self.toggled = FakeSignal()
 
 
 class FakeComboBox:
@@ -81,20 +80,22 @@ def test_init_connects_supported_widgets(monkeypatch) -> None:
     monkeypatch.setattr(settings_controller, "CheckBox", FakeCheckBox)
     monkeypatch.setattr(settings_controller, "ComboBox", FakeComboBox)
     monkeypatch.setattr(settings_controller, "LineEdit", FakeLineEdit)
-    monkeypatch.setattr(SettingsController, "on_checkbox_changed", lambda self, key, state: calls.append((key, state)))
+    monkeypatch.setattr(
+        SettingsController, "on_checkbox_changed", lambda self, key, checked: calls.append((key, checked))
+    )
     monkeypatch.setattr(SettingsController, "on_combo_changed", lambda self, key: calls.append((key, "combo")))
     monkeypatch.setattr(SettingsController, "on_text_changed", lambda self, key: calls.append((key, "text")))
 
     SettingsController(cast(Any, view), cast(Any, main_window))
-    check_box.checkStateChanged.callbacks[0](Qt.CheckState.Checked)
+    check_box.toggled.callbacks[0](True)
     combo.currentIndexChanged.callbacks[0](0)
     line_edit.editingFinished.callbacks[0]()
 
-    assert len(check_box.checkStateChanged.callbacks) == 1
+    assert len(check_box.toggled.callbacks) == 1
     assert len(combo.currentIndexChanged.callbacks) == 1
     assert len(line_edit.editingFinished.callbacks) == 1
     assert calls == [
-        ("general.always_on_top", Qt.CheckState.Checked),
+        ("general.always_on_top", True),
         ("general.theme", "combo"),
         ("capture.fps", "text"),
     ]
@@ -171,10 +172,10 @@ def test_apply_setting_emits_change_for_pause_hotkey(monkeypatch, qtbot) -> None
     assert fake_config.save_calls == 1
 
 
-def test_on_checkbox_changed_converts_qt_state(monkeypatch) -> None:
+def test_on_checkbox_changed_applies_bool(monkeypatch) -> None:
     controller, fake_config, main_window = make_controller(monkeypatch)
 
-    controller.on_checkbox_changed("general.always_on_top", Qt.CheckState.Checked)
+    controller.on_checkbox_changed("general.always_on_top", True)
 
     assert fake_config.config.general.always_on_top is True
     assert main_window.always_on_top_values == [True]

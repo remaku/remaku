@@ -419,8 +419,12 @@ class WindowsHookBackend:
     def __init__(self, recorder: "MacroRecorder") -> None:
         self.recorder = recorder
         self.user32 = ctypes.WinDLL("user32", use_last_error=True)
-        self.user32.CallNextHookEx.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t, ctypes.c_void_p]
-        self.user32.CallNextHookEx.restype = ctypes.c_ssize_t
+        call_next_hook = self.user32.CallNextHookEx
+
+        if hasattr(call_next_hook, "argtypes"):
+            call_next_hook.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t, ctypes.c_void_p]
+            call_next_hook.restype = ctypes.c_ssize_t
+
         self.keyboard_hook = ctypes.c_void_p()
         self.mouse_hook = ctypes.c_void_p()
         self.thread: threading.Thread | None = None

@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -42,6 +43,152 @@ DEFAULT_NUMBER_VALUE = 0
 DEFAULT_NUMBER_STABLE_READS = 2
 DEFAULT_NUMBER_CHECK_FIRST = True
 NUMBER_OPERATORS = ("=", "≠", ">", "≥", "<", "≤")
+VARIABLE_TYPES = ("text", "number", "boolean", "key")
+VARIABLE_REF_KIND = "variable"
+VARIABLE_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+VARIABLE_FIELD_TYPES: dict[str, str] = {
+    "text": "text",
+    "key": "key",
+    "ms": "number",
+    "hold_ms": "number",
+    "timeout_ms": "number",
+    "load_delay_ms": "number",
+    "find_timeout_ms": "number",
+    "gone_grace_ms": "number",
+    "hard_timeout_ms": "number",
+    "count": "number",
+    "rows": "number",
+    "start": "number",
+    "interval_ms": "number",
+    "clicks": "number",
+    "down_up_delay_ms": "number",
+    "x": "number",
+    "y": "number",
+    "width": "number",
+    "height": "number",
+    "capture_width": "number",
+    "capture_height": "number",
+    "stable_reads": "number",
+    "value": "number",
+}
+
+
+type VariableRef = dict[str, str]
+type VariableCapableInt = int | VariableRef
+type VariableCapableString = str | VariableRef
+
+
+def is_valid_variable_name(name: str) -> bool:
+    return bool(VARIABLE_NAME_PATTERN.fullmatch(name))
+
+
+def slugify_variable_name(value: str, fallback: str = "variable") -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", value.strip().lower())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+
+    if not slug:
+        slug = fallback
+
+    if slug[0].isdigit():
+        slug = f"{fallback}_{slug}"
+
+    return slug
+
+
+def variable_ref(name: str) -> VariableRef:
+    return {"kind": VARIABLE_REF_KIND, "name": name}
+
+
+def is_variable_ref(value: Any) -> bool:
+    return isinstance(value, dict) and value.get("kind") == VARIABLE_REF_KIND and isinstance(value.get("name"), str)
+
+
+def variable_ref_name(value: Any) -> str:
+    if not is_variable_ref(value):
+        return ""
+
+    return str(value.get("name", ""))
+
+
+def parse_variable_ref(value: Any) -> VariableRef | None:
+    if not is_variable_ref(value):
+        return None
+
+    name = variable_ref_name(value)
+    if not is_valid_variable_name(name):
+        return None
+
+    return variable_ref(name)
+
+
+def parse_variable_capable_int(value: Any, default: int) -> VariableCapableInt:
+    ref = parse_variable_ref(value)
+    if ref is not None:
+        return ref
+
+    return int(value if value is not None else default)
+
+
+def parse_variable_capable_string(value: Any, default: str) -> VariableCapableString:
+    ref = parse_variable_ref(value)
+    if ref is not None:
+        return ref
+
+    return str(value if value is not None else default)
+
+
+def parse_variable_value(variable_type: str, value: Any) -> str | int | bool:
+    if variable_type == "number":
+        return int(value)
+
+    if variable_type == "boolean":
+        return parse_bool(value)
+
+    return str(value)
+
+
+@dataclass(slots=True)
+class MacroVariable:
+    label: str = ""
+    type: str = "text"
+    value: str | int | bool = ""
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "MacroVariable | None":
+        if not isinstance(data, dict):
+            return None
+
+        variable_type = str(data.get("type", "text"))
+        if variable_type not in VARIABLE_TYPES:
+            return None
+
+        try:
+            value = parse_variable_value(variable_type, data.get("value", default_variable_value(variable_type)))
+        except (TypeError, ValueError):
+            value = default_variable_value(variable_type)
+
+        return cls(
+            label=str(data.get("label", "")),
+            type=variable_type,
+            value=value,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "type": self.type,
+            "value": self.value,
+        }
+
+
+def default_variable_value(variable_type: str) -> str | int | bool:
+    if variable_type == "number":
+        return 0
+
+    if variable_type == "boolean":
+        return False
+
+    return ""
 
 
 @dataclass(slots=True)
@@ -66,8 +213,8 @@ class KeyStep:
     type: str = "key"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    key: str = DEFAULT_KEY
-    hold_ms: int = DEFAULT_KEY_HOLD_MS
+    key: VariableCapableString = DEFAULT_KEY
+    hold_ms: VariableCapableInt = DEFAULT_KEY_HOLD_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "KeyStep":
@@ -76,8 +223,8 @@ class KeyStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            key=str(data.get("key", default.key)),
-            hold_ms=int(data.get("hold_ms", default.hold_ms)),
+            key=parse_variable_capable_string(data.get("key"), DEFAULT_KEY),
+            hold_ms=parse_variable_capable_int(data.get("hold_ms"), DEFAULT_KEY_HOLD_MS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,7 +236,7 @@ class DelayStep:
     type: str = "delay"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    ms: int = DEFAULT_DELAY_MS
+    ms: VariableCapableInt = DEFAULT_DELAY_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DelayStep":
@@ -98,7 +245,7 @@ class DelayStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            ms=int(data.get("ms", default.ms)),
+            ms=parse_variable_capable_int(data.get("ms"), DEFAULT_DELAY_MS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,7 +258,7 @@ class WaitImageStep:
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
     template: str = ""
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
     threshold: float = DEFAULT_THRESHOLD
 
@@ -123,7 +270,7 @@ class WaitImageStep:
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
             template=str(data.get("template", default.template)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
             threshold=float(data.get("threshold", default.threshold)),
         )
@@ -137,12 +284,12 @@ class HoldKeyUntilGoneStep:
     type: str = "hold_key_until_gone"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    key: str = ""
+    key: VariableCapableString = ""
     template: str = ""
-    load_delay_ms: int = DEFAULT_LOAD_DELAY_MS
-    find_timeout_ms: int = DEFAULT_FIND_TIMEOUT_MS
-    gone_grace_ms: int = DEFAULT_GONE_GRACE_MS
-    hard_timeout_ms: int = DEFAULT_HARD_TIMEOUT_MS
+    load_delay_ms: VariableCapableInt = DEFAULT_LOAD_DELAY_MS
+    find_timeout_ms: VariableCapableInt = DEFAULT_FIND_TIMEOUT_MS
+    gone_grace_ms: VariableCapableInt = DEFAULT_GONE_GRACE_MS
+    hard_timeout_ms: VariableCapableInt = DEFAULT_HARD_TIMEOUT_MS
     threshold: float = DEFAULT_THRESHOLD
 
     @classmethod
@@ -152,12 +299,12 @@ class HoldKeyUntilGoneStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            key=str(data.get("key", default.key)),
+            key=parse_variable_capable_string(data.get("key"), ""),
             template=str(data.get("template", default.template)),
-            load_delay_ms=int(data.get("load_delay_ms", default.load_delay_ms)),
-            find_timeout_ms=int(data.get("find_timeout_ms", default.find_timeout_ms)),
-            gone_grace_ms=int(data.get("gone_grace_ms", default.gone_grace_ms)),
-            hard_timeout_ms=int(data.get("hard_timeout_ms", default.hard_timeout_ms)),
+            load_delay_ms=parse_variable_capable_int(data.get("load_delay_ms"), DEFAULT_LOAD_DELAY_MS),
+            find_timeout_ms=parse_variable_capable_int(data.get("find_timeout_ms"), DEFAULT_FIND_TIMEOUT_MS),
+            gone_grace_ms=parse_variable_capable_int(data.get("gone_grace_ms"), DEFAULT_GONE_GRACE_MS),
+            hard_timeout_ms=parse_variable_capable_int(data.get("hard_timeout_ms"), DEFAULT_HARD_TIMEOUT_MS),
             threshold=float(data.get("threshold", default.threshold)),
         )
 
@@ -170,8 +317,8 @@ class TextInputStep:
     type: str = "text_input"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    text: str = DEFAULT_TEXT_INPUT_TEXT
-    interval_ms: int = DEFAULT_TEXT_INPUT_INTERVAL_MS
+    text: VariableCapableString = DEFAULT_TEXT_INPUT_TEXT
+    interval_ms: VariableCapableInt = DEFAULT_TEXT_INPUT_INTERVAL_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "TextInputStep":
@@ -180,8 +327,8 @@ class TextInputStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            text=str(data.get("text", default.text)),
-            interval_ms=int(data.get("interval_ms", default.interval_ms)),
+            text=parse_variable_capable_string(data.get("text"), DEFAULT_TEXT_INPUT_TEXT),
+            interval_ms=parse_variable_capable_int(data.get("interval_ms"), DEFAULT_TEXT_INPUT_INTERVAL_MS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -214,17 +361,17 @@ class WaitNumberStep:
     type: str = "wait_number"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    x: int = DEFAULT_NUMBER_X
-    y: int = DEFAULT_NUMBER_Y
-    width: int = DEFAULT_NUMBER_WIDTH
-    height: int = DEFAULT_NUMBER_HEIGHT
+    x: VariableCapableInt = DEFAULT_NUMBER_X
+    y: VariableCapableInt = DEFAULT_NUMBER_Y
+    width: VariableCapableInt = DEFAULT_NUMBER_WIDTH
+    height: VariableCapableInt = DEFAULT_NUMBER_HEIGHT
     relative: bool = DEFAULT_NUMBER_RELATIVE
-    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
-    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    capture_width: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_HEIGHT
     operator: str = DEFAULT_NUMBER_OPERATOR
-    value: int = DEFAULT_NUMBER_VALUE
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
-    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
+    value: VariableCapableInt = DEFAULT_NUMBER_VALUE
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: VariableCapableInt = DEFAULT_NUMBER_STABLE_READS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WaitNumberStep":
@@ -233,17 +380,17 @@ class WaitNumberStep:
         return cls(
             skip=parse_bool(data.get("skip"), default.skip),
             note=str(data.get("note", default.note)),
-            x=int(data.get("x", default.x)),
-            y=int(data.get("y", default.y)),
-            width=int(data.get("width", default.width)),
-            height=int(data.get("height", default.height)),
+            x=parse_variable_capable_int(data.get("x"), DEFAULT_NUMBER_X),
+            y=parse_variable_capable_int(data.get("y"), DEFAULT_NUMBER_Y),
+            width=parse_variable_capable_int(data.get("width"), DEFAULT_NUMBER_WIDTH),
+            height=parse_variable_capable_int(data.get("height"), DEFAULT_NUMBER_HEIGHT),
             relative=parse_bool(data.get("relative"), default.relative),
-            capture_width=int(data.get("capture_width", default.capture_width)),
-            capture_height=int(data.get("capture_height", default.capture_height)),
+            capture_width=parse_variable_capable_int(data.get("capture_width"), DEFAULT_NUMBER_CAPTURE_WIDTH),
+            capture_height=parse_variable_capable_int(data.get("capture_height"), DEFAULT_NUMBER_CAPTURE_HEIGHT),
             operator=parse_number_operator(data.get("operator", default.operator)),
-            value=int(data.get("value", default.value)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
-            stable_reads=int(data.get("stable_reads", default.stable_reads)),
+            value=parse_variable_capable_int(data.get("value"), DEFAULT_NUMBER_VALUE),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
+            stable_reads=parse_variable_capable_int(data.get("stable_reads"), DEFAULT_NUMBER_STABLE_READS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -255,17 +402,17 @@ class IfNumberStep:
     type: str = "if_number"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    x: int = DEFAULT_NUMBER_X
-    y: int = DEFAULT_NUMBER_Y
-    width: int = DEFAULT_NUMBER_WIDTH
-    height: int = DEFAULT_NUMBER_HEIGHT
+    x: VariableCapableInt = DEFAULT_NUMBER_X
+    y: VariableCapableInt = DEFAULT_NUMBER_Y
+    width: VariableCapableInt = DEFAULT_NUMBER_WIDTH
+    height: VariableCapableInt = DEFAULT_NUMBER_HEIGHT
     relative: bool = DEFAULT_NUMBER_RELATIVE
-    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
-    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    capture_width: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_HEIGHT
     operator: str = DEFAULT_NUMBER_OPERATOR
-    value: int = DEFAULT_NUMBER_VALUE
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
-    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
+    value: VariableCapableInt = DEFAULT_NUMBER_VALUE
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: VariableCapableInt = DEFAULT_NUMBER_STABLE_READS
     then: list["Step"] = field(default_factory=list)
     else_: list["Step"] = field(default_factory=list)
 
@@ -276,17 +423,17 @@ class IfNumberStep:
         return cls(
             skip=parse_bool(data.get("skip"), default.skip),
             note=str(data.get("note", default.note)),
-            x=int(data.get("x", default.x)),
-            y=int(data.get("y", default.y)),
-            width=int(data.get("width", default.width)),
-            height=int(data.get("height", default.height)),
+            x=parse_variable_capable_int(data.get("x"), DEFAULT_NUMBER_X),
+            y=parse_variable_capable_int(data.get("y"), DEFAULT_NUMBER_Y),
+            width=parse_variable_capable_int(data.get("width"), DEFAULT_NUMBER_WIDTH),
+            height=parse_variable_capable_int(data.get("height"), DEFAULT_NUMBER_HEIGHT),
             relative=parse_bool(data.get("relative"), default.relative),
-            capture_width=int(data.get("capture_width", default.capture_width)),
-            capture_height=int(data.get("capture_height", default.capture_height)),
+            capture_width=parse_variable_capable_int(data.get("capture_width"), DEFAULT_NUMBER_CAPTURE_WIDTH),
+            capture_height=parse_variable_capable_int(data.get("capture_height"), DEFAULT_NUMBER_CAPTURE_HEIGHT),
             operator=parse_number_operator(data.get("operator", default.operator)),
-            value=int(data.get("value", default.value)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
-            stable_reads=int(data.get("stable_reads", default.stable_reads)),
+            value=parse_variable_capable_int(data.get("value"), DEFAULT_NUMBER_VALUE),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
+            stable_reads=parse_variable_capable_int(data.get("stable_reads"), DEFAULT_NUMBER_STABLE_READS),
             then=parse_steps(data.get("then", default.then)),
             else_=parse_steps(data.get("else", default.else_)),
         )
@@ -300,18 +447,18 @@ class RepeatUntilNumberStep:
     type: str = "repeat_until_number"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    x: int = DEFAULT_NUMBER_X
-    y: int = DEFAULT_NUMBER_Y
-    width: int = DEFAULT_NUMBER_WIDTH
-    height: int = DEFAULT_NUMBER_HEIGHT
+    x: VariableCapableInt = DEFAULT_NUMBER_X
+    y: VariableCapableInt = DEFAULT_NUMBER_Y
+    width: VariableCapableInt = DEFAULT_NUMBER_WIDTH
+    height: VariableCapableInt = DEFAULT_NUMBER_HEIGHT
     relative: bool = DEFAULT_NUMBER_RELATIVE
-    capture_width: int = DEFAULT_NUMBER_CAPTURE_WIDTH
-    capture_height: int = DEFAULT_NUMBER_CAPTURE_HEIGHT
+    capture_width: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_WIDTH
+    capture_height: VariableCapableInt = DEFAULT_NUMBER_CAPTURE_HEIGHT
     operator: str = DEFAULT_NUMBER_OPERATOR
-    value: int = DEFAULT_NUMBER_VALUE
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
-    stable_reads: int = DEFAULT_NUMBER_STABLE_READS
-    count: int = DEFAULT_REPEAT_COUNT
+    value: VariableCapableInt = DEFAULT_NUMBER_VALUE
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
+    stable_reads: VariableCapableInt = DEFAULT_NUMBER_STABLE_READS
+    count: VariableCapableInt = DEFAULT_REPEAT_COUNT
     check_first: bool = DEFAULT_NUMBER_CHECK_FIRST
     steps: list["Step"] = field(default_factory=list)
 
@@ -322,18 +469,18 @@ class RepeatUntilNumberStep:
         return cls(
             skip=parse_bool(data.get("skip"), default.skip),
             note=str(data.get("note", default.note)),
-            x=int(data.get("x", default.x)),
-            y=int(data.get("y", default.y)),
-            width=int(data.get("width", default.width)),
-            height=int(data.get("height", default.height)),
+            x=parse_variable_capable_int(data.get("x"), DEFAULT_NUMBER_X),
+            y=parse_variable_capable_int(data.get("y"), DEFAULT_NUMBER_Y),
+            width=parse_variable_capable_int(data.get("width"), DEFAULT_NUMBER_WIDTH),
+            height=parse_variable_capable_int(data.get("height"), DEFAULT_NUMBER_HEIGHT),
             relative=parse_bool(data.get("relative"), default.relative),
-            capture_width=int(data.get("capture_width", default.capture_width)),
-            capture_height=int(data.get("capture_height", default.capture_height)),
+            capture_width=parse_variable_capable_int(data.get("capture_width"), DEFAULT_NUMBER_CAPTURE_WIDTH),
+            capture_height=parse_variable_capable_int(data.get("capture_height"), DEFAULT_NUMBER_CAPTURE_HEIGHT),
             operator=parse_number_operator(data.get("operator", default.operator)),
-            value=int(data.get("value", default.value)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
-            stable_reads=int(data.get("stable_reads", default.stable_reads)),
-            count=int(data.get("count", default.count)),
+            value=parse_variable_capable_int(data.get("value"), DEFAULT_NUMBER_VALUE),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
+            stable_reads=parse_variable_capable_int(data.get("stable_reads"), DEFAULT_NUMBER_STABLE_READS),
+            count=parse_variable_capable_int(data.get("count"), DEFAULT_REPEAT_COUNT),
             check_first=parse_bool(data.get("check_first"), default.check_first),
             steps=parse_steps(data.get("steps", default.steps)),
         )
@@ -382,7 +529,7 @@ class RepeatStep:
     type: str = "repeat"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    count: int = DEFAULT_REPEAT_COUNT
+    count: VariableCapableInt = DEFAULT_REPEAT_COUNT
     steps: list[Step] = field(default_factory=list)
 
     @classmethod
@@ -392,7 +539,7 @@ class RepeatStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            count=int(data.get("count", default.count)),
+            count=parse_variable_capable_int(data.get("count"), DEFAULT_REPEAT_COUNT),
             steps=parse_steps(data.get("steps", default.steps)),
         )
 
@@ -406,7 +553,7 @@ class IfImageStep:
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
     template: str = ""
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
     threshold: float = DEFAULT_THRESHOLD
     then: list[Step] = field(default_factory=list)
     else_: list[Step] = field(default_factory=list)
@@ -419,7 +566,7 @@ class IfImageStep:
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
             template=str(data.get("template", default.template)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
             threshold=float(data.get("threshold", default.threshold)),
             then=parse_steps(data.get("then", default.then)),
             else_=parse_steps(data.get("else", default.else_)),
@@ -435,7 +582,7 @@ class IfAnyImageStep:
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
     templates: list[str] = field(default_factory=list)
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
     threshold: float = DEFAULT_THRESHOLD
     branches: dict[str, list[Step]] = field(default_factory=dict)
@@ -452,7 +599,7 @@ class IfAnyImageStep:
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
             templates=[str(template) for template in data.get("templates", default.templates)],
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
             threshold=float(data.get("threshold", default.threshold)),
             branches={str(key): parse_steps(inner_steps) for key, inner_steps in raw_branches.items()},
@@ -467,8 +614,8 @@ class GridNavStep:
     type: str = "grid_nav"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    rows: int = DEFAULT_GRID_ROWS
-    start: int = DEFAULT_GRID_START
+    rows: VariableCapableInt = DEFAULT_GRID_ROWS
+    start: VariableCapableInt = DEFAULT_GRID_START
     on_next_row: list[Step] = field(default_factory=list)
     on_next_col: list[Step] = field(default_factory=list)
 
@@ -479,8 +626,8 @@ class GridNavStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            rows=int(data.get("rows", default.rows)),
-            start=int(data.get("start", default.start)),
+            rows=parse_variable_capable_int(data.get("rows"), DEFAULT_GRID_ROWS),
+            start=parse_variable_capable_int(data.get("start"), DEFAULT_GRID_START),
             on_next_row=parse_steps(data.get("on_next_row", default.on_next_row)),
             on_next_col=parse_steps(data.get("on_next_col", default.on_next_col)),
         )
@@ -496,14 +643,14 @@ class MouseClickStep:
     note: str = DEFAULT_STEP_NOTE
     button: str = DEFAULT_MOUSE_BUTTON
     target: str = DEFAULT_MOUSE_TARGET
-    x: int = DEFAULT_MOUSE_X
-    y: int = DEFAULT_MOUSE_Y
+    x: VariableCapableInt = DEFAULT_MOUSE_X
+    y: VariableCapableInt = DEFAULT_MOUSE_Y
     relative: bool = DEFAULT_MOUSE_RELATIVE
     template: str = ""
     threshold: float = DEFAULT_THRESHOLD
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
-    down_up_delay_ms: int = DEFAULT_MOUSE_DOWN_UP_DELAY_MS
+    down_up_delay_ms: VariableCapableInt = DEFAULT_MOUSE_DOWN_UP_DELAY_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "MouseClickStep":
@@ -514,14 +661,14 @@ class MouseClickStep:
             note=str(data.get("note", default.note)),
             button=str(data.get("button", default.button)),
             target=str(data.get("target", default.target)),
-            x=int(data.get("x", default.x)),
-            y=int(data.get("y", default.y)),
+            x=parse_variable_capable_int(data.get("x"), DEFAULT_MOUSE_X),
+            y=parse_variable_capable_int(data.get("y"), DEFAULT_MOUSE_Y),
             relative=bool(data.get("relative", default.relative)),
             template=str(data.get("template", default.template)),
             threshold=float(data.get("threshold", default.threshold)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
-            down_up_delay_ms=int(data.get("down_up_delay_ms", default.down_up_delay_ms)),
+            down_up_delay_ms=parse_variable_capable_int(data.get("down_up_delay_ms"), DEFAULT_MOUSE_DOWN_UP_DELAY_MS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -534,12 +681,12 @@ class MouseMoveStep:
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
     target: str = DEFAULT_MOUSE_TARGET
-    x: int = DEFAULT_MOUSE_X
-    y: int = DEFAULT_MOUSE_Y
+    x: VariableCapableInt = DEFAULT_MOUSE_X
+    y: VariableCapableInt = DEFAULT_MOUSE_Y
     relative: bool = DEFAULT_MOUSE_RELATIVE
     template: str = ""
     threshold: float = DEFAULT_THRESHOLD
-    timeout_ms: int = DEFAULT_IMAGE_TIMEOUT
+    timeout_ms: VariableCapableInt = DEFAULT_IMAGE_TIMEOUT
     on_timeout: str = DEFAULT_ON_TIMEOUT
 
     @classmethod
@@ -550,12 +697,12 @@ class MouseMoveStep:
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
             target=str(data.get("target", default.target)),
-            x=int(data.get("x", default.x)),
-            y=int(data.get("y", default.y)),
+            x=parse_variable_capable_int(data.get("x"), DEFAULT_MOUSE_X),
+            y=parse_variable_capable_int(data.get("y"), DEFAULT_MOUSE_Y),
             relative=bool(data.get("relative", default.relative)),
             template=str(data.get("template", default.template)),
             threshold=float(data.get("threshold", default.threshold)),
-            timeout_ms=int(data.get("timeout_ms", default.timeout_ms)),
+            timeout_ms=parse_variable_capable_int(data.get("timeout_ms"), DEFAULT_IMAGE_TIMEOUT),
             on_timeout=str(data.get("on_timeout", default.on_timeout)),
         )
 
@@ -568,8 +715,8 @@ class MouseScrollStep:
     type: str = "mouse_scroll"
     skip: bool = DEFAULT_STEP_SKIP
     note: str = DEFAULT_STEP_NOTE
-    clicks: int = DEFAULT_MOUSE_SCROLL_CLICKS
-    interval_ms: int = DEFAULT_TEXT_INPUT_INTERVAL_MS
+    clicks: VariableCapableInt = DEFAULT_MOUSE_SCROLL_CLICKS
+    interval_ms: VariableCapableInt = DEFAULT_TEXT_INPUT_INTERVAL_MS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "MouseScrollStep":
@@ -578,8 +725,8 @@ class MouseScrollStep:
         return cls(
             skip=bool(data.get("skip", default.skip)),
             note=str(data.get("note", default.note)),
-            clicks=int(data.get("clicks", default.clicks)),
-            interval_ms=int(data.get("interval_ms", default.interval_ms)),
+            clicks=parse_variable_capable_int(data.get("clicks"), DEFAULT_MOUSE_SCROLL_CLICKS),
+            interval_ms=parse_variable_capable_int(data.get("interval_ms"), DEFAULT_TEXT_INPUT_INTERVAL_MS),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -636,6 +783,7 @@ class Macro:
     gaming_mode: bool = True
     background_input: bool = True
     keep_target_focused: bool = False
+    variables: dict[str, MacroVariable] = field(default_factory=dict)
     templates: dict[str, TemplateInfo] = field(default_factory=dict)
     steps: list[Step] = field(default_factory=list)
 
@@ -654,6 +802,18 @@ class Macro:
         )
 
         templates: dict[str, TemplateInfo] = {}
+        variables: dict[str, MacroVariable] = {}
+
+        raw_variables = data.get("variables", {})
+        if isinstance(raw_variables, dict):
+            for variable_name, variable_data in raw_variables.items():
+                name = str(variable_name)
+                if not is_valid_variable_name(name):
+                    continue
+
+                variable = MacroVariable.from_dict(variable_data)
+                if variable is not None:
+                    variables[name] = variable
 
         for template_id, template_data in data.get("templates", {}).items():
             match_mode = str(template_data.get("match_mode", DEFAULT_TEMPLATE_MATCH_MODE))
@@ -674,6 +834,7 @@ class Macro:
             gaming_mode=bool(data.get("gaming_mode", True)),
             background_input=bool(data.get("background_input", True)),
             keep_target_focused=bool(data.get("keep_target_focused", False)),
+            variables=variables,
             templates=templates,
             steps=steps,
         )
@@ -690,6 +851,7 @@ class Macro:
             "gaming_mode": self.gaming_mode,
             "background_input": self.background_input,
             "keep_target_focused": self.keep_target_focused,
+            "variables": {name: variable.to_dict() for name, variable in self.variables.items()},
             "templates": {
                 template_id: {
                     "label": template_data.label,
@@ -766,6 +928,89 @@ class MacroModel:
 
         path.unlink()
         return True
+
+
+def variable_dict(variables: dict[str, MacroVariable] | dict[str, Any]) -> dict[str, MacroVariable]:
+    result: dict[str, MacroVariable] = {}
+
+    for name, variable in variables.items():
+        if isinstance(variable, MacroVariable):
+            result[name] = variable
+            continue
+
+        parsed = MacroVariable.from_dict(variable)
+        if parsed is not None:
+            result[name] = parsed
+
+    return result
+
+
+def resolve_variable_reference(
+    field: str,
+    value: Any,
+    variables: dict[str, MacroVariable] | dict[str, Any],
+) -> tuple[Any, str]:
+    if not is_variable_ref(value):
+        return value, ""
+
+    expected_type = VARIABLE_FIELD_TYPES.get(field)
+    if expected_type is None:
+        return value, f"field '{field}' does not support variables"
+
+    name = variable_ref_name(value)
+    parsed_variables = variable_dict(variables)
+    variable = parsed_variables.get(name)
+    if variable is None:
+        return value, f"missing variable '{name}' for field '{field}'"
+
+    if variable.type != expected_type:
+        return value, f"variable '{name}' for field '{field}' must be {expected_type}"
+
+    try:
+        return parse_variable_value(variable.type, variable.value), ""
+    except (TypeError, ValueError):
+        return value, f"variable '{name}' for field '{field}' has invalid value"
+
+
+def resolve_step_variables(
+    steps: list[dict],
+    variables: dict[str, MacroVariable] | dict[str, Any],
+    offset: int = 0,
+) -> tuple[list[dict], list[str]]:
+    resolved_steps: list[dict] = []
+    errors: list[str] = []
+
+    for index, step in enumerate(steps, start=offset + 1):
+        resolved_step: dict[str, Any] = {}
+
+        for key, value in step.items():
+            if key in ("steps", "then", "else", "on_next_row", "on_next_col") and isinstance(value, list):
+                nested_steps, nested_errors = resolve_step_variables(value, variables, offset=index)
+                resolved_step[key] = nested_steps
+                errors.extend(nested_errors)
+                continue
+
+            if key == "branches" and isinstance(value, dict):
+                branches: dict[str, list[dict]] = {}
+
+                for branch_key, branch_steps in value.items():
+                    if isinstance(branch_steps, list):
+                        nested_steps, nested_errors = resolve_step_variables(branch_steps, variables, offset=index)
+                        branches[str(branch_key)] = nested_steps
+                        errors.extend(nested_errors)
+
+                resolved_step[key] = branches
+                continue
+
+            resolved_value, error = resolve_variable_reference(key, value, variables)
+            resolved_step[key] = resolved_value
+
+            if error:
+                errors.append(f"Step {index}: {error}")
+
+        resolved_steps.append(resolved_step)
+
+    return resolved_steps, errors
 
 
 def get_step_threshold(step: dict) -> float:

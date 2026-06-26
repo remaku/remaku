@@ -8,7 +8,15 @@ from PySide6.QtCore import Qt
 from remaku.controllers import home_controller
 from remaku.controllers.home_controller import HomeController
 from remaku.models.config_model import AppConfig
-from remaku.models.macro_model import Macro, MacroMeta, MacroModel, MacroSummary, TemplateInfo
+from remaku.models.macro_model import (
+    Macro,
+    MacroMeta,
+    MacroModel,
+    MacroSummary,
+    MacroVariable,
+    TemplateInfo,
+    variable_ref,
+)
 from remaku.models.step_tree import StepTree
 from remaku.services import hotkey_service, macro_import_service
 from remaku.services.clipboard_service import ClipboardService
@@ -1278,6 +1286,83 @@ def test_handle_macro_meta_changed_saves_and_registers_hotkeys() -> None:
     assert calls == ["register"]
 
 
+def test_handle_macro_variable_added_saves_default_variable() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+
+    controller.handle_macro_variable_added()
+
+    assert "variable" in macro.variables
+    assert macro.variables["variable"].type == "number"
+    assert macro.variables["variable"].value == 0
+    assert model.saved[-1] is macro
+
+
+def test_handle_step_property_variable_changed_stores_ref() -> None:
+    step = {"type": "repeat", "count": 1, "steps": []}
+    macro = Macro(meta=MacroMeta(id="macro"), variables={"runs": MacroVariable(type="number", value=3)})
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    controller.step_tree = StepTree([step])
+    controller.selected_step = controller.step_tree.steps[0]
+    controller.refresh_selected_step = lambda: None
+
+    controller.handle_step_property_variable_changed("count", "runs")
+
+    assert controller.step_tree.steps[0]["count"] == variable_ref("runs")
+    assert model.saved[-1] is macro
+
+
+def test_handle_macro_variable_renamed_updates_step_refs() -> None:
+    step = {"type": "repeat", "count": variable_ref("runs"), "steps": []}
+    macro = Macro(meta=MacroMeta(id="macro"), variables={"runs": MacroVariable(type="number", value=3)})
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    controller.step_tree = StepTree([step])
+
+    controller.handle_macro_variable_renamed("runs", "Repeat Count!")
+
+    assert "runs" not in macro.variables
+    assert "repeat_count" in macro.variables
+    assert macro.variables["repeat_count"].label == "Repeat Count!"
+    assert controller.step_tree.steps[0]["count"] == variable_ref("repeat_count")
+    assert model.saved[-1] is macro
+
+
+def test_handle_macro_variable_renamed_slugifies_duplicate_names() -> None:
+    step = {"type": "repeat", "count": variable_ref("runs"), "steps": []}
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "runs": MacroVariable(type="number", value=3),
+            "repeat_count": MacroVariable(type="number", value=5),
+        },
+    )
+    model = FakeMacroModel(macros={"macro": macro})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    controller.macro_model = cast(MacroModel, model)
+    controller.step_tree = StepTree([step])
+
+    controller.handle_macro_variable_renamed("runs", "Repeat Count")
+
+    assert "repeat_count_2" in macro.variables
+    assert macro.variables["repeat_count_2"].label == "Repeat Count"
+    assert controller.step_tree.steps[0]["count"] == variable_ref("repeat_count_2")
+    assert model.saved[-1] is macro
+
+
 def test_handle_step_property_changed_updates_repeat_children() -> None:
     repeat_step = {"type": "repeat", "skip": False, "steps": [{"type": "key", "skip": False}]}
     macro = Macro.from_dict({"meta": {"name": "macro"}, "steps": [repeat_step]})
@@ -1387,6 +1472,38 @@ def test_describe_step_formats_core_step_types() -> None:
     )
     assert controller.describe_step({"type": "repeat", "count": 3}) == "Repeat 3 times"
     assert controller.describe_step({"type": "grid_nav", "rows": 2}) == "Grid navigation (2 rows)"
+
+
+def test_describe_step_formats_variable_refs() -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "action_key": MacroVariable(label="Action Key", type="key", value="enter"),
+            "delay_ms": MacroVariable(label="Delay Ms", type="number", value=250),
+            "message": MacroVariable(label="Message", type="text", value="hello"),
+            "runs": MacroVariable(label="Runs", type="number", value=3),
+            "target_x": MacroVariable(label="Target X", type="number", value=10),
+            "target_y": MacroVariable(label="Target Y", type="number", value=20),
+        },
+    )
+
+    assert controller.describe_step({"type": "key", "key": variable_ref("action_key")}) == "Press ${Action Key}"
+    assert controller.describe_step({"type": "delay", "ms": variable_ref("delay_ms")}) == "Wait ${Delay Ms} ms"
+    assert controller.describe_step({"type": "text_input", "text": variable_ref("message")}) == "Type text: ${Message}"
+    assert controller.describe_step({"type": "wait_number", "value": variable_ref("runs")}) == (
+        "Wait for number ≥ ${Runs}"
+    )
+    assert controller.describe_step({"type": "repeat", "count": variable_ref("runs")}) == "Repeat ${Runs} times"
+    assert controller.describe_step({"type": "grid_nav", "rows": variable_ref("runs")}) == (
+        "Grid navigation (${Runs} rows)"
+    )
+    assert (
+        controller.describe_step(
+            {"type": "mouse_click", "button": "left", "x": variable_ref("target_x"), "y": variable_ref("target_y")}
+        )
+        == "Left click at (${Target X}, ${Target Y})"
+    )
 
 
 def test_set_descendant_skip_updates_nested_steps() -> None:

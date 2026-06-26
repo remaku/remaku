@@ -46,6 +46,7 @@ from remaku.models.macro_model import (
     get_step_text,
     get_step_threshold,
     get_step_timeout,
+    resolve_step_variables,
 )
 from remaku.services.engine import Engine, StopReason
 
@@ -158,6 +159,7 @@ class MacroRunner(Engine):
         self.keep_target_focused = macro.keep_target_focused
         self.template_ids = list(macro.templates.keys())
         self.macro = macro.to_dict()
+        self.variables = self.macro.get("variables", {})
         self.current_step: dict | None = None
         self.current_step_path: tuple[tuple[str, int], ...] | None = None
         self.grid_counters: dict[int, int] = {}
@@ -176,7 +178,9 @@ class MacroRunner(Engine):
         self.grid_counters = {}
         steps = self.macro.get("steps", [])
 
-        errors = validate_steps(steps, template_root=templates_dir(self.macro_id))
+        resolved_steps, variable_errors = resolve_step_variables(steps, self.variables)
+
+        errors = variable_errors + validate_steps(resolved_steps, template_root=templates_dir(self.macro_id))
         if errors:
             self.finish(StopReason.STALE, f"macro_format: {';'.join(errors)}")
             return
@@ -184,7 +188,7 @@ class MacroRunner(Engine):
         self.current_step: dict | None = None
         self.current_step_path = None
         self.update(state="running")
-        self.exec_steps(steps)
+        self.exec_steps(resolved_steps)
         self.current_step = None
         self.current_step_path = None
         if self.status.running:

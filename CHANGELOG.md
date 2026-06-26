@@ -8,10 +8,13 @@
 
 - Added number recognition steps for selected screen areas, so macros can wait, branch, or repeat until a visible number reaches the target value.
 - Added a Down/Up Delay setting to mouse click steps, so clicks can hold the button briefly before releasing.
+- Macros now support user-defined variables with four types (text, number, boolean, key). Define variables in the macro properties panel, then switch any step property from Fixed to Variable mode to reference a variable instead of a hardcoded value. Changing a variable's value updates all steps that use it at once.
 
 ### Changed
 
 - Duplicating or pasting steps now creates independent template copies instead of sharing the original template.
+- Copying and pasting steps now includes any variables referenced by those steps, with automatic renaming when variable names conflict.
+- Step descriptions in the step tree now show variable references as `${Label}`, so you can tell at a glance which properties are using variables.
 
 ### Fixed
 
@@ -20,6 +23,7 @@
 - The text input field in Text Input steps no longer stretches to fill all available space, staying at a comfortable 3-line height instead.
 - Re-capturing or replacing a template on one step no longer removes the template file when other steps also use that template.
 - The running overlay no longer crashes when a macro starts before its first step is shown.
+- Macro recording now starts reliably on some Windows systems where a compatibility issue prevented it from working.
 
 <!-- lang:zh_tw -->
 
@@ -27,10 +31,13 @@
 
 - 新增選取畫面區域的數字辨識步驟，巨集可以等待、分支，或重複執行直到畫面上的數字達到目標值。
 - 滑鼠點擊步驟新增按下/放開延遲設定，可讓按鈕短暫按住後再放開。
+- 巨集現在支援使用者自訂變數，提供四種類型（文字、數字、布林值、按鍵）。在巨集屬性面板中定義變數後，可將任意步驟屬性從「固定」切換為「變數」模式，以參照變數取代手動輸入的值。修改變數值後，所有使用該變數的步驟都會同步更新。
 
 ### 變更
 
 - 複製或貼上步驟現在會建立獨立的模板副本，而非共享原來模板。
+- 複製貼上步驟時，現在會一併包含步驟所參照的變數，變數名稱衝突時會自動重新命名。
+- 步驟樹中的步驟描述現在會以 `${標籤}` 格式顯示變數參照，讓您一眼看出哪些屬性使用了變數。
 
 ### 修正
 
@@ -39,6 +46,7 @@
 - 文字輸入步驟中的文字欄位不再撐滿所有可用高度，改為維持約 3 行高度的舒適大小。
 - 重新截取或替換步驟的模板時，若其他步驟也使用相同模板，不再會誤刪模板檔案。
 - 巨集剛開始執行、第一個步驟尚未顯示時，執行浮動面板不再當機。
+- 修正部分 Windows 系統上的相容性問題，現在巨集錄製可確實啟動。
 
 <!-- lang:zh_cn -->
 
@@ -46,10 +54,13 @@
 
 - 新增可选取画面区域的数字识别步骤，宏可以等待、分支，或重复执行直到画面上的数字达到目标值。
 - 鼠标点击步骤新增按下/松开延迟设置，可让按钮短暂按住后再松开。
+- 宏现在支持用户自定义变量，提供四种类型（文字、数字、布尔值、按键）。在宏属性面板中定义变量后，可将任意步骤属性从「固定」切换为「变量」模式，以引用变量取代手动输入的值。修改变量值后，所有使用该变量的步骤都会同步更新。
 
 ### 变更
 
 - 复制或粘贴步骤现在会创建独立的模板副本，而非共享原来模板。
+- 复制粘贴步骤时，现在会一并包含步骤所引用的变量，变量名称冲突时会自动重命名。
+- 步骤树中的步骤描述现在会以 `${标签}` 格式显示变量引用，让您一眼看出哪些属性使用了变量。
 
 ### 修复
 
@@ -58,6 +69,7 @@
 - 文字输入步骤中的文字字段不再撑满所有可用高度，改为维持约 3 行高度的舒适大小。
 - 重新截取或替换步骤的模板时，若其他步骤也使用相同模板，不再会误删模板文件。
 - 宏刚开始执行、第一步尚未显示时，运行浮动面板不再崩溃。
+- 修复部分 Windows 系统上的兼容性问题，现在宏录制可正常启动。
 
 ## v0.10.0
 

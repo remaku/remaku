@@ -3,8 +3,18 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-from remaku.models.macro_model import Macro, TemplateInfo
+from remaku.models.macro_model import (
+    Macro,
+    MacroVariable,
+    TemplateInfo,
+    is_valid_variable_name,
+    is_variable_ref,
+    slugify_variable_name,
+    variable_ref,
+    variable_ref_name,
+)
 from remaku.models.step_node import CONTAINER_CHILD_KEYS, StepNode
 from remaku.models.step_tree import StepTree
 from remaku.paths import template_path, templates_dir
@@ -42,7 +52,9 @@ class ClipboardService:
             return None
 
         refs = self.collect_template_refs_from_steps(steps)
+        variable_refs = self.collect_variable_refs_from_steps(steps)
         macro_templates = current_macro.to_dict().get("templates", {})
+        macro_variables = current_macro.to_dict().get("variables", {})
         template_data = {
             template_id: self.template_path_provider(current_macro.meta.id, template_id).read_bytes()
             for template_id in refs
@@ -53,11 +65,17 @@ class ClipboardService:
             for template_id in refs
             if template_id in macro_templates
         }
+        variables = {
+            variable_name: copy.deepcopy(macro_variables[variable_name])
+            for variable_name in variable_refs
+            if variable_name in macro_variables
+        }
 
         return {
             "steps": steps,
             "templates": template_data,
             "template_meta": template_meta,
+            "variables": variables,
         }
 
     def paste_steps(
@@ -72,6 +90,10 @@ class ClipboardService:
         if not clipboard_steps:
             return PasteStepsResult(selected_step=selected_step)
 
+        variable_name_map = self.merge_variables(current_macro, step_clipboard.get("variables", {}))
+        if variable_name_map:
+            clipboard_steps = self.rename_variable_refs(clipboard_steps, variable_name_map)
+
         used_template_ids = set(current_macro.templates)
         for step in clipboard_steps:
             self.clone_template_refs_for_step(current_macro, step_clipboard, step, used_template_ids)
@@ -82,6 +104,86 @@ class ClipboardService:
         selected_after_paste = inserted_nodes[0].step if inserted_nodes else selected_step
 
         return PasteStepsResult(selected_step=selected_after_paste, changed=True)
+
+    def collect_variable_refs_from_steps(self, steps: list[dict]) -> set[str]:
+        refs: set[str] = set()
+
+        for step in steps:
+            self.collect_variable_refs(step, refs)
+
+        return refs
+
+    def collect_variable_refs(self, value: Any, refs: set[str]) -> None:
+        if is_variable_ref(value):
+            refs.add(variable_ref_name(value))
+            return
+
+        if isinstance(value, dict):
+            for inner_value in value.values():
+                self.collect_variable_refs(inner_value, refs)
+
+            return
+
+        if isinstance(value, list):
+            for item in value:
+                self.collect_variable_refs(item, refs)
+
+    def merge_variables(self, current_macro: Macro, raw_variables: Any) -> dict[str, str]:
+        if not isinstance(raw_variables, dict):
+            return {}
+
+        variable_name_map: dict[str, str] = {}
+
+        for raw_name, raw_variable in raw_variables.items():
+            old_name = str(raw_name)
+            if not is_valid_variable_name(old_name):
+                continue
+
+            variable = MacroVariable.from_dict(raw_variable)
+            if variable is None:
+                continue
+
+            if old_name not in current_macro.variables:
+                current_macro.variables[old_name] = variable
+                variable_name_map[old_name] = old_name
+                continue
+
+            if current_macro.variables[old_name].to_dict() == variable.to_dict():
+                variable_name_map[old_name] = old_name
+                continue
+
+            new_name = self.unique_variable_name(current_macro, variable.label or old_name)
+            current_macro.variables[new_name] = variable
+            variable_name_map[old_name] = new_name
+
+        return variable_name_map
+
+    def unique_variable_name(self, current_macro: Macro, label: str) -> str:
+        base_name = slugify_variable_name(label)
+        variable_name = base_name
+        suffix = 2
+
+        while variable_name in current_macro.variables:
+            variable_name = f"{base_name}_{suffix}"
+            suffix += 1
+
+        return variable_name
+
+    def rename_variable_refs(self, value: Any, variable_name_map: dict[str, str]) -> Any:
+        if is_variable_ref(value):
+            old_name = variable_ref_name(value)
+            new_name = variable_name_map.get(old_name, old_name)
+            return variable_ref(new_name)
+
+        if isinstance(value, dict):
+            return {
+                key: self.rename_variable_refs(inner_value, variable_name_map) for key, inner_value in value.items()
+            }
+
+        if isinstance(value, list):
+            return [self.rename_variable_refs(item, variable_name_map) for item in value]
+
+        return value
 
     def clone_template_refs_for_step(
         self,

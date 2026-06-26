@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from remaku.models.macro_model import Macro, MacroMeta, TemplateInfo
+from remaku.models.macro_model import Macro, MacroMeta, MacroVariable, TemplateInfo, variable_ref
 from remaku.models.step_tree import StepTree
 from remaku.services.clipboard_service import ClipboardService
 
@@ -46,6 +46,24 @@ def test_copy_selected_steps_includes_template_data_and_meta(tmp_path: Path) -> 
     }
 
 
+def test_copy_selected_steps_includes_used_variables(tmp_path: Path) -> None:
+    step = {"type": "repeat", "count": variable_ref("runs"), "steps": []}
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "runs": MacroVariable(label="Runs", type="number", value=3),
+            "message": MacroVariable(label="Message", type="text", value="hello"),
+        },
+    )
+    service = make_service(tmp_path)
+    step_tree = StepTree([step])
+
+    clipboard = service.copy_selected_steps(macro, step_tree, step_tree.flatten())
+
+    assert clipboard is not None
+    assert clipboard["variables"] == {"runs": {"label": "Runs", "type": "number", "value": 3}}
+
+
 def test_paste_steps_clones_template_and_metadata(tmp_path: Path) -> None:
     macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
     service = make_service(tmp_path)
@@ -66,6 +84,47 @@ def test_paste_steps_clones_template_and_metadata(tmp_path: Path) -> None:
     assert macro.templates["copied"].label == "Button"
     assert macro.templates["copied"].capture_width == 320
     assert macro.templates["copied"].capture_height == 180
+
+
+def test_paste_steps_adds_missing_variables(tmp_path: Path) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    service = make_service(tmp_path)
+    step_tree = StepTree([])
+    clipboard = {
+        "steps": [{"type": "repeat", "count": variable_ref("runs"), "steps": []}],
+        "variables": {"runs": {"label": "Runs", "type": "number", "value": 3}},
+    }
+
+    service.paste_steps(macro, step_tree, clipboard, None, None)
+
+    assert step_tree.steps[0]["count"] == variable_ref("runs")
+    assert macro.variables["runs"] == MacroVariable(label="Runs", type="number", value=3)
+
+
+def test_paste_steps_renames_conflicting_variables(tmp_path: Path) -> None:
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={"runs": MacroVariable(label="Runs", type="number", value=10)},
+    )
+    service = make_service(tmp_path)
+    step_tree = StepTree([])
+    clipboard = {
+        "steps": [
+            {
+                "type": "repeat",
+                "count": variable_ref("runs"),
+                "steps": [{"type": "delay", "ms": variable_ref("runs")}],
+            }
+        ],
+        "variables": {"runs": {"label": "Runs", "type": "number", "value": 3}},
+    }
+
+    service.paste_steps(macro, step_tree, clipboard, None, None)
+
+    assert macro.variables["runs"].value == 10
+    assert macro.variables["runs_2"] == MacroVariable(label="Runs", type="number", value=3)
+    assert step_tree.steps[0]["count"] == variable_ref("runs_2")
+    assert step_tree.steps[0]["steps"][0]["ms"] == variable_ref("runs_2")
 
 
 def test_paste_steps_clones_each_template_slot_independently(tmp_path: Path) -> None:

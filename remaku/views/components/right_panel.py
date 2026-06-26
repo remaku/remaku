@@ -19,6 +19,30 @@ from qfluentwidgets import (
 from remaku.core import window
 from remaku.core.event_bus import event_bus
 from remaku.models.macro_model import (
+    DEFAULT_DELAY_MS,
+    DEFAULT_FIND_TIMEOUT_MS,
+    DEFAULT_GONE_GRACE_MS,
+    DEFAULT_GRID_ROWS,
+    DEFAULT_GRID_START,
+    DEFAULT_HARD_TIMEOUT_MS,
+    DEFAULT_IMAGE_TIMEOUT,
+    DEFAULT_KEY,
+    DEFAULT_KEY_HOLD_MS,
+    DEFAULT_LOAD_DELAY_MS,
+    DEFAULT_MOUSE_DOWN_UP_DELAY_MS,
+    DEFAULT_MOUSE_SCROLL_CLICKS,
+    DEFAULT_MOUSE_X,
+    DEFAULT_MOUSE_Y,
+    DEFAULT_NUMBER_CAPTURE_HEIGHT,
+    DEFAULT_NUMBER_CAPTURE_WIDTH,
+    DEFAULT_NUMBER_HEIGHT,
+    DEFAULT_NUMBER_STABLE_READS,
+    DEFAULT_NUMBER_VALUE,
+    DEFAULT_NUMBER_WIDTH,
+    DEFAULT_REPEAT_COUNT,
+    DEFAULT_TEXT_INPUT_INTERVAL_MS,
+    DEFAULT_TEXT_INPUT_TEXT,
+    VARIABLE_FIELD_TYPES,
     DelayStep,
     GridNavStep,
     HoldKeyUntilGoneStep,
@@ -27,6 +51,7 @@ from remaku.models.macro_model import (
     IfNumberStep,
     KeyStep,
     Macro,
+    MacroVariable,
     MouseClickStep,
     MouseMoveStep,
     MouseScrollStep,
@@ -36,6 +61,8 @@ from remaku.models.macro_model import (
     TextInputStep,
     WaitImageStep,
     WaitNumberStep,
+    is_variable_ref,
+    variable_ref_name,
 )
 from remaku.resources.icon import RemakuIcon
 from remaku.views.components.elided_label import ElidedBodyLabel, ElidedSubtitleLabel
@@ -66,6 +93,7 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "start",
         "interval_ms",
         "clicks",
+        "down_up_delay_ms",
         "x",
         "y",
         "width",
@@ -76,6 +104,32 @@ NUMERIC_PROPERTY_KEYS = frozenset(
         "value",
     }
 )
+
+FIXED_FALLBACK_VALUES: dict[str, str] = {
+    "text": DEFAULT_TEXT_INPUT_TEXT,
+    "key": DEFAULT_KEY,
+    "ms": str(DEFAULT_DELAY_MS),
+    "hold_ms": str(DEFAULT_KEY_HOLD_MS),
+    "timeout_ms": str(DEFAULT_IMAGE_TIMEOUT),
+    "load_delay_ms": str(DEFAULT_LOAD_DELAY_MS),
+    "find_timeout_ms": str(DEFAULT_FIND_TIMEOUT_MS),
+    "gone_grace_ms": str(DEFAULT_GONE_GRACE_MS),
+    "hard_timeout_ms": str(DEFAULT_HARD_TIMEOUT_MS),
+    "count": str(DEFAULT_REPEAT_COUNT),
+    "rows": str(DEFAULT_GRID_ROWS),
+    "start": str(DEFAULT_GRID_START),
+    "interval_ms": str(DEFAULT_TEXT_INPUT_INTERVAL_MS),
+    "clicks": str(DEFAULT_MOUSE_SCROLL_CLICKS),
+    "down_up_delay_ms": str(DEFAULT_MOUSE_DOWN_UP_DELAY_MS),
+    "x": str(DEFAULT_MOUSE_X),
+    "y": str(DEFAULT_MOUSE_Y),
+    "width": str(DEFAULT_NUMBER_WIDTH),
+    "height": str(DEFAULT_NUMBER_HEIGHT),
+    "capture_width": str(DEFAULT_NUMBER_CAPTURE_WIDTH),
+    "capture_height": str(DEFAULT_NUMBER_CAPTURE_HEIGHT),
+    "stable_reads": str(DEFAULT_NUMBER_STABLE_READS),
+    "value": str(DEFAULT_NUMBER_VALUE),
+}
 
 
 def remaku_qicon(icon: RemakuIcon) -> QIcon:
@@ -94,10 +148,14 @@ class PropertyFormMixin:
         label = BodyLabel(text, self.content_widget)
         self.content_layout.addWidget(label)
 
-    def add_text_input(self, label: str, value: str, property_key: str = "") -> None:
+    def add_text_input(self, label: str, value: object, property_key: str = "") -> None:
+        if property_key in VARIABLE_FIELD_TYPES:
+            self.add_variable_capable_line_input(label, value, property_key)
+            return
+
         self.add_field_label(label)
         field = LineEdit(self.content_widget)
-        field.setText(value)
+        field.setText(str(value))
 
         if property_key:
             if property_key in NUMERIC_PROPERTY_KEYS:
@@ -111,10 +169,14 @@ class PropertyFormMixin:
 
         self.content_layout.addWidget(field)
 
-    def add_multiline_text_input(self, label: str, value: str, property_key: str = "") -> None:
+    def add_multiline_text_input(self, label: str, value: object, property_key: str = "") -> None:
+        if property_key in VARIABLE_FIELD_TYPES:
+            self.add_variable_capable_multiline_input(label, value, property_key)
+            return
+
         self.add_field_label(label)
         field = CommitOnFocusOutTextEdit(self.content_widget)
-        field.setPlainText(value)
+        field.setPlainText(str(value))
         field.setMinimumHeight(80)
         field.setMaximumHeight(120)
         field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -123,6 +185,145 @@ class PropertyFormMixin:
             field.text_committed.connect(lambda text, pk=property_key: event_bus.step_property_changed.emit(pk, text))
 
         self.content_layout.addWidget(field)
+
+    def add_variable_capable_line_input(self, label: str, value: object, property_key: str) -> None:
+        self.add_variable_mode_header(label, value, property_key)
+
+        field = LineEdit(self.content_widget)
+        field.setText(self.fixed_field_text(value, property_key))
+
+        if property_key in NUMERIC_PROPERTY_KEYS:
+            field.setValidator(QIntValidator(field))
+            field.textChanged.connect(lambda text, w=field: w.setError(False))
+            field.editingFinished.connect(lambda pk=property_key, w=field: self.commit_numeric_field(pk, w))
+        else:
+            field.editingFinished.connect(
+                lambda pk=property_key, w=field: event_bus.step_property_changed.emit(pk, w.text())
+            )
+
+        self.content_layout.addWidget(field)
+        self.add_variable_selector(value, property_key, field)
+
+    def add_variable_capable_multiline_input(self, label: str, value: object, property_key: str) -> None:
+        self.add_variable_mode_header(label, value, property_key)
+
+        field = CommitOnFocusOutTextEdit(self.content_widget)
+        field.setPlainText(self.fixed_field_text(value, property_key))
+        field.setMinimumHeight(80)
+        field.setMaximumHeight(120)
+        field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        field.text_committed.connect(lambda text, pk=property_key: event_bus.step_property_changed.emit(pk, text))
+
+        self.content_layout.addWidget(field)
+        self.add_variable_selector(value, property_key, field)
+
+    def add_variable_mode_header(self, label: str, value: object, property_key: str) -> None:
+        row = QWidget(self.content_widget)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(8)
+
+        row_layout.addWidget(BodyLabel(label, row), 1)
+
+        mode_combo = ComboBox(row)
+        mode_combo.addItem(QCoreApplication.translate("RightPanel", "Fixed"), userData="fixed")
+        mode_combo.addItem(QCoreApplication.translate("RightPanel", "Variable"), userData="variable")
+        mode_combo.setCurrentIndex(1 if is_variable_ref(value) else 0)
+        mode_combo.setProperty("property_key", property_key)
+        row_layout.addWidget(mode_combo)
+
+        self.content_layout.addWidget(row)
+
+    def add_variable_selector(self, value: object, property_key: str, fixed_widget: QWidget) -> None:
+        variable_combo = ComboBox(self.content_widget)
+        variable_type = VARIABLE_FIELD_TYPES[property_key]
+        variable_names = self.compatible_variable_names(variable_type)
+
+        for name in variable_names:
+            variable_combo.addItem(self.variable_display_name(name), userData=name)
+
+        selected_name = variable_ref_name(value)
+        if selected_name and selected_name not in variable_names:
+            variable_combo.addItem(selected_name, userData=selected_name)
+
+        selected_index = variable_combo.findData(selected_name)
+        if selected_index >= 0:
+            variable_combo.setCurrentIndex(selected_index)
+
+        variable_combo.setEnabled(variable_combo.count() > 0)
+        variable_combo.currentIndexChanged.connect(
+            lambda index, pk=property_key, c=variable_combo: event_bus.step_property_variable_changed.emit(
+                pk,
+                str(c.currentData()),
+            )
+        )
+
+        self.content_layout.addWidget(variable_combo)
+
+        mode_combo = self.find_mode_combo(property_key)
+
+        def apply_mode(emit_change: bool = False) -> None:
+            is_variable = mode_combo is not None and mode_combo.currentData() == "variable"
+            fixed_widget.setVisible(not is_variable)
+            variable_combo.setVisible(is_variable)
+
+            if emit_change and is_variable and variable_combo.count() > 0:
+                event_bus.step_property_variable_changed.emit(property_key, str(variable_combo.currentData()))
+            elif emit_change and not is_variable:
+                self.emit_fixed_property_value(property_key, fixed_widget)
+
+        if mode_combo is not None:
+            mode_combo.currentIndexChanged.connect(lambda index: apply_mode(True))
+
+        apply_mode()
+
+    def fixed_field_text(self, value: object, property_key: str) -> str:
+        if is_variable_ref(value):
+            return FIXED_FALLBACK_VALUES.get(property_key, "")
+
+        return str(value)
+
+    def emit_fixed_property_value(self, property_key: str, fixed_widget: QWidget) -> None:
+        value = self.fixed_widget_text(fixed_widget)
+
+        if not value:
+            value = FIXED_FALLBACK_VALUES.get(property_key, "")
+
+        event_bus.step_property_changed.emit(property_key, value)
+
+    def fixed_widget_text(self, widget: QWidget) -> str:
+        if isinstance(widget, CommitOnFocusOutTextEdit):
+            return widget.toPlainText()
+
+        if isinstance(widget, LineEdit | HotkeyInput):
+            return widget.text()
+
+        return ""
+
+    def find_mode_combo(self, property_key: str) -> ComboBox | None:
+        for combo in self.content_widget.findChildren(ComboBox):
+            if combo.property("property_key") == property_key:
+                return combo
+
+        return None
+
+    def compatible_variable_names(self, variable_type: str) -> list[str]:
+        macro = getattr(self, "macro", None)
+        if not isinstance(macro, Macro):
+            return []
+
+        return [name for name, variable in macro.variables.items() if variable.type == variable_type]
+
+    def variable_display_name(self, name: str) -> str:
+        macro = getattr(self, "macro", None)
+        if not isinstance(macro, Macro):
+            return name
+
+        variable = macro.variables.get(name)
+        if variable is None or not variable.label:
+            return name
+
+        return variable.label
 
     def commit_numeric_field(self, property_key: str, field: LineEdit) -> None:
         text = field.text().strip()
@@ -230,7 +431,17 @@ class PropertyFormMixin:
 
         self.content_layout.addWidget(hotkey_edit)
 
-    def add_key_input(self, label: str, value: str) -> None:
+    def add_key_input(self, label: str, value: object) -> None:
+        self.add_variable_mode_header(label, value, "key")
+
+        field = HotkeyInput(self.content_widget)
+        field.setText(self.fixed_field_text(value, "key"))
+        field.textChanged.connect(lambda text: event_bus.step_property_changed.emit("key", text))
+
+        self.content_layout.addWidget(field)
+        self.add_variable_selector(value, "key", field)
+
+    def add_plain_key_input(self, label: str, value: str) -> None:
         self.add_field_label(label)
         field = HotkeyInput(self.content_widget)
         field.setText(value)
@@ -261,9 +472,7 @@ class PropertyFormMixin:
         enabled_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Enabled"), self.content_widget)
         enabled_checkbox.setChecked(macro.meta.enabled)
 
-        enabled_checkbox.checkStateChanged.connect(
-            lambda state: event_bus.macro_meta_changed.emit("enabled", str(state == Qt.CheckState.Checked))
-        )
+        enabled_checkbox.toggled.connect(lambda checked: event_bus.macro_meta_changed.emit("enabled", str(checked)))
 
         self.content_layout.addWidget(enabled_checkbox)
 
@@ -271,8 +480,8 @@ class PropertyFormMixin:
         gaming_mode_checkbox = CheckBox(QCoreApplication.translate("RightPanel", "Gaming Mode"), self.content_widget)
         gaming_mode_checkbox.setChecked(macro.gaming_mode)
 
-        gaming_mode_checkbox.checkStateChanged.connect(
-            lambda state: event_bus.macro_meta_changed.emit("gaming_mode", str(state == Qt.CheckState.Checked))
+        gaming_mode_checkbox.toggled.connect(
+            lambda checked: event_bus.macro_meta_changed.emit("gaming_mode", str(checked))
         )
 
         self.add_checkbox_with_hint(
@@ -289,8 +498,8 @@ class PropertyFormMixin:
         )
         background_input_checkbox.setChecked(macro.background_input)
 
-        background_input_checkbox.checkStateChanged.connect(
-            lambda state: event_bus.macro_meta_changed.emit("background_input", str(state == Qt.CheckState.Checked))
+        background_input_checkbox.toggled.connect(
+            lambda checked: event_bus.macro_meta_changed.emit("background_input", str(checked))
         )
 
         self.add_checkbox_with_hint(
@@ -307,8 +516,8 @@ class PropertyFormMixin:
         )
         keep_target_focused_checkbox.setChecked(macro.keep_target_focused)
 
-        keep_target_focused_checkbox.checkStateChanged.connect(
-            lambda state: event_bus.macro_meta_changed.emit("keep_target_focused", str(state == Qt.CheckState.Checked))
+        keep_target_focused_checkbox.toggled.connect(
+            lambda checked: event_bus.macro_meta_changed.emit("keep_target_focused", str(checked))
         )
 
         self.add_checkbox_with_hint(
@@ -324,9 +533,7 @@ class PropertyFormMixin:
         skip_checkbox.setChecked(value)
         skip_checkbox.setEnabled(enabled)
 
-        skip_checkbox.checkStateChanged.connect(
-            lambda state: event_bus.step_property_changed.emit("skip", str(state == Qt.CheckState.Checked))
-        )
+        skip_checkbox.toggled.connect(lambda checked: event_bus.step_property_changed.emit("skip", str(checked)))
 
         self.content_layout.addWidget(skip_checkbox)
 
@@ -401,10 +608,10 @@ class PropertyFormMixin:
         pick_button.clicked.connect(event_bus.number_area_pick_requested.emit)
         self.content_layout.addWidget(pick_button)
 
-        self.add_text_input("X", str(step.x), "x")
-        self.add_text_input("Y", str(step.y), "y")
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Width"), str(step.width), "width")
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Height"), str(step.height), "height")
+        self.add_text_input("X", step.x, "x")
+        self.add_text_input("Y", step.y, "y")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Width"), step.width, "width")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Height"), step.height, "height")
         self.add_dropdown(
             QCoreApplication.translate("RightPanel", "Relative"),
             "true" if step.relative else "false",
@@ -416,12 +623,12 @@ class PropertyFormMixin:
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Capture Width"),
-            str(step.capture_width),
+            step.capture_width,
             "capture_width",
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Capture Height"),
-            str(step.capture_height),
+            step.capture_height,
             "capture_height",
         )
 
@@ -439,15 +646,15 @@ class PropertyFormMixin:
             ],
             "operator",
         )
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Value"), str(step.value), "value")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Value"), step.value, "value")
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Timeout (ms)"),
-            str(step.timeout_ms),
+            step.timeout_ms,
             "timeout_ms",
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Stable Reads"),
-            str(step.stable_reads),
+            step.stable_reads,
             "stable_reads",
         )
 
@@ -478,14 +685,14 @@ class KeyStepPropertiesWidget(StepPropertiesWidget):
 
     def add_step_fields(self) -> None:
         self.add_key_input(QCoreApplication.translate("RightPanel", "Key"), self.step.key)
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Hold (ms)"), str(self.step.hold_ms), "hold_ms")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Hold (ms)"), self.step.hold_ms, "hold_ms")
 
 
 class DelayStepPropertiesWidget(StepPropertiesWidget):
     step: DelayStep
 
     def add_step_fields(self) -> None:
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Duration (ms)"), str(self.step.ms), "ms")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Duration (ms)"), self.step.ms, "ms")
 
 
 class WaitImageStepPropertiesWidget(StepPropertiesWidget):
@@ -497,7 +704,7 @@ class WaitImageStepPropertiesWidget(StepPropertiesWidget):
             QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
         )
         self.add_text_input(
-            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), self.step.timeout_ms, "timeout_ms"
         )
         self.add_dropdown(
             QCoreApplication.translate("RightPanel", "On Timeout"),
@@ -521,22 +728,22 @@ class HoldKeyUntilGoneStepPropertiesWidget(StepPropertiesWidget):
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Load Delay (ms)"),
-            str(self.step.load_delay_ms),
+            self.step.load_delay_ms,
             "load_delay_ms",
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Find Timeout (ms)"),
-            str(self.step.find_timeout_ms),
+            self.step.find_timeout_ms,
             "find_timeout_ms",
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Gone Grace (ms)"),
-            str(self.step.gone_grace_ms),
+            self.step.gone_grace_ms,
             "gone_grace_ms",
         )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Hard Timeout (ms)"),
-            str(self.step.hard_timeout_ms),
+            self.step.hard_timeout_ms,
             "hard_timeout_ms",
         )
 
@@ -548,7 +755,7 @@ class TextInputStepPropertiesWidget(StepPropertiesWidget):
         self.add_multiline_text_input(QCoreApplication.translate("RightPanel", "Text"), self.step.text, "text")
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Interval (ms)"),
-            str(self.step.interval_ms),
+            self.step.interval_ms,
             "interval_ms",
         )
 
@@ -575,12 +782,10 @@ class RepeatUntilNumberStepPropertiesWidget(StepPropertiesWidget):
     def add_step_fields(self) -> None:
         self.add_number_area_editor(self.step)
         self.add_number_condition_editor(self.step)
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Max Runs"), str(self.step.count), "count")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Max Runs"), self.step.count, "count")
         check_first = CheckBox(QCoreApplication.translate("RightPanel", "Check Before First Run"), self.content_widget)
         check_first.setChecked(self.step.check_first)
-        check_first.checkStateChanged.connect(
-            lambda state: event_bus.step_property_changed.emit("check_first", str(state == Qt.CheckState.Checked))
-        )
+        check_first.toggled.connect(lambda checked: event_bus.step_property_changed.emit("check_first", str(checked)))
         self.content_layout.addWidget(check_first)
 
 
@@ -588,7 +793,7 @@ class RepeatStepPropertiesWidget(StepPropertiesWidget):
     step: RepeatStep
 
     def add_step_fields(self) -> None:
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Count"), str(self.step.count), "count")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Count"), self.step.count, "count")
 
 
 class IfImageStepPropertiesWidget(StepPropertiesWidget):
@@ -600,7 +805,7 @@ class IfImageStepPropertiesWidget(StepPropertiesWidget):
             QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
         )
         self.add_text_input(
-            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), self.step.timeout_ms, "timeout_ms"
         )
 
 
@@ -613,7 +818,7 @@ class IfAnyImageStepPropertiesWidget(StepPropertiesWidget):
             QCoreApplication.translate("RightPanel", "Threshold"), self.step.threshold, property_key="threshold"
         )
         self.add_text_input(
-            QCoreApplication.translate("RightPanel", "Timeout (ms)"), str(self.step.timeout_ms), "timeout_ms"
+            QCoreApplication.translate("RightPanel", "Timeout (ms)"), self.step.timeout_ms, "timeout_ms"
         )
         self.add_dropdown(
             QCoreApplication.translate("RightPanel", "On Timeout"),
@@ -630,8 +835,8 @@ class GridNavStepPropertiesWidget(StepPropertiesWidget):
     step: GridNavStep
 
     def add_step_fields(self) -> None:
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Rows"), str(self.step.rows), "rows")
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Start Cell"), str(self.step.start), "start")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Rows"), self.step.rows, "rows")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Start Cell"), self.step.start, "start")
 
 
 class MouseClickStepPropertiesWidget(StepPropertiesWidget):
@@ -659,8 +864,8 @@ class MouseClickStepPropertiesWidget(StepPropertiesWidget):
         )
 
         if self.step.target == "coordinate":
-            self.add_text_input("X", str(self.step.x), "x")
-            self.add_text_input("Y", str(self.step.y), "y")
+            self.add_text_input("X", self.step.x, "x")
+            self.add_text_input("Y", self.step.y, "y")
             self.add_dropdown(
                 QCoreApplication.translate("RightPanel", "Relative"),
                 "true" if self.step.relative else "false",
@@ -679,7 +884,7 @@ class MouseClickStepPropertiesWidget(StepPropertiesWidget):
             )
             self.add_text_input(
                 QCoreApplication.translate("RightPanel", "Timeout (ms)"),
-                str(self.step.timeout_ms),
+                self.step.timeout_ms,
                 "timeout_ms",
             )
             self.add_dropdown(
@@ -693,7 +898,7 @@ class MouseClickStepPropertiesWidget(StepPropertiesWidget):
             )
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Down/Up Delay (ms)"),
-            str(self.step.down_up_delay_ms),
+            self.step.down_up_delay_ms,
             "down_up_delay_ms",
         )
 
@@ -713,8 +918,8 @@ class MouseMoveStepPropertiesWidget(StepPropertiesWidget):
         )
 
         if self.step.target == "coordinate":
-            self.add_text_input("X", str(self.step.x), "x")
-            self.add_text_input("Y", str(self.step.y), "y")
+            self.add_text_input("X", self.step.x, "x")
+            self.add_text_input("Y", self.step.y, "y")
             self.add_dropdown(
                 QCoreApplication.translate("RightPanel", "Relative"),
                 "true" if self.step.relative else "false",
@@ -733,7 +938,7 @@ class MouseMoveStepPropertiesWidget(StepPropertiesWidget):
             )
             self.add_text_input(
                 QCoreApplication.translate("RightPanel", "Timeout (ms)"),
-                str(self.step.timeout_ms),
+                self.step.timeout_ms,
                 "timeout_ms",
             )
             self.add_dropdown(
@@ -751,10 +956,10 @@ class MouseScrollStepPropertiesWidget(StepPropertiesWidget):
     step: MouseScrollStep
 
     def add_step_fields(self) -> None:
-        self.add_text_input(QCoreApplication.translate("RightPanel", "Scroll Clicks"), str(self.step.clicks), "clicks")
+        self.add_text_input(QCoreApplication.translate("RightPanel", "Scroll Clicks"), self.step.clicks, "clicks")
         self.add_text_input(
             QCoreApplication.translate("RightPanel", "Interval (ms)"),
-            str(self.step.interval_ms),
+            self.step.interval_ms,
             "interval_ms",
         )
         hint = BodyLabel(
@@ -836,6 +1041,127 @@ class RightPanel(ScrollArea, PropertyFormMixin):
         self.add_gaming_mode_checkbox(macro)
         self.add_background_input_checkbox(macro)
         self.add_keep_target_focused_checkbox(macro)
+        self.add_macro_variables_editor(macro)
+
+    def add_macro_variables_editor(self, macro: Macro) -> None:
+        self.add_title_label(self.tr("Variables"))
+
+        for name, variable in macro.variables.items():
+            self.add_macro_variable_card(name, variable)
+
+        if not macro.variables:
+            label = BodyLabel(self.tr("No variables yet"), self.content_widget)
+            self.content_layout.addWidget(label)
+
+        add_button = PushButton(RemakuIcon.PLUS, self.tr("Add Variable"), self.content_widget)
+        add_button.clicked.connect(event_bus.macro_variable_added.emit)
+        self.content_layout.addWidget(add_button)
+
+    def add_macro_variable_card(self, name: str, variable: MacroVariable) -> None:
+        card = CardWidget(self.content_widget)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setSpacing(8)
+
+        self.add_card_field_label(card, card_layout, self.tr("Variable name"))
+        name_edit = LineEdit(card)
+        name_edit.setText(variable.label or name)
+        name_edit.setPlaceholderText(self.tr("Example: Repeat Count"))
+        name_edit.editingFinished.connect(
+            lambda old_name=name, w=name_edit: event_bus.macro_variable_renamed.emit(old_name, w.text())
+        )
+        card_layout.addWidget(name_edit)
+
+        self.add_card_field_label(card, card_layout, self.tr("Type"))
+        type_combo = ComboBox(card)
+        type_options = [
+            (self.tr("Text"), "text"),
+            (self.tr("Number"), "number"),
+            (self.tr("Boolean"), "boolean"),
+            (self.tr("Key"), "key"),
+        ]
+
+        for option_label, option_value in type_options:
+            type_combo.addItem(option_label, userData=option_value)
+
+        type_index = type_combo.findData(variable.type)
+        if type_index >= 0:
+            type_combo.setCurrentIndex(type_index)
+
+        type_combo.currentIndexChanged.connect(
+            lambda index, variable_name=name, c=type_combo: event_bus.macro_variable_changed.emit(
+                variable_name,
+                "type",
+                str(c.currentData()),
+            )
+        )
+        card_layout.addWidget(type_combo)
+
+        self.add_macro_variable_value_editor(card, card_layout, name, variable)
+
+        delete_button = PushButton(RemakuIcon.TRASH, self.tr("Delete Variable"), card)
+        delete_button.clicked.connect(
+            lambda checked=False, variable_name=name: event_bus.macro_variable_deleted.emit(variable_name)
+        )
+        card_layout.addWidget(delete_button)
+
+        self.content_layout.addWidget(card)
+
+    def add_card_field_label(self, card: QWidget, card_layout: QVBoxLayout, text: str) -> None:
+        label = BodyLabel(text, card)
+        card_layout.addWidget(label)
+
+    def add_macro_variable_value_editor(
+        self,
+        card: QWidget,
+        card_layout: QVBoxLayout,
+        name: str,
+        variable: MacroVariable,
+    ) -> None:
+        self.add_card_field_label(card, card_layout, self.tr("Default value"))
+
+        if variable.type == "boolean":
+            value_checkbox = CheckBox(self.tr("Enabled"), card)
+            value_checkbox.setChecked(bool(variable.value))
+            value_checkbox.toggled.connect(
+                lambda checked, variable_name=name: event_bus.macro_variable_changed.emit(
+                    variable_name,
+                    "value",
+                    str(checked),
+                )
+            )
+            card_layout.addWidget(value_checkbox)
+            return
+
+        if variable.type == "key":
+            value_edit = HotkeyInput(card)
+            value_edit.setText(str(variable.value))
+            value_edit.textChanged.connect(
+                lambda text, variable_name=name: event_bus.macro_variable_changed.emit(
+                    variable_name,
+                    "value",
+                    text,
+                )
+            )
+            card_layout.addWidget(value_edit)
+            return
+
+        value_edit = LineEdit(card)
+        value_edit.setText(str(variable.value))
+        value_edit.setPlaceholderText(self.tr("Example: 3"))
+
+        if variable.type == "number":
+            value_edit.setValidator(QIntValidator(value_edit))
+            value_edit.textChanged.connect(lambda text, w=value_edit: w.setError(False))
+
+        value_edit.editingFinished.connect(
+            lambda variable_name=name, w=value_edit: event_bus.macro_variable_changed.emit(
+                variable_name,
+                "value",
+                w.text(),
+            )
+        )
+        card_layout.addWidget(value_edit)
 
     def show_step_properties(self, macro: Macro, title_text: str, step: Step, skip_enabled: bool = True) -> None:
         self.clear_content()

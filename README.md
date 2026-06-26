@@ -14,8 +14,9 @@ This warning is harmless. It appears because the executable is not code-signed. 
 
 ## Features
 
-- **No coding required** -- list-based UI for composing actions, with drag-and-drop reordering and context menus
+- **No coding required** -- list-based UI for composing actions from 15 step types, with drag-and-drop reordering and context menus
 - **Image recognition driven** -- capture screenshots as templates, match against the screen to decide when to act
+- **Number recognition** -- capture a screen area containing a number and branch, wait, or repeat based on the value
 - **Lightweight single exe** -- no extra runtime environment needed
 - **Open source** -- fully public source code, auditable and community-contributable
 - **JSON workflow format** -- import/export as ZIP, ready to share with the community
@@ -25,6 +26,7 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Status bar** -- shows current step, template name, and total elapsed time after execution
 - **Status overlay** -- floating mini status bar on top of fullscreen games with play/stop controls, position remembered and kept within screen bounds
 - **Macro recording** -- record keyboard and mouse actions from outside the app into macro steps
+- **Macro variables** -- define reusable variables for step properties so you can change a value once and update every step that uses it
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
 - **Macro Explorer** -- browse official macro packs and import compatible macros from inside the app
 
@@ -39,9 +41,12 @@ This warning is harmless. It appears because the executable is not code-signed. 
 | Mouse Scroll (mouse_scroll)               | Scroll the mouse wheel by a specified number of clicks                                                |
 | Delay (delay)                             | A fixed millisecond pause                                                                             |
 | Wait Image (wait_image)                   | Wait for a template image to appear, with configurable similarity threshold, timeout, and next action |
+| Wait Number (wait_number)                 | Wait until a visible number in a captured screen area reaches a target value                          |
 | Wait Any Image (if_any_image)             | Monitor multiple templates simultaneously, execute the matching branch                                |
 | Conditional Branch (if_image)             | Execute then or else path depending on whether the template appears                                   |
+| Conditional Branch (if_number)            | Branch based on a number in a captured screen area                                                    |
 | Repeat Loop (repeat)                      | Repeat child steps N times                                                                            |
+| Repeat Until Number (repeat_until_number) | Repeat child steps until a visible number reaches a target value                                      |
 | Hold Key Until Gone (hold_key_until_gone) | Hold a key until the template image disappears                                                        |
 | Grid Navigation (grid_nav)                | Step through grid cells in rotation (e.g., inventory menus)                                           |
 
@@ -62,6 +67,8 @@ This warning is harmless. It appears because the executable is not code-signed. 
 
 Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is larger than the frame, it is automatically scaled down when Gaming Mode is enabled. Turn Gaming Mode off for desktop automation where the window size stays the same. The similarity threshold (0--100%) is adjustable in the properties panel, and color mode can be enabled when distinct colors matter.
 
+Number recognition reads visible numbers in a captured screen area, enabling steps like Wait Number, If Number, and Repeat Until Number.
+
 ### Template Management
 
 - Capture a screen region as a template (semi-transparent fullscreen drag-select tool)
@@ -75,32 +82,37 @@ Template matching uses OpenCV's TM_CCOEFF_NORMED algorithm. If a template is lar
 ## Window Management
 
 - Auto-find target window by title, with partial matching
-- Dropdown listing all visible windows for easy selection
+- Dropdown listing all visible windows for easy selection, plus "(Use foreground window)" to target whatever is active
 - Captures the client area (excluding borders and title bar)
 - Background capture and input: keeps running against the selected target window without requiring focus
 - Per-macro options can switch between background input and regular input, and can send focus-like messages to the target window to help prevent some apps from pausing
 - Automatically re-finds the target window if it is closed and reopened during macro execution
 - Elevation mismatch warning: warns if the target window runs as administrator while Remaku does not (UIPI blocks SendInput)
+- Multi-display aware: overlays and selectors appear on the correct monitor
 
 ## Settings
 
 ### Macro
 
-| Item        | Description                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------ |
-| Target      | The window title Remaku should find before running the macro                               |
-| Hotkey      | Independent global hotkey for this macro                                                   |
-| Gaming Mode | Enable template scaling for games; turn it off for fixed-size desktop automation workflows |
+| Item               | Description                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| Target             | The window title Remaku should find before running the macro                               |
+| Hotkey             | Independent global hotkey for this macro                                                   |
+| Gaming Mode        | Enable template scaling for games; turn it off for fixed-size desktop automation workflows |
+| Background Input   | Send input directly to the target window without switching focus                           |
+| Prevent Focus Loss | Send periodic focus signals to the target window to prevent apps from pausing              |
 
 ### General
 
 | Item                    | Description                                                   |
 | ----------------------- | ------------------------------------------------------------- |
 | Always on Top           | Keep Remaku above all other windows                           |
+| Show Status Overlay     | Display a transparent overlay showing macro execution status  |
 | Check Update on Startup | Auto-check GitHub Releases at launch                          |
 | Update Channel          | stable or beta                                                |
 | Theme                   | System, Light, Dark                                           |
 | Language                | Auto-detect, Traditional Chinese, Simplified Chinese, English |
+| Pause/Resume Hotkey     | Global hotkey to pause or resume the current macro            |
 
 ### Capture
 

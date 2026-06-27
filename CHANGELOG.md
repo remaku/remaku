@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+<!-- lang:en -->
+
+### Fixed
+
+- The running overlay now shows the current nested loop count instead of staying on the outer loop.
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- 執行浮動面板現在會顯示目前正在執行的巢狀迴圈次數，不再停留在外層迴圈。
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- 执行浮动面板现在会显示当前正在执行的嵌套循环次数，不再停留在外层循环。
+
 ## v0.11.1
 
 <!-- lang:en -->

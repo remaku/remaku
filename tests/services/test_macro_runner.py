@@ -296,24 +296,56 @@ def test_repeat_step_updates_progress_and_runs_children() -> None:
     step = {"type": "repeat", "count": 2, "steps": [{"type": "key", "key": "enter"}]}
     runner.exec_step(step, (("steps", 0),))
 
-    assert updates == [{"progress": 1, "repeat_total": 2}, {"progress": 2, "repeat_total": 2}]
+    assert updates == [
+        {"progress": 1, "repeat_total": 2},
+        {"progress": 2, "repeat_total": 2},
+        {"progress": 0, "repeat_total": 0},
+    ]
     assert calls == [
         (step["steps"], (("steps", 0),), "steps"),
         (step["steps"], (("steps", 0),), "steps"),
     ]
 
 
-def test_nested_repeat_does_not_update_top_level_progress() -> None:
+def test_nested_repeat_updates_active_loop_progress_then_restores_parent() -> None:
     runner = make_runner([])
     updates = []
-    runner.repeat_depth = 1
-    runner.exec_steps = lambda steps, parent_path=(), branch_key="steps": None
-    runner.update = lambda **fields: updates.append(fields)
 
-    runner.exec_step({"type": "repeat", "count": 2, "steps": []}, (("steps", 0),))
+    def record_update(**fields) -> None:
+        updates.append(fields)
 
-    assert updates == []
-    assert runner.repeat_depth == 1
+        for key, value in fields.items():
+            setattr(runner.status, key, value)
+
+    runner.update = record_update
+
+    step = {
+        "type": "repeat",
+        "count": 2,
+        "steps": [
+            {
+                "type": "repeat",
+                "count": 3,
+                "steps": [],
+            }
+        ],
+    }
+    runner.exec_step(step, (("steps", 0),))
+
+    assert updates == [
+        {"progress": 1, "repeat_total": 2},
+        {"progress": 1, "repeat_total": 3},
+        {"progress": 2, "repeat_total": 3},
+        {"progress": 3, "repeat_total": 3},
+        {"progress": 1, "repeat_total": 2},
+        {"progress": 2, "repeat_total": 2},
+        {"progress": 1, "repeat_total": 3},
+        {"progress": 2, "repeat_total": 3},
+        {"progress": 3, "repeat_total": 3},
+        {"progress": 2, "repeat_total": 2},
+        {"progress": 0, "repeat_total": 0},
+    ]
+    assert runner.repeat_depth == 0
 
 
 def test_if_image_executes_then_or_else_branch() -> None:

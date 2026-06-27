@@ -165,6 +165,10 @@ class MacroRunner(Engine):
         self.grid_counters: dict[int, int] = {}
         self.repeat_depth: int = 0
 
+    def current_loop_progress(self) -> tuple[int, int]:
+        with self.lock:
+            return self.status.progress, self.status.repeat_total
+
     def template_label(self, template_id: str) -> str:
         return self.macro.get("templates", {}).get(template_id, {}).get("label", template_id)
 
@@ -294,19 +298,25 @@ class MacroRunner(Engine):
         elif action == "repeat":
             count = get_step_count(step)
             sub_steps = step.get("steps", [])
+            previous_progress, previous_total = self.current_loop_progress()
 
-            for i in range(count):
-                if self.repeat_depth == 0:
+            try:
+                for i in range(count):
                     self.update(progress=i + 1, repeat_total=count)
 
-                logger.info("{}: repeat {}/{}", self.engine_id, i + 1, count)
+                    logger.info("{}: repeat {}/{}", self.engine_id, i + 1, count)
 
-                self.repeat_depth += 1
-                self.exec_steps(sub_steps, step_path, "steps")
-                self.repeat_depth -= 1
+                    self.repeat_depth += 1
 
-                if not self.status.running:
-                    return
+                    try:
+                        self.exec_steps(sub_steps, step_path, "steps")
+                    finally:
+                        self.repeat_depth -= 1
+
+                    if not self.status.running:
+                        return
+            finally:
+                self.update(progress=previous_progress, repeat_total=previous_total)
 
         elif action == "repeat_until_number":
             self.do_repeat_until_number(step, step_path)
@@ -455,22 +465,28 @@ class MacroRunner(Engine):
 
         count = get_step_count(step)
         sub_steps = step.get("steps", [])
+        previous_progress, previous_total = self.current_loop_progress()
 
-        for i in range(count):
-            if self.repeat_depth == 0:
+        try:
+            for i in range(count):
                 self.update(progress=i + 1, repeat_total=count)
 
-            logger.info("{}: repeat_until_number {}/{}", self.engine_id, i + 1, count)
+                logger.info("{}: repeat_until_number {}/{}", self.engine_id, i + 1, count)
 
-            self.repeat_depth += 1
-            self.exec_steps(sub_steps, step_path, "steps")
-            self.repeat_depth -= 1
+                self.repeat_depth += 1
 
-            if not self.status.running:
-                return
+                try:
+                    self.exec_steps(sub_steps, step_path, "steps")
+                finally:
+                    self.repeat_depth -= 1
 
-            if self.wait_for_number_condition(step):
-                return
+                if not self.status.running:
+                    return
+
+                if self.wait_for_number_condition(step):
+                    return
+        finally:
+            self.update(progress=previous_progress, repeat_total=previous_total)
 
         if self.status.running:
             self.finish(StopReason.STALE, f"number_condition_timeout: {self.number_condition_label(step)}")

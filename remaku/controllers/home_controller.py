@@ -766,12 +766,20 @@ class HomeController(QObject):
             return
 
         if field == "enabled":
-            setattr(self.current_macro.meta, field, value.lower() == "true")
+            target = self.current_macro.meta
+            new_value: object = value.lower() == "true"
         elif field in ("gaming_mode", "background_input", "keep_target_focused"):
-            setattr(self.current_macro, field, value.lower() == "true")
+            target = self.current_macro
+            new_value = value.lower() == "true"
         else:
-            setattr(self.current_macro.meta, field, value)
+            target = self.current_macro.meta
+            new_value = value
 
+        if getattr(target, field, None) == new_value:
+            return
+
+        self.push_undo()
+        setattr(target, field, new_value)
         self.macro_model.save(self.current_macro)
 
         self.sync_runner_macro_from_current()
@@ -2143,6 +2151,7 @@ class HomeController(QObject):
         if self.current_macro is None or self.step_tree is None:
             return
 
+        self.push_undo(self.selected_step_flat_index())
         self.template_service.delete_template(self.current_macro, self.step_tree, template_id)
         self.mutate_current_macro()
 

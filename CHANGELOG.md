@@ -6,18 +6,24 @@
 
 ### Fixed
 
+- Deleting a template can now be undone, including restoring the template image file.
+- Macro property changes, such as hotkeys and run mode options, can now be undone.
 - The running overlay now shows the current nested loop count instead of staying on the outer loop.
 
 <!-- lang:zh_tw -->
 
 ### 修正
 
+- 刪除模板現在可以復原，並會一併還原模板圖片檔案。
+- 巨集屬性變更現在可以復原，例如快捷鍵與執行模式選項。
 - 執行浮動面板現在會顯示目前正在執行的巢狀迴圈次數，不再停留在外層迴圈。
 
 <!-- lang:zh_cn -->
 
 ### 修复
 
+- 删除模板现在可以撤销，并会一并还原模板图片文件。
+- 宏属性变更现在可以撤销，例如快捷键和运行模式选项。
 - 执行浮动面板现在会显示当前正在执行的嵌套循环次数，不再停留在外层循环。
 
 ## v0.11.1

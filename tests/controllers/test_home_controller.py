@@ -1286,6 +1286,44 @@ def test_handle_macro_meta_changed_saves_and_registers_hotkeys() -> None:
     assert calls == ["register"]
 
 
+def test_handle_macro_meta_changed_pushes_undo_snapshot() -> None:
+    macro = Macro(meta=MacroMeta(id="macro", hotkey="ctrl+f1"))
+    model = FakeMacroModel(macros={"macro": macro})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.macro_model = cast(MacroModel, model)
+
+    controller.handle_macro_meta_changed("hotkey", "ctrl+f2")
+
+    assert controller.undo_stack[0]["meta"]["hotkey"] == "ctrl+f1"
+    assert controller.current_macro.meta.hotkey == "ctrl+f2"
+
+    controller.undo()
+
+    assert controller.current_macro.meta.hotkey == "ctrl+f1"
+
+
+def test_handle_macro_meta_changed_skips_undo_when_value_unchanged() -> None:
+    macro = Macro(meta=MacroMeta(id="macro", enabled=True))
+    model = FakeMacroModel(macros={"macro": macro})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.macro_model = cast(MacroModel, model)
+
+    controller.handle_macro_meta_changed("enabled", "True")
+
+    assert controller.undo_stack == []
+    assert model.saved == []
+
+
 def test_handle_macro_variable_added_saves_default_variable() -> None:
     macro = Macro(meta=MacroMeta(id="macro"))
     model = FakeMacroModel(macros={"macro": macro})
@@ -3060,6 +3098,47 @@ def test_handle_template_add_pushes_undo_snapshot() -> None:
     assert controller.undo_stack[0]["steps"][0]["templates"] == ["old"]
     assert selected_step["templates"] == ["old", "new"]
     assert set(macro.templates) == {"old", "new"}
+
+
+def test_handle_template_delete_pushes_undo_snapshot_and_restores_file(tmp_path: Path, monkeypatch) -> None:
+    selected_step = {"type": "wait_image", "template": "old"}
+    macro = Macro.from_dict(
+        {
+            "meta": {"id": "macro"},
+            "templates": {"old": {"label": "Old"}},
+            "steps": [selected_step],
+        }
+    )
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.selected_macro_id = "macro"
+    controller.selected_step = selected_step
+    controller.step_tree = StepTree([selected_step])
+    template_file = tmp_path / "templates" / "macro" / "old.png"
+    template_file.parent.mkdir(parents=True)
+    template_file.write_bytes(b"old")
+
+    monkeypatch.setattr(
+        home_controller,
+        "template_path",
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+
+    controller.handle_template_delete("old")
+
+    assert controller.undo_stack
+    assert not template_file.exists()
+    assert "old" not in controller.current_macro.templates
+    assert controller.step_tree.steps[0]["template"] == ""
+
+    controller.undo()
+
+    assert template_file.read_bytes() == b"old"
+    assert controller.current_macro.templates["old"].label == "Old"
+    assert controller.step_tree.steps[0]["template"] == "old"
 
 
 def test_handle_template_add_keeps_metadata_in_sync_when_ids_collide() -> None:

@@ -2059,7 +2059,17 @@ class HomeController(QObject):
             height,
             self.step_tree,
         )
+        self.transfer_template_card_state(old_template_id, new_template_id)
         self.mutate_current_macro()
+
+    def transfer_template_card_state(self, old_template_id: str, new_template_id: str) -> None:
+        if self.current_macro is None:
+            return
+
+        transfer = getattr(self.view.right_panel, "transfer_template_card_state", None)
+
+        if callable(transfer):
+            transfer(self.current_macro.meta.id, old_template_id, new_template_id)
 
     def handle_number_area_selected(
         self,
@@ -2138,13 +2148,14 @@ class HomeController(QObject):
 
         self.push_undo()
 
-        self.template_service.pick_template(
+        new_template_id = self.template_service.pick_template(
             self.current_macro,
             self.selected_step,
             template_id,
             file_path,
             step_tree=self.step_tree,
         )
+        self.transfer_template_card_state(template_id, new_template_id)
         self.mutate_current_macro()
 
     def handle_template_delete(self, template_id: str) -> None:

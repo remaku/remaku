@@ -1168,6 +1168,68 @@ def test_right_panel_template_card_toggles_visibility(monkeypatch, qtbot) -> Non
     assert card.isHidden()
 
 
+def test_right_panel_template_card_preserves_visibility_after_rebuild(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(label="Button")})
+    monkeypatch.setattr(right_panel, "TemplateEditor", lambda macro, template_id, parent=None: LineEdit(parent))
+
+    def widget_at(index: int) -> QWidget:
+        item = panel.content_layout.itemAt(index)
+        assert item is not None
+        widget = item.widget()
+        assert widget is not None
+        return widget
+
+    panel.add_template_card(macro, "button")
+    first_trigger = widget_at(panel.content_layout.count() - 2)
+    first_card = widget_at(panel.content_layout.count() - 1)
+
+    cast(Any, first_trigger).mousePressEvent(None)
+    assert not first_card.isHidden()
+
+    panel.clear_content()
+    panel.add_template_card(macro, "button")
+    rebuilt_trigger = widget_at(panel.content_layout.count() - 2)
+    rebuilt_card = widget_at(panel.content_layout.count() - 1)
+    assert not rebuilt_card.isHidden()
+
+    cast(Any, rebuilt_trigger).mousePressEvent(None)
+    assert rebuilt_card.isHidden()
+
+    panel.clear_content()
+    panel.add_template_card(macro, "button")
+    collapsed_card = widget_at(panel.content_layout.count() - 1)
+    assert collapsed_card.isHidden()
+
+
+def test_right_panel_template_card_transfers_visibility_to_new_template_id(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        templates={"old": TemplateInfo(label="Old"), "new": TemplateInfo(label="New")},
+    )
+    monkeypatch.setattr(right_panel, "TemplateEditor", lambda macro, template_id, parent=None: LineEdit(parent))
+
+    panel.add_template_card(macro, "old")
+    trigger_item = panel.content_layout.itemAt(panel.content_layout.count() - 2)
+    assert trigger_item is not None
+    trigger = trigger_item.widget()
+    assert trigger is not None
+
+    cast(Any, trigger).mousePressEvent(None)
+    panel.transfer_template_card_state("macro", "old", "new")
+
+    panel.clear_content()
+    panel.add_template_card(macro, "new")
+    card_item = panel.content_layout.itemAt(panel.content_layout.count() - 1)
+    assert card_item is not None
+    card = card_item.widget()
+    assert card is not None
+    assert not card.isHidden()
+
+
 def test_right_panel_template_card_uses_template_id_when_label_missing(monkeypatch, qtbot) -> None:
     panel = RightPanel()
     qtbot.addWidget(panel)

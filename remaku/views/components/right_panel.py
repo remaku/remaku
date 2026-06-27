@@ -140,6 +140,24 @@ class PropertyFormMixin:
     content_widget: QWidget
     content_layout: QVBoxLayout
 
+    def template_card_state_store(self) -> dict[str, bool]:
+        store = getattr(self, "template_card_expanded", None)
+
+        if isinstance(store, dict):
+            return store
+
+        widget: QWidget | None = self.content_widget
+
+        while widget is not None:
+            store = getattr(widget, "template_card_expanded", None)
+
+            if isinstance(store, dict):
+                return store
+
+            widget = widget.parentWidget()
+
+        return {}
+
     def add_title_label(self, text: str) -> None:
         title = ElidedSubtitleLabel(text, self.content_widget)
         self.content_layout.addWidget(title)
@@ -562,6 +580,8 @@ class PropertyFormMixin:
         self.content_layout.addWidget(add_template_button)
 
     def add_template_card(self, macro: Macro, template_id: str) -> None:
+        card_key = f"{macro.meta.id}:{template_id}"
+        expanded_store = self.template_card_state_store()
         trigger = QWidget(self.content_widget)
         trigger.setCursor(Qt.CursorShape.PointingHandCursor)
         self.content_layout.addWidget(trigger)
@@ -588,11 +608,16 @@ class PropertyFormMixin:
         editor = TemplateEditor(macro, template_id, card)
         card_layout.addWidget(editor)
 
-        card.setVisible(False)
+        expanded = expanded_store.get(card_key, False)
+        card.setVisible(expanded)
+        icon = RemakuIcon.CHEVRON_DOWN if expanded else RemakuIcon.CHEVRON_RIGHT
+        icon_widget.setIcon(remaku_qicon(icon))
 
         def toggle_card(event):
-            card.setVisible(not card.isVisible())
-            icon = RemakuIcon.CHEVRON_DOWN if card.isVisible() else RemakuIcon.CHEVRON_RIGHT
+            expanded = card.isHidden()
+            expanded_store[card_key] = expanded
+            card.setVisible(expanded)
+            icon = RemakuIcon.CHEVRON_DOWN if expanded else RemakuIcon.CHEVRON_RIGHT
             icon_widget.setIcon(remaku_qicon(icon))
 
         trigger.mousePressEvent = toggle_card
@@ -992,6 +1017,7 @@ class RightPanel(ScrollArea, PropertyFormMixin):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.template_card_expanded: dict[str, bool] = {}
         self.init_ui()
 
     def init_ui(self):
@@ -1002,6 +1028,7 @@ class RightPanel(ScrollArea, PropertyFormMixin):
         self.setStyleSheet("background: transparent;")
 
         self.content_widget = CardWidget(self)
+        self.content_widget.template_card_expanded = self.template_card_expanded  # type: ignore[attr-defined]
         self.content_layout = QVBoxLayout(self.content_widget)
 
         self.content_layout.setContentsMargins(8, 8, 8, 8)
@@ -1010,6 +1037,16 @@ class RightPanel(ScrollArea, PropertyFormMixin):
 
         self.setWidget(self.content_widget)
         self.show_macro_properties(None)
+
+    def transfer_template_card_state(self, macro_id: str, old_template_id: str, new_template_id: str) -> None:
+        if old_template_id == new_template_id:
+            return
+
+        old_key = f"{macro_id}:{old_template_id}"
+        new_key = f"{macro_id}:{new_template_id}"
+
+        if old_key in self.template_card_expanded:
+            self.template_card_expanded[new_key] = self.template_card_expanded.pop(old_key)
 
     def clear_content(self) -> None:
         while self.content_layout.count():

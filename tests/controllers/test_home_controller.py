@@ -144,6 +144,7 @@ class FakeRightPanel:
         self.macro_properties: Macro | None = None
         self.step_properties: tuple | None = None
         self.branch_properties: tuple | None = None
+        self.template_card_state_transfers: list[tuple[str, str, str]] = []
         self.disabled = False
 
     def show_macro_properties(self, macro: Macro | None) -> None:
@@ -154,6 +155,9 @@ class FakeRightPanel:
 
     def show_branch_properties(self, *args) -> None:
         self.branch_properties = args
+
+    def transfer_template_card_state(self, macro_id: str, old_template_id: str, new_template_id: str) -> None:
+        self.template_card_state_transfers.append((macro_id, old_template_id, new_template_id))
 
     def setDisabled(self, disabled: bool) -> None:
         self.disabled = disabled
@@ -1862,6 +1866,7 @@ def test_handle_region_captured_updates_template_refs(tmp_path: Path, monkeypatc
     assert selected_step["templates"] == ["new"]
     assert selected_step["branches"] == {"new": [{"type": "key"}]}
     assert mutate_calls == ["mutate"]
+    assert cast(Any, controller.view).right_panel.template_card_state_transfers == [("macro", "old", "new")]
     assert cast(Any, controller.view).fake_window.show_normal_calls == 1
 
 
@@ -3022,6 +3027,7 @@ def test_handle_template_pick_updates_if_any_image_refs(tmp_path: Path, monkeypa
     assert macro.templates["700"].capture_width == 800
     assert macro.templates["700"].capture_height == 600
     assert calls == ["mutate"]
+    assert cast(Any, controller.view).right_panel.template_card_state_transfers == [("macro", "old", "700")]
 
 
 def test_handle_template_pick_returns_for_missing_state_and_cancel(tmp_path: Path, monkeypatch) -> None:

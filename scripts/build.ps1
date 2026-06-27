@@ -39,6 +39,7 @@ uv run python -m PyInstaller `
   --add-data "pyproject.toml;." `
   --version-file version_info.txt `
   --paths remaku `
+  --additional-hooks-dir hooks `
   --hidden-import win32api `
   --hidden-import win32gui `
   --exclude-module tkinter `

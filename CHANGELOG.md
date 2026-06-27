@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.11.1
+
+<!-- lang:en -->
+
+### Fixed
+
+- OCR is now working.
+
+<!-- lang:zh_tw -->
+
+### 修正
+
+- OCR 現在可以正常運作了。
+
+<!-- lang:zh_cn -->
+
+### 修复
+
+- OCR 现在可以正常运作了。
+
 ## v0.11.0
 
 <!-- lang:en -->

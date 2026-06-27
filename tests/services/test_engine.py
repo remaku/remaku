@@ -1,5 +1,5 @@
 import threading
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -68,6 +68,13 @@ def test_is_running_reports_stopped_without_live_thread() -> None:
     assert runner.is_running() is False
 
 
+def test_is_paused_reports_status_flag() -> None:
+    runner = SampleEngine()
+    runner.status.paused = True
+
+    assert runner.is_paused() is True
+
+
 def test_update_and_get_status_return_copy() -> None:
     runner = SampleEngine()
 
@@ -104,12 +111,84 @@ def test_finish_sets_reason_message_and_elapsed(qtbot, monkeypatch) -> None:
     assert blocker.args == [False]
 
 
+def test_finish_clears_paused_state_and_emits_pause_change(qtbot) -> None:
+    runner = SampleEngine()
+    runner.status.running = True
+    runner.status.paused = True
+    runner.paused_started_at = 1.0
+
+    with qtbot.waitSignal(engine.event_bus.macro_paused_changed, timeout=100) as blocker:
+        runner.finish(StopReason.DONE, "done")
+
+    assert runner.paused_started_at is None
+    assert blocker.args == [False]
+
+
 def test_sleep_raises_stopped_when_stop_event_set() -> None:
     runner = SampleEngine()
     runner.stop()
 
     with pytest.raises(Stopped):
         runner.sleep(100)
+
+
+def test_pause_resume_and_clear_paused_state(qtbot, monkeypatch) -> None:
+    runner = SampleEngine()
+
+    runner.pause()
+    assert runner.status.paused is False
+
+    runner.status.running = True
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 10.0)
+
+    with qtbot.waitSignal(engine.event_bus.macro_paused_changed, timeout=100) as blocker:
+        runner.pause()
+
+    assert runner.status.paused is True
+    assert runner.status.state == "paused"
+    assert runner.paused_started_at == 10.0
+    assert blocker.args == [True]
+
+    runner.pause()
+    assert runner.status.paused is True
+
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 12.5)
+
+    with qtbot.waitSignal(engine.event_bus.macro_paused_changed, timeout=100) as blocker:
+        runner.resume()
+
+    assert runner.status.paused is False
+    assert runner.status.state == "running"
+    assert runner.paused_total_s == 2.5
+    assert blocker.args == [False]
+
+    runner.resume()
+    assert runner.paused_total_s == 2.5
+
+
+def test_stop_clears_paused_state_and_emits_pause_change(qtbot, monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.status.paused = True
+    runner.status.state = "paused"
+    runner.paused_started_at = 10.0
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 11.0)
+
+    with qtbot.waitSignal(engine.event_bus.macro_paused_changed, timeout=100) as blocker:
+        runner.stop()
+
+    assert runner.stop_event.is_set()
+    assert runner.status.paused is False
+    assert runner.paused_total_s == 1.0
+    assert blocker.args == [False]
+
+
+def test_active_monotonic_includes_current_pause(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.paused_total_s = 2.0
+    runner.paused_started_at = 10.0
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 15.0)
+
+    assert runner.active_monotonic() == 8.0
 
 
 def test_tap_delegates_to_keys_with_configured_jitter(monkeypatch) -> None:
@@ -290,6 +369,161 @@ def test_keep_target_focus_alive_throttles_focus_messages(monkeypatch) -> None:
     assert focus_calls == [runner.found_window]
 
 
+def test_keep_target_focus_alive_returns_without_window_and_suppresses_errors(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.keep_target_focused = True
+    runner.keep_target_focus_alive(force=True)
+
+    runner.found_window = FakeWindow()
+
+    def raise_focus(found_window) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(engine.window, "fake_focus", raise_focus)
+
+    runner.keep_target_focus_alive(force=True)
+
+    assert runner.last_fake_focus_at == 0.0
+
+
+def test_refresh_found_window_if_due_returns_false_without_target() -> None:
+    runner = SampleEngine()
+
+    assert runner.refresh_found_window_if_due() is False
+
+
+def test_capture_tick_refreshes_named_target_when_due(monkeypatch) -> None:
+    runner = SampleEngine()
+    runner.target_window = "Game"
+    runner.found_window = object()
+    runner.capture_rect = Rect(0, 0, 2, 2)
+    runner.grabber = cast(Grabber, FakeGrabber(np.ones((2, 2, 3), dtype=np.uint8)))
+    refresh_calls = []
+    runner.refresh_found_window_if_due = lambda: refresh_calls.append("refresh") or True
+    monkeypatch.setattr(engine.window, "is_foreground", lambda found_window: True)
+
+    assert runner.capture_tick() is not None
+    assert refresh_calls == ["refresh"]
+
+
+def test_checkpoint_runs_pause_and_resume_callbacks() -> None:
+    runner = SampleEngine()
+    calls = []
+    runner.resume_event.clear()
+
+    def wait() -> None:
+        calls.append("wait")
+        runner.resume_event.set()
+
+    cast(Any, runner.control_event).wait = lambda timeout=None: wait()
+
+    runner.checkpoint(lambda: calls.append("pause"), lambda: calls.append("resume"))
+
+    assert calls == ["pause", "wait", "resume"]
+
+
+def test_checkpoint_raises_stopped_while_paused() -> None:
+    runner = SampleEngine()
+    runner.resume_event.clear()
+
+    def wait(timeout=None) -> None:
+        runner.stop_event.set()
+
+    cast(Any, runner.control_event).wait = wait
+
+    with pytest.raises(Stopped):
+        runner.checkpoint()
+
+
+def test_checkpoint_breaks_when_resume_event_set_inside_loop() -> None:
+    runner = SampleEngine()
+    runner.resume_event.clear()
+    waits = []
+
+    def wait(timeout=None) -> None:
+        waits.append(timeout)
+        runner.resume_event.set()
+
+    cast(Any, runner.control_event).wait = wait
+
+    runner.checkpoint()
+
+    assert waits == [None]
+
+
+def test_checkpoint_breaks_when_resume_event_is_set_after_clear() -> None:
+    runner = SampleEngine()
+    runner.resume_event.clear()
+
+    def clear() -> None:
+        runner.resume_event.set()
+
+    runner.control_event.clear = clear
+
+    runner.checkpoint()
+
+
+def test_checkpoint_raises_stopped_after_resume() -> None:
+    runner = SampleEngine()
+    runner.resume_event.clear()
+
+    def wait(timeout=None) -> None:
+        runner.resume_event.set()
+        runner.stop_event.set()
+
+    cast(Any, runner.control_event).wait = wait
+
+    with pytest.raises(Stopped):
+        runner.checkpoint()
+
+
+def test_sleep_rechecks_pause_after_control_event(monkeypatch) -> None:
+    runner = SampleEngine()
+    waits = []
+    checkpoints = []
+
+    def checkpoint(pause_callback=None, resume_callback=None) -> None:
+        checkpoints.append((pause_callback, resume_callback))
+        if len(checkpoints) == 2:
+            runner.resume_event.set()
+
+    def wait(remaining: float) -> bool:
+        waits.append(remaining)
+        runner.resume_event.clear()
+        return True
+
+    runner.checkpoint = checkpoint
+    cast(Any, runner.control_event).wait = wait
+    times = iter([0.0, 0.02])
+    monkeypatch.setattr(engine.time, "monotonic", lambda: next(times))
+
+    runner.sleep(10)
+
+    assert waits == [0.01]
+    assert len(checkpoints) == 2
+
+
+def test_sleep_raises_stopped_after_control_event(monkeypatch) -> None:
+    runner = SampleEngine()
+
+    def wait(remaining: float) -> bool:
+        runner.stop_event.set()
+        return True
+
+    cast(Any, runner.control_event).wait = wait
+    monkeypatch.setattr(engine.time, "monotonic", lambda: 0.0)
+
+    with pytest.raises(Stopped):
+        runner.sleep(10)
+
+
+def test_sleep_returns_when_control_wait_times_out() -> None:
+    runner = SampleEngine()
+    cast(Any, runner.control_event).wait = lambda remaining: False
+
+    runner.sleep(10)
+
+
 def test_start_does_not_create_second_thread_when_running(monkeypatch) -> None:
     runner = SampleEngine()
     runner.thread = threading.Thread()
@@ -345,7 +579,7 @@ def test_base_loop_raises_not_implemented() -> None:
 
 def test_run_safe_finishes_with_exception_message() -> None:
     class FailingEngine(Engine):
-        def loop(self) -> None:
+        def run(self) -> None:
             raise RuntimeError("boom")
 
     runner = FailingEngine()
@@ -360,7 +594,7 @@ def test_run_safe_finishes_with_exception_message() -> None:
 
 def test_run_safe_preserves_stopped_reason() -> None:
     class StoppingEngine(Engine):
-        def loop(self) -> None:
+        def run(self) -> None:
             raise Stopped
 
     runner = StoppingEngine()

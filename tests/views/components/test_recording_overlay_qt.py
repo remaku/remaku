@@ -21,6 +21,19 @@ def test_recording_overlay_updates_stats_and_pause_state(qtbot) -> None:
     assert overlay.status_label.text() == "Recording"
 
 
+def test_recording_overlay_start_and_stop(qtbot) -> None:
+    overlay = RecordingOverlay(lambda: (1.0, 1))
+    qtbot.addWidget(overlay)
+
+    overlay.start()
+    assert overlay.timer.isActive()
+    assert overlay.isVisible()
+
+    overlay.stop()
+    assert not overlay.timer.isActive()
+    assert not overlay.isVisible()
+
+
 def test_recording_overlay_buttons_emit_actions(qtbot) -> None:
     overlay = RecordingOverlay(lambda: (0.0, 0))
     qtbot.addWidget(overlay)

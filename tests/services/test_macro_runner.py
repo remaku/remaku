@@ -190,6 +190,22 @@ def test_validate_steps_rejects_non_symbol_number_operator() -> None:
     assert errors == ["Step 1 (wait_number): invalid operator '>='"]
 
 
+def test_validate_steps_reports_number_dimensions_and_stable_reads_errors() -> None:
+    errors = validate_steps(
+        [
+            {"type": "wait_number", "width": 0, "height": -1, "operator": "=", "value": 999, "stable_reads": "bad"},
+            {"type": "wait_number", "width": 10, "height": 10, "operator": "=", "value": 999, "stable_reads": 0},
+        ]
+    )
+
+    assert errors == [
+        "Step 1 (wait_number): 'width' must be greater than 0",
+        "Step 1 (wait_number): 'height' must be greater than 0",
+        "Step 1 (wait_number): bad format for 'stable_reads'",
+        "Step 2 (wait_number): 'stable_reads' must be greater than 0",
+    ]
+
+
 def test_exec_step_skips_marked_step() -> None:
     runner = make_runner([])
     calls = []
@@ -503,6 +519,32 @@ def test_repeat_until_number_stops_after_max_runs() -> None:
     assert finishes == [(StopReason.STALE, "number_condition_timeout: ≥ 999")]
 
 
+def test_repeat_until_number_returns_when_runner_stops() -> None:
+    runner = make_runner([])
+
+    def stop_runner(steps, parent_path=(), branch_key="steps") -> None:
+        runner.update(running=False)
+
+    runner.exec_steps = stop_runner
+    runner.wait_for_number_condition = lambda step: False
+
+    runner.exec_step(
+        {
+            "type": "repeat_until_number",
+            "width": 100,
+            "height": 30,
+            "operator": "≥",
+            "value": 999,
+            "count": 3,
+            "check_first": False,
+            "steps": [{"type": "key", "key": "space"}],
+        },
+        (("steps", 0),),
+    )
+
+    assert runner.status.running is False
+
+
 def test_wait_for_number_condition_requires_stable_matching_reads(monkeypatch) -> None:
     runner = make_hold_key_runner()
     values = iter([998, 999, 999])
@@ -523,6 +565,72 @@ def test_wait_for_number_condition_requires_stable_matching_reads(monkeypatch) -
         }
     )
     assert sleeps == [0.1, 0.1]
+
+
+def test_wait_for_number_condition_retries_missing_and_unreadable_frames(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    frames = iter(
+        [
+            None,
+            np.ones((2, 2, 3), dtype=np.uint8),
+            np.ones((2, 2, 3), dtype=np.uint8),
+        ]
+    )
+    values = iter([None, 999])
+    times = iter([0.0, 0.0, 0.0])
+    sleeps = []
+
+    monkeypatch.setattr(macro_runner.time, "monotonic", lambda: next(times))
+    runner.active_monotonic = lambda: 0.0
+    runner.capture_tick = lambda: next(frames)
+    runner.read_number_from_step = lambda frame, step: next(values)
+    runner.sleep_remaining = lambda tick_start, period, pause_callback=None, resume_callback=None: sleeps.append(
+        (tick_start, period)
+    )
+
+    assert runner.wait_for_number_condition(
+        {
+            "type": "wait_number",
+            "width": 10,
+            "height": 10,
+            "operator": "=",
+            "value": 999,
+            "stable_reads": 1,
+        }
+    )
+    assert sleeps == [(0.0, 0.1), (0.0, 0.1)]
+
+
+def test_wait_for_number_condition_returns_false_after_timeout() -> None:
+    runner = make_hold_key_runner()
+    checks = iter([0.0, 1.0])
+    runner.active_monotonic = lambda: next(checks)
+
+    assert not runner.wait_for_number_condition(
+        {"type": "wait_number", "width": 10, "height": 10, "operator": "=", "value": 999, "timeout_ms": 100}
+    )
+
+
+def test_read_number_from_step_passes_capture_origin(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    runner.capture_rect = Rect(10, 20, 100, 80)
+    calls = []
+
+    def read_number(frame, region, origin_left, origin_top):
+        calls.append((region, origin_left, origin_top))
+
+        return 123
+
+    monkeypatch.setattr(macro_runner.ocr, "read_number", read_number)
+
+    assert (
+        runner.read_number_from_step(
+            np.ones((2, 2, 3), dtype=np.uint8),
+            {"type": "wait_number", "x": 1, "y": 2, "width": 3, "height": 4},
+        )
+        == 123
+    )
+    assert calls[0][1:] == (10, 20)
 
 
 def test_wait_for_number_condition_stops_when_ocr_is_unavailable() -> None:
@@ -1087,6 +1195,31 @@ def test_hold_key_until_gone_raises_when_stop_requested(monkeypatch) -> None:
         runner.do_hold_key_until_gone(
             {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0}
         )
+
+
+def test_hold_key_until_gone_ignores_duplicate_press_and_release_callbacks(monkeypatch) -> None:
+    runner = make_hold_key_runner()
+    checkpoints = []
+
+    def checkpoint(pause_callback=None, resume_callback=None) -> None:
+        checkpoints.append(True)
+        assert resume_callback is not None
+        assert pause_callback is not None
+        resume_callback()
+        pause_callback()
+        pause_callback()
+        raise Stopped
+
+    runner.checkpoint = checkpoint
+    monkeypatch.setattr("remaku.services.macro_runner.keys.held", FakeHeldContext)
+    runner.sleep = lambda ms, pause_callback=None, resume_callback=None: None
+
+    with pytest.raises(Stopped):
+        runner.do_hold_key_until_gone(
+            {"type": "hold_key_until_gone", "key": "enter", "template": "start", "load_delay_ms": 0}
+        )
+
+    assert checkpoints == [True]
 
 
 def test_hold_key_until_gone_sleeps_when_frame_is_missing(monkeypatch) -> None:

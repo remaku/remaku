@@ -51,6 +51,7 @@ from remaku.models.macro_model import (
     WaitNumberStep,
     get_step_button,
     get_step_count,
+    get_step_down_up_delay_ms,
     get_step_find_timeout,
     get_step_gone_grace,
     get_step_hard_timeout,
@@ -83,11 +84,19 @@ from remaku.models.macro_model import (
     get_step_text,
     get_step_threshold,
     get_step_timeout,
+    parse_bool,
     parse_step,
     parse_steps,
+    parse_variable_capable_int,
+    parse_variable_capable_string,
+    parse_variable_ref,
+    parse_variable_value,
     resolve_step_variables,
+    resolve_variable_reference,
     slugify_variable_name,
+    variable_dict,
     variable_ref,
+    variable_ref_name,
 )
 
 
@@ -178,6 +187,26 @@ def test_macro_variables_round_trip_and_step_refs(sample_macro_dict: dict) -> No
     assert data["steps"][1]["text"] == variable_ref("message")
 
 
+def test_variable_parsing_helpers_cover_invalid_and_default_values() -> None:
+    assert variable_ref_name("bad") == ""
+    assert parse_variable_ref(variable_ref("bad-name")) is None
+    assert parse_variable_capable_int(variable_ref("runs"), 1) == variable_ref("runs")
+    assert parse_variable_capable_int(None, 7) == 7
+    assert parse_variable_capable_string(variable_ref("key_name"), "enter") == variable_ref("key_name")
+    assert parse_variable_capable_string(None, "enter") == "enter"
+    assert parse_variable_value("boolean", "true") is True
+    assert MacroVariable.from_dict("bad") is None
+    assert MacroVariable.from_dict({"type": "bad"}) is None
+    assert MacroVariable.from_dict({"type": "number", "value": "bad"}) == MacroVariable(type="number", value=0)
+    assert MacroVariable.from_dict({"type": "boolean", "value": None}) == MacroVariable(type="boolean", value=False)
+    assert parse_bool(True) is True
+    assert parse_bool(None, default=True) is True
+    assert parse_bool(1) is True
+    assert variable_dict({"runs": {"label": "Runs", "type": "number", "value": 3}}) == {
+        "runs": MacroVariable(label="Runs", type="number", value=3)
+    }
+
+
 def test_slugify_variable_name_normalizes_user_text() -> None:
     assert slugify_variable_name("Repeat Count!") == "repeat_count"
     assert slugify_variable_name("  3 runs  ") == "variable_3_runs"
@@ -207,6 +236,36 @@ def test_resolve_step_variables_replaces_supported_refs_and_reports_errors() -> 
         "Step 2: missing variable 'missing' for field 'ms'",
         "Step 3: variable 'repeat_count' for field 'text' must be text",
     ]
+
+
+def test_resolve_variable_reference_rejects_unsupported_and_invalid_values() -> None:
+    variables = {"bad_number": MacroVariable(type="number", value="bad")}
+
+    value, error = resolve_variable_reference("template", variable_ref("bad_number"), variables)
+    assert value == variable_ref("bad_number")
+    assert error == "field 'template' does not support variables"
+
+    value, error = resolve_variable_reference("ms", variable_ref("bad_number"), variables)
+    assert value == variable_ref("bad_number")
+    assert error == "variable 'bad_number' for field 'ms' has invalid value"
+
+
+def test_resolve_step_variables_resolves_branch_steps() -> None:
+    steps = [
+        {
+            "type": "if_any_image",
+            "branches": {
+                "button": [{"type": "delay", "ms": variable_ref("wait_ms")}],
+                "ignored": "bad",
+            },
+        }
+    ]
+    variables = {"wait_ms": MacroVariable(type="number", value=25)}
+
+    resolved, errors = resolve_step_variables(steps, variables)
+
+    assert resolved[0]["branches"] == {"button": [{"type": "delay", "ms": 25}]}
+    assert errors == []
 
 
 def test_template_match_mode_round_trips_and_rejects_unknown_value(sample_macro_dict: dict) -> None:
@@ -420,6 +479,7 @@ def test_step_getters_return_defaults_for_missing_values() -> None:
     assert get_step_mouse_x(step) == 0
     assert get_step_mouse_y(step) == 0
     assert get_step_mouse_relative(step) is True
+    assert get_step_down_up_delay_ms(step) == 70
     assert get_step_scroll_clicks(step) == 3
     assert get_step_number_x(step) == DEFAULT_NUMBER_X
     assert get_step_number_y(step) == DEFAULT_NUMBER_Y

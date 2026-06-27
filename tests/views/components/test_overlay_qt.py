@@ -177,6 +177,18 @@ def test_overlay_show_clamps_to_secondary_screen(monkeypatch, qtbot) -> None:
     assert widget.y() == 2300
 
 
+def test_overlay_clamp_returns_without_screen(monkeypatch, qtbot) -> None:
+    widget = OverlayWidget()
+    qtbot.addWidget(widget)
+    widget.move(10, 20)
+    monkeypatch.setattr(base_overlay.QApplication, "screenAt", lambda point: None)
+    monkeypatch.setattr(base_overlay.QApplication, "primaryScreen", lambda: None)
+
+    widget.clamp_to_screen()
+
+    assert widget.pos() == QPoint(10, 20)
+
+
 def test_overlay_paint_event_draws_rounded_background(monkeypatch, qtbot) -> None:
     widget = OverlayWidget()
     qtbot.addWidget(widget)

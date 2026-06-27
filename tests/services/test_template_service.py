@@ -2,6 +2,7 @@ from pathlib import Path
 
 from remaku.models.macro_model import Macro, MacroMeta, TemplateInfo
 from remaku.models.step_tree import StepTree
+from remaku.services.template_ids import generate_unique_template_id
 from remaku.services.template_service import TemplateService
 
 
@@ -195,3 +196,24 @@ def test_pick_template_uses_screen_size_provider_when_capture_dims_omitted(tmp_p
 
     assert macro.templates["new"].capture_width == 3840
     assert macro.templates["new"].capture_height == 2160
+
+
+def test_is_template_owned_by_step_returns_false_without_selected_ref(tmp_path: Path) -> None:
+    selected_step = {"type": "wait_image", "template": "other"}
+    step_tree = StepTree([selected_step])
+    service = make_service(tmp_path)
+
+    assert service.is_template_owned_by_step(step_tree, selected_step, "missing") is False
+
+
+def test_generate_unique_template_id_includes_selected_step_template(tmp_path: Path) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+
+    template_id = generate_unique_template_id(
+        macro,
+        lambda: "button",
+        lambda macro_id, candidate: tmp_path / f"{macro_id}-{candidate}.png",
+        selected_step={"template": "button"},
+    )
+
+    assert template_id == "button1"

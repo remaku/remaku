@@ -47,6 +47,16 @@ class FakeComboBox:
 class FakeLineEdit:
     def __init__(self) -> None:
         self.editingFinished = FakeSignal()
+        self.textChanged = FakeSignal()
+
+
+class FakeHotkeyInput:
+    def __init__(self) -> None:
+        self.textChanged = FakeSignal()
+        self.value = ""
+
+    def text(self) -> str:
+        return self.value
 
 
 class FakeView:
@@ -99,6 +109,27 @@ def test_init_connects_supported_widgets(monkeypatch) -> None:
         ("general.theme", "combo"),
         ("capture.fps", "text"),
     ]
+
+
+def test_init_connects_hotkey_input_and_pause_hotkey_line_edit(monkeypatch) -> None:
+    hotkey = FakeHotkeyInput()
+    pause_hotkey = FakeLineEdit()
+    view = FakeView()
+    view.widgets = {
+        "general.run_hotkey": hotkey,
+        "general.pause_hotkey": pause_hotkey,
+    }
+    main_window = FakeMainWindow()
+    calls = []
+    monkeypatch.setattr(settings_controller, "HotkeyInput", FakeHotkeyInput)
+    monkeypatch.setattr(settings_controller, "LineEdit", FakeLineEdit)
+    monkeypatch.setattr(SettingsController, "on_text_changed", lambda self, key: calls.append(key))
+
+    SettingsController(cast(Any, view), cast(Any, main_window))
+    hotkey.textChanged.callbacks[0]("ctrl+f1")
+    pause_hotkey.textChanged.callbacks[0]()
+
+    assert calls == ["general.run_hotkey", "general.pause_hotkey"]
 
 
 def test_validate_int_accepts_positive_capture_fps(monkeypatch) -> None:
@@ -226,6 +257,19 @@ def test_on_text_changed_applies_pause_hotkey_text(monkeypatch, qtbot) -> None:
     controller.on_text_changed("general.pause_hotkey")
 
     assert fake_config.config.general.pause_hotkey == "ctrl+break"
+    assert fake_config.save_calls == 1
+
+
+def test_on_text_changed_applies_hotkey_input_text(monkeypatch) -> None:
+    controller, fake_config, _main_window = make_controller(monkeypatch)
+    hotkey = FakeHotkeyInput()
+    hotkey.value = " Ctrl+F1 "
+    controller.view.widgets = {"general.pause_hotkey": cast(Any, hotkey)}
+    monkeypatch.setattr(settings_controller, "HotkeyInput", FakeHotkeyInput)
+
+    controller.on_text_changed("general.pause_hotkey")
+
+    assert fake_config.config.general.pause_hotkey == "ctrl+f1"
     assert fake_config.save_calls == 1
 
 

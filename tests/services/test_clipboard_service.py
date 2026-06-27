@@ -64,6 +64,12 @@ def test_copy_selected_steps_includes_used_variables(tmp_path: Path) -> None:
     assert clipboard["variables"] == {"runs": {"label": "Runs", "type": "number", "value": 3}}
 
 
+def test_collect_variable_refs_from_steps_finds_refs_inside_lists(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+
+    assert service.collect_variable_refs_from_steps([{"values": [variable_ref("runs")]}]) == {"runs"}
+
+
 def test_paste_steps_clones_template_and_metadata(tmp_path: Path) -> None:
     macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
     service = make_service(tmp_path)
@@ -164,3 +170,73 @@ def test_paste_steps_returns_unchanged_for_empty_steps(tmp_path: Path) -> None:
 
     assert result.changed is False
     assert result.selected_step is selected_step
+
+
+def test_copy_selected_steps_returns_none_without_top_level_steps(tmp_path: Path, monkeypatch) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(meta=MacroMeta(id="macro"))
+    step_tree = StepTree([{"type": "key", "key": "a"}])
+    monkeypatch.setattr(step_tree, "get_top_level", lambda selected: [])
+
+    assert service.copy_selected_steps(macro, step_tree, step_tree.flatten()) is None
+
+
+def test_merge_variables_ignores_invalid_raw_variables(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(meta=MacroMeta(id="macro"))
+
+    assert service.merge_variables(macro, "bad") == {}
+    assert (
+        service.merge_variables(
+            macro,
+            {
+                "bad-name": {"label": "Bad", "type": "number", "value": 1},
+                "bad_type": {"label": "Bad", "type": "bad", "value": 1},
+            },
+        )
+        == {}
+    )
+    assert macro.variables == {}
+
+
+def test_merge_variables_reuses_identical_existing_variable(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(meta=MacroMeta(id="macro"), variables={"runs": MacroVariable(label="Runs", type="number", value=3)})
+
+    assert service.merge_variables(macro, {"runs": {"label": "Runs", "type": "number", "value": 3}}) == {"runs": "runs"}
+
+
+def test_unique_variable_name_skips_existing_suffixes(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "runs": MacroVariable(),
+            "runs_2": MacroVariable(),
+        },
+    )
+
+    assert service.unique_variable_name(macro, "Runs") == "runs_3"
+
+
+def test_clone_if_any_image_refs_removes_empty_branches_and_uses_default_meta(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(meta=MacroMeta(id="macro"))
+    step = {"type": "if_any_image", "templates": ["button"], "branches": "bad"}
+    clipboard = {"steps": [step]}
+
+    service.clone_if_any_image_refs(macro, clipboard, step, set())
+
+    assert step["templates"] == ["copied"]
+    assert step["branches"] == {"copied": []}
+    assert macro.templates["copied"].label == "Template copied"
+
+
+def test_clone_if_any_image_refs_removes_existing_branches_when_no_templates(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    macro = Macro(meta=MacroMeta(id="macro"))
+    step = {"type": "if_any_image", "templates": [], "branches": {"old": []}}
+
+    service.clone_if_any_image_refs(macro, {}, step, set())
+
+    assert step == {"type": "if_any_image", "templates": []}

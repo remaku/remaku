@@ -62,6 +62,76 @@ def test_tap_posts_background_key_messages(monkeypatch) -> None:
     ]
 
 
+def test_post_key_handles_digit_and_unknown_background_keys(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(keys.win32api, "MapVirtualKey", lambda vk_code, map_type: 11)
+    monkeypatch.setattr(
+        keys.win32gui,
+        "PostMessage",
+        lambda hwnd, message, wparam, lparam: calls.append((message, wparam, lparam)),
+    )
+
+    assert keys.post_key(123, "5", True) is True
+    assert keys.post_key(123, "not-a-key", True) is False
+    assert calls == [(keys.win32con.WM_KEYDOWN, ord("5"), 1 | (11 << 16))]
+
+
+def test_tap_background_rejects_empty_combo_and_failed_key(monkeypatch) -> None:
+    releases = []
+    monkeypatch.setattr(keys, "parse_key_combo", lambda key: [] if key == "empty" else ["ctrl", "bad"])
+    monkeypatch.setattr(keys, "post_key", lambda hwnd, key, is_down: key != "bad")
+    monkeypatch.setattr(keys, "release_background_keys", lambda hwnd, pressed: releases.append(list(pressed)))
+
+    assert keys.tap_background(123, "empty", 1, 0) is False
+    assert keys.tap_background(123, "ctrl+bad", 1, 0) is False
+    assert releases == [["ctrl"]]
+
+
+def test_tap_background_releases_pressed_keys_on_post_exception(monkeypatch) -> None:
+    releases = []
+
+    def post_key(hwnd: int, key: str, is_down: bool) -> bool:
+        if key == "bad":
+            raise RuntimeError("blocked")
+
+        return True
+
+    monkeypatch.setattr(keys, "parse_key_combo", lambda key: ["ctrl", "bad"])
+    monkeypatch.setattr(keys, "post_key", post_key)
+    monkeypatch.setattr(keys, "release_background_keys", lambda hwnd, pressed: releases.append(list(pressed)))
+
+    assert keys.tap_background(123, "ctrl+bad", 1, 0) is False
+    assert releases == [["ctrl"]]
+
+
+def test_tap_delegates_to_background_tap(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        keys, "tap_background", lambda hwnd, key, hold_ms, jitter_ms: calls.append((hwnd, key, hold_ms, jitter_ms))
+    )
+
+    keys.tap("a", hold_ms=10, jitter_ms=2, hwnd=123)
+
+    assert calls == [(123, "a", 10, 2)]
+
+
+def test_release_background_keys_suppresses_key_up_errors(monkeypatch) -> None:
+    calls = []
+
+    def post_key(hwnd: int, key: str, is_down: bool) -> bool:
+        calls.append((key, is_down))
+        if key == "ctrl":
+            raise RuntimeError("blocked")
+
+        return True
+
+    monkeypatch.setattr(keys, "post_key", post_key)
+
+    keys.release_background_keys(123, ["ctrl", "s"])
+
+    assert calls == [("s", False), ("ctrl", False)]
+
+
 def test_tap_stops_when_key_down_fails(monkeypatch) -> None:
     calls = []
 
@@ -272,6 +342,37 @@ def test_held_posts_background_key_messages(monkeypatch) -> None:
     ]
 
 
+def test_held_background_releases_and_reraises_unsupported_key(monkeypatch) -> None:
+    releases = []
+    monkeypatch.setattr(keys, "parse_key_combo", lambda key: ["ctrl", "bad"])
+    monkeypatch.setattr(keys, "post_key", lambda hwnd, key, is_down: key != "bad")
+    monkeypatch.setattr(keys, "release_background_keys", lambda hwnd, pressed: releases.append(list(pressed)))
+
+    with pytest.raises(RuntimeError, match="unsupported background key"), keys.held("ctrl+bad", hwnd=123):
+        pass
+
+    assert releases == [["ctrl"], ["ctrl"]]
+
+
+def test_held_background_releases_on_post_exception(monkeypatch) -> None:
+    releases = []
+
+    def post_key(hwnd: int, key: str, is_down: bool) -> bool:
+        if key == "bad":
+            raise RuntimeError("blocked")
+
+        return True
+
+    monkeypatch.setattr(keys, "parse_key_combo", lambda key: ["ctrl", "bad"])
+    monkeypatch.setattr(keys, "post_key", post_key)
+    monkeypatch.setattr(keys, "release_background_keys", lambda hwnd, pressed: releases.append(list(pressed)))
+
+    with pytest.raises(RuntimeError, match="blocked"), keys.held("ctrl+bad", hwnd=123):
+        pass
+
+    assert releases == [["ctrl"]]
+
+
 def test_held_reraises_key_down_failure(monkeypatch) -> None:
     def raise_key_down(key: str) -> None:
         raise RuntimeError("blocked")
@@ -383,6 +484,19 @@ def test_mouse_click_posts_background_mouse_messages(monkeypatch) -> None:
     ]
 
 
+def test_post_mouse_click_rejects_unknown_button() -> None:
+    assert keys.post_mouse_click(123, "side", 10, 20) is False
+
+
+def test_mouse_click_background_suppresses_post_errors(monkeypatch) -> None:
+    def raise_click(hwnd: int, button: str, x: int, y: int) -> bool:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys, "post_mouse_click", raise_click)
+
+    keys.mouse_click("left", 10, 20, hwnd=123)
+
+
 def test_mouse_click_logs_click_failure(monkeypatch) -> None:
     calls = []
 
@@ -430,6 +544,17 @@ def test_mouse_move_posts_background_mouse_move(monkeypatch) -> None:
     keys.mouse_move(100, 200, hwnd=123)
 
     assert calls == [(123, keys.win32con.WM_MOUSEMOVE, 0, 6 | (8 << 16))]
+
+
+def test_mouse_move_background_suppresses_post_errors(monkeypatch) -> None:
+    def raise_post(hwnd, message, wparam, lparam) -> None:
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(keys.win32gui, "ScreenToClient", lambda hwnd, point: (6, 8))
+    monkeypatch.setattr(keys.win32api, "MAKELONG", lambda low, high: low | (high << 16))
+    monkeypatch.setattr(keys.win32gui, "PostMessage", raise_post)
+
+    keys.mouse_move(100, 200, hwnd=123)
 
 
 def test_mouse_scroll_sends_one_tick_at_a_time_with_interval(monkeypatch) -> None:

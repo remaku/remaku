@@ -73,6 +73,130 @@ def test_left_panel_sets_macro_list_and_emits_selection(qtbot) -> None:
     assert panel.empty_label.isHidden()
 
 
+def test_right_panel_helper_branches_and_variable_controls(monkeypatch, qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    cast(Any, panel).macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "runs": MacroVariable(label="Runs", type="number", value=3),
+            "hotkey": MacroVariable(label="", type="key", value="ctrl+f1"),
+        },
+    )
+
+    mixin_only = cast(Any, right_panel.PropertyFormMixin())
+    mixin_only.content_widget = QWidget()
+    assert mixin_only.template_card_state_store() == {}
+    assert panel.fixed_field_text({"kind": "variable", "name": "runs"}, "count") == "1"
+    assert panel.fixed_widget_text(QWidget()) == ""
+    assert panel.find_mode_combo("missing") is None
+    assert panel.compatible_variable_names("number") == ["runs"]
+    no_macro_panel = RightPanel()
+    qtbot.addWidget(no_macro_panel)
+    assert no_macro_panel.compatible_variable_names("number") == []
+    assert no_macro_panel.variable_display_name("runs") == "runs"
+    assert panel.variable_display_name("hotkey") == "hotkey"
+    assert panel.variable_display_name("runs") == "Runs"
+
+    panel.clear_content()
+    panel.add_text_input("Note", "hello", "note")
+    key_edit = panel.content_widget.findChildren(LineEdit)[-1]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        key_edit.editingFinished.emit()
+
+    assert blocker.args == ["note", "hello"]
+
+    panel.clear_content()
+    original_variable_field_types = right_panel.VARIABLE_FIELD_TYPES
+    monkeypatch.setattr(right_panel, "VARIABLE_FIELD_TYPES", {})
+    panel.add_text_input("Delay", "25", "ms")
+    numeric_edit = panel.content_widget.findChildren(LineEdit)[-1]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        numeric_edit.editingFinished.emit()
+
+    assert blocker.args == ["ms", "25"]
+    monkeypatch.setattr(right_panel, "VARIABLE_FIELD_TYPES", original_variable_field_types)
+
+    panel.clear_content()
+    panel.add_text_input("Key", "enter", "key")
+    variable_key_edit = panel.content_widget.findChildren(LineEdit)[-1]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        variable_key_edit.editingFinished.emit()
+
+    assert blocker.args == ["key", "enter"]
+
+    panel.clear_content()
+    panel.add_multiline_text_input("Note", "hello", "note")
+    text_edit = panel.content_widget.findChildren(right_panel.CommitOnFocusOutTextEdit)[-1]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        text_edit.text_committed.emit("updated")
+
+    assert blocker.args == ["note", "updated"]
+    assert panel.fixed_widget_text(text_edit) == "hello"
+
+    panel.clear_content()
+    panel.add_multiline_text_input("Text", {"kind": "variable", "name": "missing"}, "text")
+    combo = panel.content_widget.findChildren(ComboBox)[-1]
+    assert combo.findData("missing") >= 0
+
+    empty_line = LineEdit()
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        panel.emit_fixed_property_value("count", empty_line)
+
+    assert blocker.args == ["count", "1"]
+
+    panel.clear_content()
+    panel.add_plain_key_input("Key", "enter")
+    plain_hotkey = panel.content_widget.findChildren(HotkeyInput)[-1]
+
+    with qtbot.waitSignal(event_bus.step_property_changed, timeout=100) as blocker:
+        plain_hotkey.set_value("space", emit=True)
+
+    assert blocker.args == ["key", "space"]
+
+    panel.clear_content()
+    panel.add_macro_variable_value_editor(
+        panel.content_widget,
+        panel.content_layout,
+        "flag",
+        MacroVariable(type="boolean", value=True),
+    )
+    checkbox = panel.content_widget.findChildren(CheckBox)[-1]
+
+    with qtbot.waitSignal(event_bus.macro_variable_changed, timeout=100) as blocker:
+        checkbox.setChecked(False)
+
+    assert blocker.args == ["flag", "value", "False"]
+
+    panel.clear_content()
+    panel.add_macro_variable_value_editor(
+        panel.content_widget,
+        panel.content_layout,
+        "shortcut",
+        MacroVariable(type="key", value="ctrl+f1"),
+    )
+    hotkey = panel.content_widget.findChildren(HotkeyInput)[-1]
+
+    with qtbot.waitSignal(event_bus.macro_variable_changed, timeout=100) as blocker:
+        hotkey.set_value("ctrl+f2", emit=True)
+
+    assert blocker.args == ["shortcut", "value", "ctrl+f2"]
+
+
+def test_right_panel_transfer_template_card_state_skips_same_id(qtbot) -> None:
+    panel = RightPanel()
+    qtbot.addWidget(panel)
+    panel.template_card_expanded["macro:button"] = True
+
+    panel.transfer_template_card_state("macro", "button", "button")
+
+    assert panel.template_card_expanded == {"macro:button": True}
+
+
 def test_left_panel_shows_empty_state(qtbot) -> None:
     panel = LeftPanel()
     qtbot.addWidget(panel)
@@ -571,6 +695,20 @@ def test_right_panel_capture_hotkey_emits_normalized_combo(qtbot) -> None:
 
     assert edit.text() == "f1"
     assert blocker.args == ["hotkey", "f1"]
+
+
+def test_hotkey_picker_clear_and_empty_set_key_emit_empty_text(qtbot) -> None:
+    picker = HotkeyPicker()
+    qtbot.addWidget(picker)
+    values = []
+    picker.textChanged.connect(values.append)
+    picker.setText("ctrl+alt+f1")
+
+    picker.clear()
+    picker.set_key("")
+
+    assert values[-2:] == ["", ""]
+    assert picker.text() == ""
 
 
 def test_right_panel_capture_hotkey_ignores_typed_modifier_keys(qtbot) -> None:

@@ -1,7 +1,7 @@
 import json
 import zipfile
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from PySide6.QtCore import Qt
 
@@ -9,6 +9,8 @@ from remaku.controllers import home_controller
 from remaku.controllers.home_controller import HomeController
 from remaku.models.config_model import AppConfig
 from remaku.models.macro_model import (
+    IfImageStep,
+    KeyStep,
     Macro,
     MacroMeta,
     MacroModel,
@@ -2862,6 +2864,7 @@ def test_import_macro_skips_invalid_legacy_metadata(tmp_path: Path, monkeypatch)
     controller = make_controller()
     controller.macro_model = cast(MacroModel, model)
     controller.refresh_macro_list = lambda: None
+    monkeypatch.setattr(home_controller, "config_model", FakeConfigModel())
     monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
     monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
     monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
@@ -3632,3 +3635,669 @@ def test_selected_step_nodes_returns_empty_without_step_tree() -> None:
     controller = make_controller()
 
     assert controller.selected_step_nodes() == []
+
+
+class FakeFocusWidget:
+    def __init__(self, capture: bool = False, parent=None) -> None:
+        self.capture = capture
+        self.parent = parent
+
+    def property(self, name: str):
+        assert name == home_controller.KEY_CAPTURE_PROPERTY
+        return self.capture
+
+    def parentWidget(self):
+        return self.parent
+
+
+def test_is_hotkey_input_focused_walks_parent_widgets(monkeypatch) -> None:
+    controller = make_controller()
+    parent = FakeFocusWidget(True)
+    child = FakeFocusWidget(False, parent)
+    monkeypatch.setattr(home_controller.QApplication, "focusWidget", lambda: child)
+
+    assert controller.is_hotkey_input_focused() is True
+
+
+def test_add_template_files_to_snapshot_ignores_read_errors(tmp_path: Path, monkeypatch) -> None:
+    controller = make_controller()
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
+    bad_path = tmp_path / "button.png"
+    bad_path.write_bytes(b"png")
+
+    def template_path(macro_id: str, template_id: str) -> Path:
+        assert macro_id == "macro"
+        assert template_id == "button"
+        return bad_path
+
+    monkeypatch.setattr(home_controller, "template_path", template_path)
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (_ for _ in ()).throw(OSError("locked")))
+    snapshot = {"templates": {"button": {}}, "steps": []}
+
+    controller.add_template_files_to_snapshot(snapshot)
+
+    assert home_controller.TEMPLATE_FILE_SNAPSHOT_KEY not in snapshot
+
+
+def test_sync_runner_macro_from_current_preserves_runner_path(monkeypatch) -> None:
+    controller = make_controller()
+    macro = Macro(meta=MacroMeta(id="macro"), steps=[KeyStep(key="a")])
+    runner = FakeRunner()
+    runner.macro_path = Path("old.json")
+    created = []
+
+    class FakeMacroRunner:
+        def __init__(self, current_macro, macro_path: Path) -> None:
+            self.current_macro = current_macro
+            self.macro_path = macro_path
+            self.macro = current_macro.to_dict()
+            created.append(self)
+
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    monkeypatch.setattr(home_controller, "MacroRunner", FakeMacroRunner)
+
+    controller.sync_runner_macro_from_current()
+
+    assert created[0].current_macro is macro
+    assert created[0].macro_path == Path("old.json")
+    assert controller.current_runner is created[0]
+
+
+def test_update_undo_redo_state_disables_buttons_when_locked() -> None:
+    controller = make_controller()
+    controller.editing_locked = True
+
+    controller.update_undo_redo_state()
+
+    toolbar = cast(Any, controller.view).toolbar
+    assert toolbar.undo_button.enabled is False
+    assert toolbar.redo_button.enabled is False
+
+
+def test_save_current_macro_returns_without_required_state() -> None:
+    controller = make_controller()
+
+    controller.save_current_macro()
+
+    assert cast(Any, controller.macro_model).saved == []
+
+
+def test_restore_macro_state_returns_without_existing_runner() -> None:
+    controller = make_controller()
+
+    controller.restore_macro_state({"meta": {"id": "macro"}, "steps": []})
+
+    assert controller.current_macro is None
+
+
+def test_template_snapshot_restore_handles_invalid_data_and_write_errors(tmp_path: Path, monkeypatch) -> None:
+    controller = make_controller()
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo()})
+    target = tmp_path / "button.png"
+    monkeypatch.setattr(home_controller, "template_path", lambda macro_id, template_id: target)
+
+    controller.restore_template_files_from_snapshot(macro, {home_controller.TEMPLATE_FILE_SNAPSHOT_KEY: []})
+    controller.restore_template_files_from_snapshot(
+        macro,
+        {home_controller.TEMPLATE_FILE_SNAPSHOT_KEY: {"missing": b"png", "bad": "png"}},
+    )
+
+    monkeypatch.setattr(Path, "write_bytes", lambda self, data: (_ for _ in ()).throw(OSError("locked")))
+    controller.restore_template_files_from_snapshot(
+        macro,
+        {home_controller.TEMPLATE_FILE_SNAPSHOT_KEY: {"button": b"png"}},
+    )
+
+    assert not target.exists()
+
+
+def test_delete_templates_missing_from_restored_state_handles_no_current_macro_and_unlink_error(
+    tmp_path: Path, monkeypatch
+) -> None:
+    controller = make_controller()
+    restored = Macro(meta=MacroMeta(id="macro"), templates={})
+
+    controller.delete_templates_missing_from_restored_state(restored)
+
+    current = Macro(meta=MacroMeta(id="macro"), templates={"old": TemplateInfo()})
+    old_file = tmp_path / "old.png"
+    old_file.write_bytes(b"png")
+    controller.current_macro = current
+    monkeypatch.setattr(home_controller, "template_path", lambda macro_id, template_id: old_file)
+    monkeypatch.setattr(Path, "unlink", lambda self: (_ for _ in ()).throw(OSError("locked")))
+
+    controller.delete_templates_missing_from_restored_state(restored)
+
+    assert old_file.exists()
+
+
+def test_undo_redo_helpers_cover_empty_and_invalid_snapshots() -> None:
+    controller = make_controller()
+
+    assert controller.flatten_snapshot_steps({"steps": "bad"}) == []
+    assert controller.first_added_step([], []) == {}
+    assert controller.describe_step_from_snapshot({}) == "step"
+
+
+def test_handle_macro_selected_reselects_current_macro() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    controller = make_controller()
+    controller.selected_macro_id = "macro"
+    controller.current_macro = macro
+    controller.step_tree = StepTree([])
+
+    controller.handle_macro_selected("macro")
+
+    assert controller.selected_step is None
+    assert cast(Any, controller.view).right_panel.macro_properties is macro
+
+
+def test_macro_edit_actions_return_when_locked() -> None:
+    controller = make_controller()
+    controller.editing_locked = True
+
+    controller.handle_macro_rename("macro")
+    controller.handle_macro_delete("macro")
+    controller.handle_macro_duplicate("macro")
+
+    assert cast(Any, controller.macro_model).saved == []
+    assert cast(Any, controller.macro_model).deleted == []
+
+
+def test_handle_step_property_variable_changed_guards_and_updates() -> None:
+    step = {"type": "key", "key": "a"}
+    macro = Macro(meta=MacroMeta(id="macro"), steps=[KeyStep(key="a")], variables={"key": MacroVariable(label="Key")})
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([step])
+    controller.selected_step = step
+
+    controller.handle_step_property_variable_changed("key", "missing")
+    assert step["key"] == "a"
+
+    controller.handle_step_property_variable_changed("key", "key")
+    assert step["key"] == variable_ref("key")
+
+    undo_count = len(controller.undo_stack)
+    controller.handle_step_property_variable_changed("key", "key")
+    assert len(controller.undo_stack) == undo_count
+
+    controller.selected_step = None
+    controller.handle_step_property_variable_changed("key", "key")
+
+
+def test_macro_variable_helpers_and_changes(monkeypatch) -> None:
+    step = {"type": "key", "key": variable_ref("old")}
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        steps=[KeyStep(key=variable_ref("old"))],
+        variables={"old": MacroVariable(label="Old", type="number", value=1)},
+    )
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+    controller.step_tree = StepTree([step])
+
+    assert controller.current_macro_variables() is macro.variables
+    assert controller.unique_variable_name("Old") == "old_2"
+    assert controller.unique_variable_name("Old", current_name="old") == "old"
+    assert controller.parse_macro_variable_value("number", "2") == 2
+    assert controller.parse_macro_variable_value("boolean", "true") is True
+    assert controller.parse_macro_variable_value("text", "abc") == "abc"
+
+    controller.handle_macro_variable_changed("missing", "label", "X")
+    controller.handle_macro_variable_changed("old", "type", "bad")
+    controller.handle_macro_variable_changed("old", "value", "bad")
+    controller.handle_macro_variable_changed("old", "unknown", "X")
+    controller.handle_macro_variable_changed("old", "label", "Old")
+
+    controller.handle_macro_variable_changed("old", "type", "text")
+    assert macro.variables["old"].type == "text"
+    assert macro.variables["old"].value == ""
+
+    controller.handle_macro_variable_renamed("missing", "New")
+    controller.handle_macro_variable_renamed("old", "Old")
+    controller.handle_macro_variable_renamed("old", "New Label")
+
+    assert "new_label" in macro.variables
+    assert step["key"] == variable_ref("new_label")
+    assert controller.variable_is_used("new_label") is True
+    assert controller.rename_variable_ref(variable_ref("new_label"), "new_label", "renamed") == variable_ref("renamed")
+
+    monkeypatch.setattr(home_controller, "show_confirm_dialog", lambda *args: False)
+    controller.handle_macro_variable_deleted("new_label")
+    assert "new_label" in macro.variables
+
+    monkeypatch.setattr(home_controller, "show_confirm_dialog", lambda *args: True)
+    controller.handle_macro_variable_deleted("new_label")
+    assert "new_label" not in macro.variables
+
+
+def test_unique_variable_name_skips_multiple_collisions() -> None:
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        variables={
+            "variable": MacroVariable(),
+            "variable_2": MacroVariable(),
+        },
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+
+    assert controller.unique_variable_name("Variable") == "variable_3"
+
+
+def test_macro_variable_guards_without_macro_or_tree() -> None:
+    controller = make_controller()
+
+    assert controller.current_macro_variables() == {}
+    controller.handle_macro_variable_added()
+    controller.handle_macro_variable_changed("name", "label", "Label")
+    controller.handle_macro_variable_renamed("name", "Label")
+    controller.handle_macro_variable_deleted("name")
+    controller.rename_variable_references("old", "new")
+    assert controller.variable_is_used("old") is False
+    assert controller.get_variable_label("old") == "old"
+    assert controller.get_template_label("template") == "template"
+
+
+def test_handle_macro_variable_added_creates_number_variable() -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    runner = FakeRunner()
+    runner.macro = macro.to_dict()
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, runner)
+
+    controller.handle_macro_variable_added()
+
+    assert macro.variables["variable"].type == "number"
+    assert macro.variables["variable"].value == 0
+
+
+def test_parse_step_property_check_first_bool() -> None:
+    controller = make_controller()
+
+    assert controller.parse_step_property("check_first", "true") is True
+
+
+def test_describe_step_covers_number_and_any_image_labels() -> None:
+    macro = Macro(
+        meta=MacroMeta(id="macro"),
+        templates={"a": TemplateInfo(label="A"), "b": TemplateInfo(label="B")},
+        variables={"count": MacroVariable(label="Count")},
+    )
+    controller = make_controller()
+    controller.current_macro = macro
+
+    assert controller.describe_step({"type": "repeat_until_number", "operator": ">=", "value": 3})
+    assert controller.describe_step({"type": "if_number", "operator": "<", "value": variable_ref("count")})
+    assert controller.describe_step({"type": "if_any_image", "templates": ["a", "b"]}) == "If any image A, B"
+
+
+def test_handle_action_ignores_recording_locked_unknown_and_runs() -> None:
+    controller = make_controller()
+    recorder = FakeRecorder()
+    recorder.running = True
+    controller.current_recorder = cast(Any, recorder)
+    calls = []
+    controller.actions = {"record_pause": lambda: calls.append("pause"), "run": lambda: calls.append("run")}
+
+    controller.handle_action("run")
+    controller.handle_action("record_pause")
+    assert calls == ["pause"]
+
+    controller.current_recorder = None
+    controller.editing_locked = True
+    controller.handle_action("paste")
+    controller.handle_action("missing")
+    assert calls == ["pause"]
+
+    controller.editing_locked = False
+    controller.handle_action("record_pause")
+    assert calls == ["pause", "pause"]
+
+
+def test_duplicate_selected_step_guards() -> None:
+    controller = make_controller()
+
+    controller.duplicate_selected_step()
+    assert cast(Any, controller.view).statuses[-1] == "Select a macro first"
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.step_tree = StepTree([])
+    controller.duplicate_selected_step()
+    assert cast(Any, controller.view).statuses[-1] == "Select a step first"
+
+
+def test_run_current_macro_returns_while_recording() -> None:
+    controller = make_controller()
+    recorder = FakeRecorder()
+    recorder.running = True
+    controller.current_recorder = cast(Any, recorder)
+    runner = FakeRunner()
+    controller.current_runner = cast(Any, runner)
+
+    controller.run_current_macro()
+
+    assert runner.start_calls == 0
+
+
+def test_start_macro_recording_guards_and_runtime_error(monkeypatch) -> None:
+    controller = make_controller()
+
+    controller.start_macro_recording()
+    assert cast(Any, controller.view).statuses[-1] == "Select a macro first"
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"))
+    controller.step_tree = StepTree([])
+    controller.current_runner = cast(Any, FakeRunner(running=True))
+    controller.start_macro_recording()
+
+    controller.current_runner = cast(Any, FakeRunner())
+    recorder = FakeRecorder()
+    recorder.running = True
+    controller.current_recorder = cast(Any, recorder)
+    controller.start_macro_recording()
+
+    class RaisingRecorder(FakeRecorder):
+        def start(self) -> None:
+            raise RuntimeError("no hook")
+
+    controller.current_recorder = None
+    monkeypatch.setattr(home_controller, "MacroRecorder", lambda target_rect: RaisingRecorder())
+    controller.start_macro_recording()
+
+    assert cast(Any, controller.view).statuses[-1] == "Failed to start recorder: no hook"
+
+
+def test_recording_target_rect_guards_and_success(monkeypatch) -> None:
+    controller = make_controller()
+
+    assert controller.recording_target_rect() is None
+
+    controller.current_macro = Macro(meta=MacroMeta(id="macro", target_window="Game"))
+    monkeypatch.setattr(home_controller.window, "find_target_window", lambda title: None)
+    assert controller.recording_target_rect() is None
+
+    target_window = object()
+    target_rect = home_controller.window.Rect(1, 2, 3, 4)
+    monkeypatch.setattr(home_controller.window, "find_target_window", lambda title: target_window)
+    monkeypatch.setattr(home_controller.window, "client_rect", lambda found_window: target_rect)
+    assert controller.recording_target_rect() == target_rect
+
+    def raise_error(title):
+        raise RuntimeError("bad window")
+
+    monkeypatch.setattr(home_controller.window, "find_target_window", raise_error)
+    assert controller.recording_target_rect() is None
+
+
+def test_recording_overlay_and_stats(monkeypatch) -> None:
+    fake_config = FakeConfigModel()
+    fake_config.config.general.overlay_position = (7, 8)
+    controller = make_controller()
+    monkeypatch.setattr(home_controller, "config_model", fake_config)
+    monkeypatch.setattr(home_controller, "RecordingOverlay", FakeRecordingOverlay)
+
+    assert controller.recording_stats() == (0.0, 0)
+    controller.show_recording_overlay()
+
+    overlay = cast(Any, controller.recording_overlay)
+    assert overlay.positions == [(7, 8)]
+    assert overlay.paused_values == [False]
+    assert overlay.started is True
+
+    controller.handle_macro_recording_paused_changed(True)
+    assert overlay.paused_values == [False, True]
+
+    controller.hide_recording_overlay()
+    assert overlay.stopped is True
+
+    recorder = FakeRecorder([{"type": "key"}])
+    controller.current_recorder = cast(Any, recorder)
+    assert controller.recording_stats() == (12.0, 1)
+
+
+def test_toggle_macro_recording_pause_guards_pause_and_resume() -> None:
+    controller = make_controller()
+    controller.toggle_macro_recording_pause()
+
+    recorder = FakeRecorder()
+    controller.current_recorder = cast(Any, recorder)
+    controller.toggle_macro_recording_pause()
+
+    recorder.running = True
+    controller.toggle_macro_recording_pause()
+    assert recorder.pause_calls == 1
+    assert cast(Any, controller.view).statuses[-1] == "Recording paused"
+
+    controller.toggle_macro_recording_pause()
+    assert recorder.resume_calls == 1
+    assert cast(Any, controller.view).statuses[-1] == "Recording resumed"
+
+
+def test_stop_macro_recording_guards_empty_and_insert_fail() -> None:
+    controller = make_controller()
+    controller.stop_macro_recording()
+
+    empty = FakeRecorder()
+    empty.running = True
+    controller.current_recorder = cast(Any, empty)
+    controller.stop_macro_recording()
+    assert cast(Any, controller.view).statuses[-1] == "No steps recorded"
+
+    failed = FakeRecorder([{"type": "key", "key": "a"}])
+    failed.running = True
+    controller.current_recorder = cast(Any, failed)
+    controller.insert_recorded_steps = lambda steps: False
+    controller.stop_macro_recording()
+    assert cast(Any, controller.view).statuses[-1] == "Failed to insert recorded steps"
+
+
+def test_insert_recorded_steps_guards_and_branch_path() -> None:
+    controller = make_controller()
+
+    assert controller.insert_recorded_steps([{"type": "key"}]) is False
+
+    parent = {"type": "if_image", "then": []}
+    controller.current_macro = Macro(meta=MacroMeta(id="macro"), steps=[IfImageStep(then=[])])
+    controller.current_runner = cast(Any, FakeRunner())
+    cast(Any, controller.current_runner).macro = controller.current_macro.to_dict()
+    controller.step_tree = StepTree([parent])
+    controller.selected_branch_parent = {"type": "missing"}
+    controller.selected_branch_key = "then"
+    assert controller.insert_recorded_steps([{"type": "key"}]) is False
+
+    controller.selected_branch_parent = parent
+    assert controller.insert_recorded_steps([{"type": "key", "key": "a"}]) is True
+    assert parent["then"][0]["key"] == "a"
+
+    class EmptyInsertTree:
+        def find_node(self, step):
+            return None
+
+        def insert_steps_after(self, target_node, steps):
+            return []
+
+    controller.selected_branch_parent = None
+    controller.selected_branch_key = ""
+    controller.step_tree = cast(Any, EmptyInsertTree())
+    assert controller.insert_recorded_steps([{"type": "key", "key": "b"}]) is False
+
+
+def test_macro_pause_and_running_status_guards() -> None:
+    controller = make_controller()
+
+    controller.handle_macro_paused_changed(True)
+    controller.toggle_current_macro_pause()
+
+    runner = FakeRunner(running=True)
+    controller.current_runner = cast(Any, runner)
+    controller.toggle_current_macro_pause()
+    assert runner.pause_calls == 1
+    controller.toggle_current_macro_pause()
+    assert runner.resume_calls == 1
+
+    controller.handle_macro_paused_changed(True)
+    assert cast(Any, controller.view).statuses[-1] == "Paused"
+
+    controller.handle_macro_paused_changed(False)
+    assert cast(Any, controller.view).statuses[-1] == "Running macro: Runner"
+
+
+def test_translate_status_message_and_elapsed() -> None:
+    controller = make_controller()
+
+    assert controller.translate_status_message("Error: boom") == "Error: boom"
+    assert controller.translate_status_message("window_not_found") == "Window not found"
+    assert controller.translate_status_message("custom") == "custom"
+    assert controller.format_elapsed(125.9) == "02:05"
+
+
+class FakeSelectorSignal:
+    def __init__(self) -> None:
+        self.callbacks = []
+
+    def connect(self, callback) -> None:
+        self.callbacks.append(callback)
+
+
+class FakeRegionSelector:
+    instances: ClassVar[list["FakeRegionSelector"]] = []
+
+    def __init__(self, macro_id: str, **kwargs) -> None:
+        self.macro_id = macro_id
+        self.kwargs = kwargs
+        self.region_selected = FakeSelectorSignal()
+        self.area_selected = FakeSelectorSignal()
+        self.cancelled = FakeSelectorSignal()
+        self.started = False
+        FakeRegionSelector.instances.append(self)
+
+    def start(self) -> None:
+        self.started = True
+
+
+def test_launch_selectors_and_pick_handlers(monkeypatch, tmp_path: Path) -> None:
+    FakeRegionSelector.instances = []
+    controller = make_controller()
+
+    controller.launch_region_selector("button")
+    controller.launch_number_area_selector()
+    assert FakeRegionSelector.instances == []
+
+    macro = Macro(meta=MacroMeta(id="macro", target_window="Game"), templates={"button": TemplateInfo()})
+    controller.current_macro = macro
+    monkeypatch.setattr(home_controller, "RegionSelector", FakeRegionSelector)
+    monkeypatch.setattr(home_controller.display, "target_display_for_macro", lambda title: None)
+    monkeypatch.setattr(home_controller.QTimer, "singleShot", lambda delay, callback: callback())
+
+    controller.launch_region_selector("button")
+    controller.launch_number_area_selector()
+
+    assert len(FakeRegionSelector.instances) == 2
+    assert FakeRegionSelector.instances[0].started is True
+    assert FakeRegionSelector.instances[1].kwargs["save_template"] is False
+
+    controller.handle_template_capture("button")
+    assert cast(Any, controller.view).fake_window.show_minimized_calls == 1
+
+    controller.selected_step = {"type": "wait_number"}
+    controller.handle_number_area_pick()
+    assert cast(Any, controller.view).fake_window.show_minimized_calls == 2
+
+    controller.selected_step = None
+    controller.handle_number_area_pick()
+
+    image = tmp_path / "picked.png"
+    image.write_bytes(b"png")
+    controller.selected_step = {"type": "wait_image", "template": "button"}
+    controller.step_tree = StepTree([controller.selected_step])
+    controller.current_runner = cast(Any, FakeRunner())
+    cast(Any, controller.current_runner).macro = macro.to_dict()
+    controller.template_service = TemplateService(
+        controller.generate_template_id,
+        controller.default_template_label,
+        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
+    )
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: ("", ""))
+    controller.handle_template_pick("button")
+    assert len(controller.undo_stack) == 0
+
+    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(image), ""))
+    controller.handle_template_pick("button")
+    assert controller.selected_step["template"] != "button"
+
+
+def test_region_capture_and_number_area_guards() -> None:
+    controller = make_controller()
+
+    controller.handle_region_captured("old", "new", 1, 2)
+    assert cast(Any, controller.view).fake_window.show_normal_calls == 1
+
+    controller.handle_number_area_selected(1, 2, 3, 4, 5, 6, None)
+    assert cast(Any, controller.view).fake_window.show_normal_calls == 2
+
+    controller.transfer_template_card_state("old", "new")
+
+
+def test_handle_template_add_guards_and_failed_add(monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"))
+    controller = make_controller()
+
+    controller.handle_template_add()
+
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    cast(Any, controller.current_runner).macro = macro.to_dict()
+    controller.selected_step = {"type": "wait_image"}
+    controller.handle_template_add()
+
+    controller.selected_step = {"type": "if_any_image", "templates": []}
+    monkeypatch.setattr(controller.template_service, "add_template", lambda macro, step: False)
+    controller.handle_template_add()
+    assert controller.undo_stack
+
+
+def test_handle_template_meta_changed_guards_and_failed_update(monkeypatch) -> None:
+    macro = Macro(meta=MacroMeta(id="macro"), templates={"button": TemplateInfo(capture_width=10, match_mode="color")})
+    controller = make_controller()
+    controller.current_macro = macro
+    controller.current_runner = cast(Any, FakeRunner())
+    cast(Any, controller.current_runner).macro = macro.to_dict()
+    controller.step_tree = StepTree([])
+
+    controller.handle_template_meta_changed("missing", "label", "x")
+    controller.handle_template_meta_changed("button", "capture_width", "bad")
+    controller.handle_template_meta_changed("button", "match_mode", "bad")
+    controller.handle_template_meta_changed("button", "unknown", "x")
+    controller.handle_template_meta_changed("button", "capture_width", "10")
+
+    monkeypatch.setattr(
+        controller.template_service, "update_template_meta", lambda macro, template_id, field, value: False
+    )
+    controller.handle_template_meta_changed("button", "capture_width", "20")
+    assert macro.templates["button"].capture_width == 10
+
+    controller.handle_template_meta_changed("button", "match_mode", "grayscale")
+
+
+def test_handle_template_meta_changed_returns_for_unknown_existing_field() -> None:
+    class FakeTemplateInfo:
+        unknown = "value"
+
+    macro = Macro(meta=MacroMeta(id="macro"))
+    macro.templates["button"] = cast(Any, FakeTemplateInfo())
+    controller = make_controller()
+    controller.current_macro = macro
+
+    controller.handle_template_meta_changed("button", "unknown", "new")
+
+    assert cast(Any, macro.templates["button"]).unknown == "value"

@@ -79,6 +79,75 @@ def test_region_selector_start_shows_full_screen(monkeypatch, qtbot) -> None:
     assert screens == [selector.target_screen]
 
 
+def test_region_selector_start_creates_window_id_when_handle_missing(monkeypatch, qtbot) -> None:
+    selector = make_selector(monkeypatch, qtbot)
+    shown = []
+    created = []
+    handles = iter([None, type("FakeHandle", (), {"setScreen": lambda self, screen: None})()])
+
+    monkeypatch.setattr(selector, "windowHandle", lambda: next(handles))
+    monkeypatch.setattr(selector, "createWinId", lambda: created.append(True))
+    monkeypatch.setattr(selector, "showFullScreen", lambda: shown.append(True))
+
+    selector.start()
+
+    assert created == [True]
+    assert shown == [True]
+
+
+def test_win32_monitors_to_list_reports_enum_and_info_errors(monkeypatch) -> None:
+    def raise_enum():
+        raise RuntimeError("enum failed")
+
+    monkeypatch.setattr(region_selector.display.win32api, "EnumDisplayMonitors", raise_enum)
+
+    assert region_selector.win32_monitors_to_list() == [{"error": "enum failed"}]
+
+    monitor = object()
+    monkeypatch.setattr(
+        region_selector.display.win32api,
+        "EnumDisplayMonitors",
+        lambda: [(monitor, object(), (1, 2, 3, 4))],
+    )
+    monkeypatch.setattr(
+        region_selector.display.win32api,
+        "GetMonitorInfo",
+        lambda handle: (_ for _ in ()).throw(RuntimeError("info failed")),
+    )
+
+    assert region_selector.win32_monitors_to_list() == [{"monitor_rect": [1, 2, 3, 4], "error": "info failed"}]
+
+    monkeypatch.setattr(
+        region_selector.display.win32api,
+        "GetMonitorInfo",
+        lambda handle: {"Device": "DISPLAY1", "Monitor": (1, 2, 3, 4), "Work": (1, 2, 3, 4)},
+    )
+
+    assert region_selector.win32_monitors_to_list() == [
+        {
+            "device": "DISPLAY1",
+            "monitor": [1, 2, 3, 4],
+            "work": [1, 2, 3, 4],
+            "flags": 0,
+            "enum_rect": [1, 2, 3, 4],
+        }
+    ]
+
+
+def test_dump_capture_debug_returns_when_disabled(monkeypatch) -> None:
+    target = region_selector.display.DisplayTarget(
+        screen=cast(Any, FakeScreen(make_pixmap())),
+        physical_rect=region_selector.display.window.Rect(0, 0, 8, 6),
+    )
+    writes = []
+    monkeypatch.setattr(region_selector, "capture_debug_enabled", lambda: False)
+    monkeypatch.setattr(region_selector, "write_png", lambda path, frame: writes.append((path, frame)))
+
+    region_selector.dump_capture_debug(target, np.ones((1, 1, 3)), np.ones((1, 1, 3)))
+
+    assert writes == []
+
+
 def test_region_selector_raises_when_screen_missing(monkeypatch) -> None:
     monkeypatch.setattr(region_selector.display, "display_target_at_cursor", lambda: None)
 

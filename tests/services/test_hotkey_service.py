@@ -105,6 +105,38 @@ def test_register_hotkeys_registers_pause_hotkey(monkeypatch) -> None:
     assert service.is_pause_hotkey(PAUSE_HOTKEY_ID)
 
 
+def test_register_pause_hotkey_skips_invalid_hotkey(monkeypatch) -> None:
+    register_calls = []
+    config = AppConfig()
+    config.general.pause_hotkey = "ctrl+unknown"
+
+    monkeypatch.setattr(hotkey_service.config_model, "config", config)
+    monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", lambda *args: register_calls.append(args))
+    service = HotkeyService(FakeMacroModel({}), lambda: 99)
+
+    service.register_pause_hotkey(99)
+
+    assert register_calls == []
+    assert service.hotkey_ids == []
+
+
+def test_register_pause_hotkey_suppresses_registration_failure(monkeypatch) -> None:
+    config = AppConfig()
+    config.general.pause_hotkey = "ctrl+alt+p"
+
+    def raise_register(*args) -> None:
+        raise Exception("failed")
+
+    monkeypatch.setattr(hotkey_service.config_model, "config", config)
+    monkeypatch.setattr(hotkey_service.win32gui, "RegisterHotKey", raise_register)
+    monkeypatch.setattr(hotkey_service.win32api, "VkKeyScan", lambda key: ord(key.upper()))
+    service = HotkeyService(FakeMacroModel({}), lambda: 99)
+
+    service.register_pause_hotkey(99)
+
+    assert service.hotkey_ids == []
+
+
 def test_macro_hotkey_id_near_pause_id_is_not_treated_as_pause(monkeypatch) -> None:
     register_calls: list[tuple[int, int, int, int]] = []
     config = AppConfig()

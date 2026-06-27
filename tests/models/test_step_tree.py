@@ -551,3 +551,12 @@ def test_insert_node_after_missing_root_target_uses_end_of_roots() -> None:
 
     assert tree.root_nodes[-1] is inserted
     assert inserted.parent is None
+
+
+def test_add_step_inserts_after_non_container_target() -> None:
+    tree = StepTree([{"type": "key", "key": "a"}])
+
+    node = tree.add_step(tree.root_nodes[0], {"type": "key", "key": "b"})
+
+    assert tree.root_nodes[1] is node
+    assert node.step["key"] == "b"

@@ -72,6 +72,37 @@ def test_grabber_falls_back_to_mss_when_bettercam_fails(monkeypatch) -> None:
     assert grabber.screen_height == 768
 
 
+def test_grabber_handles_mss_initialization_failure(monkeypatch) -> None:
+    fake_cam = FakeBetterCam()
+
+    def raise_mss():
+        raise RuntimeError("no mss")
+
+    monkeypatch.setattr(capture.mss, "MSS", raise_mss)
+    monkeypatch.setattr(capture.bettercam, "create", lambda **kwargs: fake_cam)
+
+    grabber = Grabber()
+
+    assert grabber.backend == CaptureBackend.BETTERCAM
+    assert grabber.sct is None
+    assert grabber.screen_width == 0
+    assert grabber.screen_height == 0
+
+
+def test_grabber_raises_when_no_backend_available(monkeypatch) -> None:
+    def raise_mss():
+        raise RuntimeError("no mss")
+
+    def raise_create(**kwargs):
+        raise RuntimeError("no camera")
+
+    monkeypatch.setattr(capture.mss, "MSS", raise_mss)
+    monkeypatch.setattr(capture.bettercam, "create", raise_create)
+
+    with pytest.raises(RuntimeError, match="No capture backend"):
+        Grabber()
+
+
 def test_grabber_falls_back_to_mss_when_initial_grab_returns_none(monkeypatch) -> None:
     fake_cam = FakeBetterCam(frame=None)
     fake_mss = FakeMss()
@@ -150,6 +181,23 @@ def test_grab_frame_returns_none_when_bettercam_missing() -> None:
     grabber.sct = None
 
     assert grabber.grab_frame(0, 0, 10, 10) is None
+
+
+def test_grab_frame_returns_none_when_supported_bettercam_region_loses_camera(monkeypatch) -> None:
+    grabber = Grabber.__new__(Grabber)
+    grabber.backend = CaptureBackend.BETTERCAM
+    grabber.cam = None
+    grabber.sct = None
+    monkeypatch.setattr(grabber, "bettercam_supports_region", lambda left, top, right, bottom: True)
+
+    assert grabber.grab_frame(0, 0, 10, 10) is None
+
+
+def test_bettercam_supports_region_returns_false_without_camera() -> None:
+    grabber = Grabber.__new__(Grabber)
+    grabber.cam = None
+
+    assert grabber.bettercam_supports_region(0, 0, 10, 10) is False
 
 
 def test_grab_frame_returns_none_when_mss_missing() -> None:

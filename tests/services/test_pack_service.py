@@ -240,6 +240,48 @@ def test_pack_language_fallback_uses_legacy_assets() -> None:
     assert pack_service.resolve_pack_assets(entry, "zh_TW").zip_url == "https://example.invalid/sample.zip"
 
 
+def test_pack_language_fallback_uses_default_language_and_sorted_language() -> None:
+    data = make_catalog_data()["packs"][0]
+    data["default_language"] = "missing"
+    data["language_assets"] = {
+        "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+        "zh_CN": {"zip_url": "https://example.invalid/sample-zh_CN.zip"},
+    }
+    entry = PackCatalogEntry.from_dict(data)
+
+    assert pack_service.resolve_pack_language(entry, "", "") == "zh_CN"
+
+    data["language_assets"]["en_US"] = {"zip_url": "https://example.invalid/sample-en_US.zip"}
+    entry = PackCatalogEntry.from_dict(data)
+
+    assert pack_service.resolve_pack_language(entry, "", "") == "en_US"
+
+
+def test_resolve_pack_assets_falls_back_to_first_language_asset() -> None:
+    data = make_catalog_data()["packs"][0]
+    data["language_assets"] = {
+        "en_US": {"zip_url": ""},
+        "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+    }
+    entry = PackCatalogEntry.from_dict(data)
+
+    assert pack_service.resolve_pack_assets(entry, "en_US").zip_url == "https://example.invalid/sample-zh_TW.zip"
+
+
+def test_resolve_pack_assets_scans_language_assets_when_resolved_asset_has_no_zip(monkeypatch) -> None:
+    data = make_catalog_data()["packs"][0]
+    data["language_assets"] = {
+        "en_US": {"zip_url": ""},
+        "zh_TW": {"zip_url": "https://example.invalid/sample-zh_TW.zip"},
+    }
+    entry = PackCatalogEntry.from_dict(data)
+    monkeypatch.setattr(
+        pack_service, "resolve_pack_language", lambda entry, selected_language, current_language: "en_US"
+    )
+
+    assert pack_service.resolve_pack_assets(entry).zip_url == "https://example.invalid/sample-zh_TW.zip"
+
+
 def test_import_pack_as_macro_skips_existing_macro_order(tmp_path: Path, monkeypatch) -> None:
     archive_path = tmp_path / "pack.zip"
     fake_config = FakeConfigModel()

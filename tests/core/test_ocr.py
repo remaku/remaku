@@ -117,3 +117,25 @@ def test_rapidocr_digits_reuses_initialized_engine(monkeypatch) -> None:
     assert ocr.rapidocr_digits(np.ones((10, 10), dtype=np.uint8)) == "999"
     assert ocr.rapidocr_digits(np.ones((10, 10), dtype=np.uint8)) == "999"
     assert calls == ["init"]
+
+
+def test_preprocess_number_image_returns_empty_input() -> None:
+    image = np.empty((0, 0), dtype=np.uint8)
+
+    assert ocr.preprocess_number_image(image) is image
+
+
+def test_rapidocr_result_text_ignores_empty_and_malformed_items() -> None:
+    assert ocr.rapidocr_result_text([]) == ""
+    assert ocr.rapidocr_result_text(["bad", ["too-short"], [[["bad"]], "5"]]) == "5"
+
+
+def test_box_left_returns_zero_for_invalid_box() -> None:
+    assert ocr.box_left([["bad"]]) == 0.0
+
+
+def test_read_number_returns_none_for_empty_processed_image(monkeypatch) -> None:
+    frame = np.ones((10, 20, 3), dtype=np.uint8) * 255
+    monkeypatch.setattr(ocr, "preprocess_number_image", lambda image: np.empty((0, 0), dtype=np.uint8))
+
+    assert ocr.read_number(frame, ocr.NumberRegion(0, 0, 20, 10), adapter=lambda image: "999") is None

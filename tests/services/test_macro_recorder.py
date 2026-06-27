@@ -726,6 +726,33 @@ def test_windows_hook_backend_initializes_callbacks(monkeypatch) -> None:
     assert backend.thread_id == 0
 
 
+def test_windows_hook_backend_configures_call_next_hook_signature(monkeypatch) -> None:
+    class FakeCallNextHook:
+        argtypes = None
+        restype = None
+
+        def __call__(self, hook, code: int, wparam: int, lparam: int) -> int:
+            return 0
+
+    class FakeUser32WithSignatureHook(FakeUser32):
+        def __init__(self) -> None:
+            super().__init__()
+            self.CallNextHookEx = FakeCallNextHook()
+
+    user32 = FakeUser32WithSignatureHook()
+    monkeypatch.setattr(macro_recorder.ctypes, "WinDLL", lambda name, use_last_error: user32)
+
+    WindowsHookBackend(cast(Any, HookRecorder()))
+
+    assert cast(Any, user32.CallNextHookEx).argtypes == [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_size_t,
+        ctypes.c_void_p,
+    ]
+    assert cast(Any, user32.CallNextHookEx).restype is ctypes.c_ssize_t
+
+
 def test_windows_hook_backend_start_timeout(monkeypatch) -> None:
     backend = make_backend()
     backend.ready = FakeReady(False)
@@ -875,3 +902,24 @@ def test_windows_hook_backend_handles_mouse_events() -> None:
         ("middle", True, 10, 20),
     ]
     assert backend.recorder.wheels == [(1, 10, 20)]
+
+
+def test_recorded_step_builder_normalizes_shift_and_blocked_text() -> None:
+    builder = RecordedStepBuilder()
+
+    assert builder.normalize_input_text("a", "") == "a"
+
+    builder.pressed_keys["shift"] = 1.0
+    assert builder.normalize_input_text("a", "a") == "A"
+    assert builder.normalize_input_text("1", "1") == "!"
+    assert builder.normalize_input_text("q", "Q") == "Q"
+
+    builder.pressed_keys["ctrl"] = 1.0
+    assert builder.normalize_input_text("a", "a") == ""
+
+
+def test_recorded_step_builder_resolve_time_uses_provider() -> None:
+    builder = RecordedStepBuilder(time_provider=lambda: 12.5)
+
+    assert builder.resolve_time(3.0) == 3.0
+    assert builder.resolve_time(None) == 12.5

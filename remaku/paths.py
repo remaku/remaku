@@ -38,17 +38,3 @@ def templates_dir(macro_id: str = "") -> Path:
 
 def template_path(macro_id: str, template_id: str) -> Path:
     return templates_dir(macro_id) / f"{template_id}.png"
-
-
-def pack_cache_dir() -> Path:
-    return data_dir() / "pack-cache"
-
-
-def safe_pack_filename(value: str) -> str:
-    safe_value = "".join(char if char.isalnum() or char in ".-_" else "_" for char in value)
-    return safe_value or "pack"
-
-
-def pack_download_path(pack_id: str, version: str) -> Path:
-    filename = f"{safe_pack_filename(pack_id)}-{safe_pack_filename(version)}.zip"
-    return pack_cache_dir() / filename

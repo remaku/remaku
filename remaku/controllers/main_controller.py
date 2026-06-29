@@ -1,7 +1,6 @@
 from PySide6.QtCore import QObject, QTimer
 
 from remaku.controllers.home_controller import HomeController
-from remaku.controllers.macro_explorer_controller import MacroExplorerController
 from remaku.controllers.settings_controller import SettingsController
 from remaku.core.dialogs import show_message_dialog
 from remaku.core.event_bus import event_bus
@@ -24,10 +23,6 @@ class MainController(QObject):
 
         self.home_controller = HomeController(
             self.main_window.home_view,
-            self.macro_model,
-        )
-        self.macro_explorer_controller = MacroExplorerController(
-            self.main_window.macro_explorer_view,
             self.macro_model,
         )
         self.settings_controller = SettingsController(self.main_window.settings_view, self.main_window)
@@ -132,9 +127,6 @@ class MainController(QObject):
 
     def switch_page(self, page: str):
         match page:
-            case "packs":
-                self.macro_explorer_controller.ensure_loaded()
-                self.main_window.switchTo(self.main_window.macro_explorer_view)
             case "settings":
                 self.main_window.switchTo(self.main_window.settings_view)
             case _:

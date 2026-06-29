@@ -28,7 +28,6 @@ This warning is harmless. It appears because the executable is not code-signed. 
 - **Macro recording** -- record keyboard and mouse actions from outside the app into macro steps
 - **Macro variables** -- define reusable variables for step properties so you can change a value once and update every step that uses it
 - **Auto update** -- checks GitHub Releases on startup, supports stable and beta channels
-- **Macro Explorer** -- browse official macro packs and import compatible macros from inside the app
 
 ## Supported Step Types
 
@@ -129,12 +128,6 @@ Number recognition reads visible numbers in a captured screen area, enabling ste
 ### Other
 
 - Shows the currently skipped update version, with a one-click clear to re-prompt
-
-## Macro Packs
-
-- Open Macro Explorer from the File menu
-- Browse official macro packs from inside Remaku
-- Import compatible macros directly into your local macro folder
 
 ## Auto Update
 

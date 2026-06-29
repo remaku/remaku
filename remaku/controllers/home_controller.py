@@ -129,7 +129,6 @@ class HomeController(QObject):
             "open_logs": self.open_logs_folder,
             "new_macro": self.handle_new_macro,
             "settings": self.open_settings,
-            "macro_explorer": self.open_macro_explorer,
             "quit": self.quit_application,
             "add_step": lambda: event_bus.show_toolbar_step_menu_requested.emit(),
             "duplicate_step": self.duplicate_selected_step,
@@ -1398,7 +1397,6 @@ class HomeController(QObject):
             "import_macro",
             "export_macro",
             "open_macro_folder",
-            "macro_explorer",
             "settings",
         ):
             return
@@ -1534,9 +1532,6 @@ class HomeController(QObject):
 
     def open_settings(self) -> None:
         event_bus.switch_page_requested.emit("settings")
-
-    def open_macro_explorer(self) -> None:
-        event_bus.switch_page_requested.emit("packs")
 
     def quit_application(self) -> None:
         self.view.window().close()

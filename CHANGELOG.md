@@ -4,6 +4,10 @@
 
 <!-- lang:en -->
 
+### Removed
+
+- The Macro Explorer has been removed. The File > Macro Explorer menu item and all pack browsing features are no longer available.
+
 ### Fixed
 
 - Deleting a template can now be undone, including restoring the template image file.
@@ -13,6 +17,10 @@
 
 <!-- lang:zh_tw -->
 
+### 移除
+
+- 已移除巨集瀏覽器 (Macro Explorer)。檔案選單中的「巨集瀏覽器」項目及所有套件瀏覽功能已不再提供。
+
 ### 修正
 
 - 刪除模板現在可以復原，並會一併還原模板圖片檔案。
@@ -21,6 +29,10 @@
 - 更新模板後，模板編輯卡片現在會保留原本的展開或收合狀態。
 
 <!-- lang:zh_cn -->
+
+### 删除
+
+- 已移除宏浏览器 (Macro Explorer)。文件菜单中的「宏浏览器」项目及所有包浏览功能已不再提供。
 
 ### 修复
 

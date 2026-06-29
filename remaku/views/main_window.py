@@ -8,7 +8,6 @@ from qfluentwidgets import FluentWindow, TransparentToolButton, qrouter
 from remaku.core.event_bus import event_bus
 from remaku.resources.icon import RemakuIcon
 from remaku.views.home_view import HomeView
-from remaku.views.macro_explorer_view import MacroExplorerView
 from remaku.views.settings_view import SettingsView
 
 
@@ -22,11 +21,9 @@ class MainWindow(FluentWindow):
         self.customize_navigation_interface()
 
         self.home_view = HomeView(self)
-        self.macro_explorer_view = MacroExplorerView(self)
         self.settings_view = SettingsView(self)
 
         self.addSubInterface(self.home_view, "", "", isTransparent=True)
-        self.addSubInterface(self.macro_explorer_view, "", "", isTransparent=True)
         self.addSubInterface(self.settings_view, "", "", isTransparent=True)
 
     def customize_navigation_interface(self):

@@ -6,6 +6,8 @@ An open-source, visual, image-recognition-driven desktop macro tool.
 
 [繁體中文](README_zh-TW.md) | [简体中文](README_zh-CN.md)
 
+> **⚠️ Beta Notice:** Remaku is in active development (beta). Breaking changes may occur at any time. **Do not use in production environments.**
+
 ## Installation Notes
 
 On first run, Windows SmartScreen may show a "Windows protected your PC" warning. Click "More info" then "Run anyway" to proceed.

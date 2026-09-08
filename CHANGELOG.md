@@ -8,6 +8,7 @@
 
 - The Macro Explorer has been removed. The File > Macro Explorer menu item and all pack browsing features are no longer available.
 - The startup migration for legacy template metadata files has been removed. If you have older macros with separate `templates/*.json` metadata files, update to the latest 0.x release first so they can be migrated before upgrading.
+- Importing a macro no longer reads legacy `templates/*.json` sidecar metadata files from the archive; template metadata now comes only from the macro file itself.
 
 ### Fixed
 
@@ -22,6 +23,7 @@
 
 - 已移除巨集瀏覽器 (Macro Explorer)。檔案選單中的「巨集瀏覽器」項目及所有套件瀏覽功能已不再提供。
 - 已移除啟動時對舊版模板中繼資料檔案的遷移。若您的舊版巨集仍有獨立的 `templates/*.json` 中繼資料檔案，請先升級到最新的 0.x 版本完成遷移後再升級。
+- 匯入巨集時不再從封存檔讀取舊版 `templates/*.json` 側邊中繼資料檔案，模板中繼資料現在只來自巨集檔案本身。
 
 ### 修正
 
@@ -36,6 +38,7 @@
 
 - 已移除宏浏览器 (Macro Explorer)。文件菜单中的「宏浏览器」项目及所有包浏览功能已不再提供。
 - 已移除启动时对旧版模板元数据文件的迁移。若您的旧版宏仍有独立的 `templates/*.json` 元数据文件，请先升级到最新的 0.x 版本完成迁移后再升级。
+- 导入宏时不再从压缩包读取旧版 `templates/*.json` 侧边元数据文件，模板元数据现在只来自宏文件本身。
 
 ### 修复
 

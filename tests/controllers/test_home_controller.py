@@ -1745,7 +1745,6 @@ def test_import_macro_saves_archive_and_templates(tmp_path: Path, monkeypatch) -
         macro_data,
         {
             "templates/button.png": b"png",
-            "templates/button.json": json.dumps({"capture_width": 320, "capture_height": 180}).encode(),
         },
     )
     model = FakeMacroModel()
@@ -1775,7 +1774,7 @@ def test_import_macro_saves_archive_and_templates(tmp_path: Path, monkeypatch) -
     controller.import_macro()
 
     assert model.saved[0].meta.id == "400"
-    assert model.saved[0].templates["button"].capture_width == 320
+    assert model.saved[0].templates == {}
     assert (tmp_path / "templates" / "400" / "button.png").read_bytes() == b"png"
     assert fake_config.config.general.macro_order == ["400"]
     assert fake_config.save_calls == 1
@@ -2782,18 +2781,17 @@ def test_import_macro_validation_errors(tmp_path: Path, monkeypatch) -> None:
     ]
 
 
-def test_import_macro_handles_duplicate_id_legacy_meta_and_existing_order(tmp_path: Path, monkeypatch) -> None:
+def test_import_macro_handles_duplicate_id_and_existing_order(tmp_path: Path, monkeypatch) -> None:
     archive_path = tmp_path / "macro.zip"
     write_macro_zip(
         archive_path,
         {
             "meta": {"name": "imported", "label": ""},
-            "templates": {"button": "legacy"},
+            "templates": {},
             "steps": [{"type": "wait_image", "template": "button"}],
         },
         {
             "templates/button.png": b"new",
-            "templates/button.json": json.dumps({"capture_width": 640, "capture_height": 360}).encode(),
         },
     )
     existing_file = tmp_path / "macros" / "500.json"
@@ -2828,57 +2826,11 @@ def test_import_macro_handles_duplicate_id_legacy_meta_and_existing_order(tmp_pa
 
     assert model.saved[0].meta.id == "501"
     assert model.saved[0].meta.label == "501"
-    assert model.saved[0].templates["button"].label == "button"
-    assert model.saved[0].templates["button"].capture_width == 640
+    assert model.saved[0].templates == {}
     assert (tmp_path / "templates" / "501" / "button.png").read_bytes() == b"new"
     assert fake_config.config.general.macro_order == ["501"]
     assert fake_config.save_calls == 0
     assert refresh_calls == ["refresh"]
-
-
-def test_import_macro_skips_invalid_legacy_metadata(tmp_path: Path, monkeypatch) -> None:
-    archive_path = tmp_path / "macro.zip"
-    write_macro_zip(
-        archive_path,
-        {
-            "meta": {"name": "macro"},
-            "templates": [],
-            "steps": [
-                {"type": "wait_image", "template": "bad_json"},
-                {"type": "wait_image", "template": "bad_type"},
-            ],
-        },
-        {
-            "templates/bad_json.png": b"png",
-            "templates/bad_json.json": b"{bad",
-            "templates/bad_type.png": b"png",
-            "templates/bad_type.json": json.dumps([]).encode(),
-        },
-    )
-    model = FakeMacroModel()
-    controller = make_controller()
-    controller.macro_model = cast(MacroModel, model)
-    controller.refresh_macro_list = lambda: None
-    monkeypatch.setattr(home_controller, "config_model", FakeConfigModel())
-    monkeypatch.setattr(home_controller.QFileDialog, "getOpenFileName", lambda *args: (str(archive_path), ""))
-    monkeypatch.setattr(home_controller, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
-    monkeypatch.setattr(home_controller, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
-    monkeypatch.setattr(
-        home_controller,
-        "template_path",
-        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
-    )
-    monkeypatch.setattr(macro_import_service, "macro_path", lambda macro_id: tmp_path / "macros" / f"{macro_id}.json")
-    monkeypatch.setattr(macro_import_service, "templates_dir", lambda macro_id: tmp_path / "templates" / macro_id)
-    monkeypatch.setattr(
-        macro_import_service,
-        "template_path",
-        lambda macro_id, template_id: tmp_path / "templates" / macro_id / f"{template_id}.png",
-    )
-
-    controller.import_macro()
-
-    assert model.saved[0].templates == {}
 
 
 def test_export_current_macro_returns_or_reports_errors(tmp_path: Path, monkeypatch) -> None:

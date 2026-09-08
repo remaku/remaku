@@ -140,20 +140,6 @@ def ensure_template_metadata(raw_macro: dict) -> dict:
     return raw_templates
 
 
-def merge_legacy_template_metadata(raw_macro: dict, template_id: str, legacy_meta: dict) -> None:
-    raw_templates = ensure_template_metadata(raw_macro)
-
-    entry = raw_templates.get(template_id, {"label": template_id})
-    if not isinstance(entry, dict):
-        entry = {"label": template_id}
-
-    for key in ("capture_width", "capture_height"):
-        if key in legacy_meta and key not in entry:
-            entry[key] = legacy_meta[key]
-
-    raw_templates[template_id] = entry
-
-
 def write_archive_templates(
     archive: zipfile.ZipFile,
     parsed: ParsedMacroArchive,
@@ -168,18 +154,6 @@ def write_archive_templates(
         png_destination = template_dir / f"{template_id}.png"
         if not png_destination.exists() or (overwrite_template_conflicts and template_id in conflicts):
             png_destination.write_bytes(archive.read(f"templates/{template_id}.png"))
-
-        legacy_meta_path = f"templates/{template_id}.json"
-        if legacy_meta_path not in parsed.archive_names:
-            continue
-
-        try:
-            legacy_meta = json.loads(archive.read(legacy_meta_path))
-        except (OSError, ValueError):
-            continue
-
-        if isinstance(legacy_meta, dict):
-            merge_legacy_template_metadata(parsed.raw_macro, template_id, legacy_meta)
 
 
 def install_macro_archive(path: Path, macro_model: MacroModel, options: ImportMacroOptions) -> ImportMacroResult:

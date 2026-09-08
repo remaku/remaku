@@ -82,7 +82,6 @@ def test_install_macro_archive_saves_macro_and_templates(tmp_path: Path, monkeyp
         },
         {
             "templates/button.png": b"png",
-            "templates/button.json": json.dumps({"capture_width": 320, "capture_height": 180}).encode(),
         },
     )
     model = FakeMacroModel()
@@ -101,7 +100,7 @@ def test_install_macro_archive_saves_macro_and_templates(tmp_path: Path, monkeyp
     assert result.macro_id == "100"
     assert model.saved[0].meta.id == "100"
     assert model.saved[0].meta.label == "Sample"
-    assert model.saved[0].templates["button"].capture_width == 320
+    assert model.saved[0].templates == {}
     assert (tmp_path / "templates" / "100" / "button.png").read_bytes() == b"png"
 
 
@@ -197,25 +196,21 @@ def test_inspect_macro_archive_reports_missing_macro_json_and_bad_zip(tmp_path: 
         inspect_macro_archive(bad_zip_path)
 
 
-def test_install_macro_archive_handles_template_metadata_edge_cases(tmp_path: Path, monkeypatch) -> None:
+def test_install_macro_archive_overwrites_template_conflicts(tmp_path: Path, monkeypatch) -> None:
     archive_path = tmp_path / "macro.zip"
     write_macro_zip(
         archive_path,
         {
             "meta": {"name": "sample", "label": "Sample"},
-            "templates": {"button": "legacy"},
+            "templates": {"button": {"label": "Button"}},
             "steps": [
                 {"type": "wait_image", "template": "button"},
                 {"type": "wait_image", "template": "plain"},
-                {"type": "wait_image", "template": "bad"},
             ],
         },
         {
             "templates/button.png": b"button-new",
-            "templates/button.json": json.dumps({"capture_width": 320}).encode(),
             "templates/plain.png": b"plain",
-            "templates/bad.png": b"bad",
-            "templates/bad.json": b"not json",
         },
     )
     model = FakeMacroModel()
@@ -238,9 +233,9 @@ def test_install_macro_archive_handles_template_metadata_edge_cases(tmp_path: Pa
         ImportMacroOptions(overwrite_template_conflicts=True),
     )
 
-    assert result.template_refs == {"button", "plain", "bad"}
+    assert result.template_refs == {"button", "plain"}
     assert existing_button.read_bytes() == b"button-new"
-    assert model.saved[0].templates["button"].capture_width == 320
+    assert model.saved[0].templates["button"].label == "Button"
     assert (template_root / "100" / "plain.png").read_bytes() == b"plain"
 
 

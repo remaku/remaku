@@ -26,13 +26,13 @@ When asked to update the changelog:
 
 ## Testing
 
-- Run all tests: `make test`.
+- Run all tests: `just test`.
 - Run a single test file: `uv run pytest tests/path/to/test_file.py`.
 
 ## i18n
 
 - Wrap user-visible strings in `self.tr()` or `QCoreApplication.translate()`.
-- `make translate` — Update and compile `.ts` / `.qm` files.
+- `just translate` — Update and compile `.ts` / `.qm` files.
 
 ## Release Process
 
@@ -42,10 +42,10 @@ When asked to prepare a release:
 2. Bump `version` in `pyproject.toml`.
 3. Rename `## Unreleased` to `## vX.Y.Z` in `CHANGELOG.md`.
 4. Run `uv sync`.
-5. Run `make check-all` and fix any issues.
+5. Run `just check-all` and fix any issues.
 6. Commit with `chore: prepare X.Y.Z release` (only `CHANGELOG.md`, `pyproject.toml`, `uv.lock`).
 
 ## Development
 
 - Use `uv run <command>` for all tooling.
-- Run `make check-all` before submitting changes (lint, format-check, typecheck, test).
+- Run `just check-all` before submitting changes (lint, format-check, typecheck, test).

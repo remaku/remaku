@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: pyright
         name: pyright
-        entry: make typecheck
+        entry: just typecheck
         language: system
         pass_filenames: false
         types: [python]

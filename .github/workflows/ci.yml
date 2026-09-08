@@ -16,14 +16,18 @@ jobs:
         with:
           version: 'latest'
 
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: '1.43.1'
+
       - name: Install dependencies
-        run: make sync
+        run: just sync
 
       - name: Ruff check
-        run: make lint
+        run: just lint
 
       - name: Ruff format check
-        run: make format-check
+        run: just format-check
 
   typecheck:
     runs-on: windows-latest
@@ -34,11 +38,15 @@ jobs:
         with:
           version: 'latest'
 
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: '1.43.1'
+
       - name: Install dependencies
-        run: make sync
+        run: just sync
 
       - name: Pyright
-        run: make typecheck
+        run: just typecheck
 
   test:
     runs-on: windows-latest
@@ -49,8 +57,12 @@ jobs:
         with:
           version: 'latest'
 
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: '1.43.1'
+
       - name: Install dependencies
-        run: make sync
+        run: just sync
 
       - name: Pytest
-        run: make test
+        run: just test

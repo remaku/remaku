@@ -17,12 +17,16 @@ jobs:
         with:
           version: 'latest'
 
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: '1.43.1'
+
       - name: Build exe and installer
-        run: make build
+        run: just build
 
       - name: Generate Release Body from Changelog
         shell: pwsh
-        run: make release-note TAG="${{ github.ref_name }}"
+        run: just release-note "${{ github.ref_name }}"
 
       - name: Upload installer to Release
         uses: softprops/action-gh-release@v3

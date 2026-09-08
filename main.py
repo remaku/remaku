@@ -12,7 +12,6 @@ from remaku.core.i18n import SUPPORTED_TRANSLATOR_LANGUAGES, resolve_language
 from remaku.models.config_model import config_model
 from remaku.models.macro_model import MacroModel
 from remaku.paths import log_dir
-from remaku.services.migration import migrate_legacy_templates
 from remaku.services.updater import UpdateInfo
 from remaku.theme import apply_theme
 from remaku.version import __version__
@@ -51,11 +50,6 @@ def main():
     load_translator(app)
 
     macro_model = MacroModel()
-
-    if not config_model.config.general.templates_migrated:
-        migrate_legacy_templates(macro_model)
-        config_model.config.general.templates_migrated = True
-        config_model.save()
 
     apply_theme(config_model.config.general.theme)
 

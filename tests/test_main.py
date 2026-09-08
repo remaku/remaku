@@ -37,7 +37,7 @@ class FakeConfigModel:
         self.save_calls += 1
 
 
-def test_main_bootstraps_app_and_migrates_templates(monkeypatch) -> None:
+def test_main_bootstraps_app(monkeypatch) -> None:
     calls = []
     fake_config = FakeConfigModel()
     fake_windows = []
@@ -57,9 +57,6 @@ def test_main_bootstraps_app_and_migrates_templates(monkeypatch) -> None:
     monkeypatch.setattr(app_main, "QApplication", make_app)
     monkeypatch.setattr(app_main, "load_translator", lambda app: calls.append(("translator", app)))
     monkeypatch.setattr(app_main, "MacroModel", lambda: "macro-model")
-    monkeypatch.setattr(
-        app_main, "migrate_legacy_templates", lambda macro_model: calls.append(("migrate", macro_model))
-    )
     monkeypatch.setattr(app_main, "apply_theme", lambda theme: calls.append(("theme", theme)))
     monkeypatch.setattr(app_main, "MainWindow", make_window)
     monkeypatch.setattr(
@@ -73,39 +70,14 @@ def test_main_bootstraps_app_and_migrates_templates(monkeypatch) -> None:
 
     assert error.value.code == 7
     assert fake_apps[0].args == ["remaku"]
-    assert fake_config.config.general.templates_migrated is True
-    assert fake_config.save_calls == 1
+    assert fake_config.save_calls == 0
     assert fake_windows[0].show_calls == 1
     assert calls == [
         "logging",
         ("translator", fake_apps[0]),
-        ("migrate", "macro-model"),
         ("theme", "system"),
         ("controller", fake_windows[0], "macro-model"),
     ]
-
-
-def test_main_skips_migration_when_templates_already_migrated(monkeypatch) -> None:
-    fake_config = FakeConfigModel()
-    fake_config.config.general.templates_migrated = True
-    migrate_calls = []
-
-    monkeypatch.setattr(app_main, "setup_logging", lambda: None)
-    monkeypatch.setattr(app_main, "QApplication", FakeApp)
-    monkeypatch.setattr(app_main, "load_translator", lambda app: None)
-    monkeypatch.setattr(app_main, "MacroModel", lambda: "macro-model")
-    monkeypatch.setattr(app_main, "migrate_legacy_templates", lambda macro_model: migrate_calls.append(macro_model))
-    monkeypatch.setattr(app_main, "apply_theme", lambda theme: None)
-    monkeypatch.setattr(app_main, "MainWindow", FakeWindow)
-    monkeypatch.setattr(app_main, "MainController", lambda window, macro_model: object())
-    monkeypatch.setattr(app_main, "config_model", fake_config)
-    monkeypatch.setattr(sys, "argv", ["remaku"])
-
-    with pytest.raises(SystemExit):
-        app_main.main()
-
-    assert migrate_calls == []
-    assert fake_config.save_calls == 0
 
 
 def test_main_schedules_preview_update(monkeypatch) -> None:
@@ -116,7 +88,6 @@ def test_main_schedules_preview_update(monkeypatch) -> None:
     monkeypatch.setattr(app_main, "QApplication", FakeApp)
     monkeypatch.setattr(app_main, "load_translator", lambda app: None)
     monkeypatch.setattr(app_main, "MacroModel", lambda: "macro-model")
-    monkeypatch.setattr(app_main, "migrate_legacy_templates", lambda macro_model: None)
     monkeypatch.setattr(app_main, "apply_theme", lambda theme: None)
     monkeypatch.setattr(app_main, "MainWindow", FakeWindow)
     monkeypatch.setattr(app_main, "MainController", lambda window, macro_model: object())
